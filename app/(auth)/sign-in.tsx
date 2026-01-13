@@ -1,6 +1,8 @@
-import { useSignIn, useSignUp } from '@clerk/clerk-expo';
+import { useAuth, useOAuth, useSignIn, useSignUp } from '@clerk/clerk-expo';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -16,6 +18,9 @@ import {
     View,
 } from 'react-native';
 
+// Hoàn tất OAuth flow trong WebBrowser
+WebBrowser.maybeCompleteAuthSession();
+
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 
@@ -25,6 +30,8 @@ export default function SignInScreen() {
   
   const { signIn, setActive: setActiveSignIn, isLoaded: isSignInLoaded } = useSignIn();
   const { signUp, setActive: setActiveSignUp, isLoaded: isSignUpLoaded } = useSignUp();
+  const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
+  const { isSignedIn } = useAuth();
   const router = useRouter();
   
   const [email, setEmail] = useState('');
@@ -52,6 +59,13 @@ export default function SignInScreen() {
       }).start();
     }
   }, [isSignUpParam]);
+
+  // Tự động redirect khi đăng nhập thành công
+  useEffect(() => {
+    if (isSignedIn) {
+      router.replace('/(protected)/(tabs)');
+    }
+  }, [isSignedIn, router]);
 
   const handleTabChange = (tabIndex: number) => {
     if (tabIndex === activeTab) return;
@@ -144,6 +158,34 @@ export default function SignInScreen() {
       }
     } catch (error: any) {
       Alert.alert('Lỗi', error.errors?.[0]?.message || 'Đăng ký thất bại');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setLoading(true);
+      const { createdSessionId, setActive } = await startOAuthFlow({
+        redirectUrl: Linking.createURL('/(protected)/(tabs)'),
+      });
+
+      if (createdSessionId) {
+        await setActive({ session: createdSessionId });
+        // Đợi một chút để đảm bảo session được set
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        // Navigate - ProtectedLayout sẽ tự động xử lý nếu đã signed in
+        router.replace('/(protected)/(tabs)');
+      } else {
+        // Nếu không có sessionId, có thể cần thêm bước xác thực
+        Alert.alert('Thông báo', 'Vui lòng hoàn tất quá trình đăng nhập');
+      }
+    } catch (error: any) {
+      // Người dùng có thể đã hủy OAuth flow
+      if (error.errors?.[0]?.code !== 'oauth_cancelled') {
+        console.error('OAuth error:', error);
+        Alert.alert('Lỗi', error.errors?.[0]?.message || 'Đăng nhập với Google thất bại');
+      }
     } finally {
       setLoading(false);
     }
@@ -305,7 +347,10 @@ export default function SignInScreen() {
             </View>
 
             {/* Social Login Buttons */}
-            <TouchableOpacity style={styles.googleButton} onPress={() => {}}>
+            <TouchableOpacity 
+              style={[styles.googleButton, loading && styles.buttonDisabled]} 
+              onPress={handleGoogleSignIn}
+              disabled={loading}>
               <View style={styles.googleIconContainer}>
                 <ThemedText style={styles.googleIconText}>G</ThemedText>
               </View>
