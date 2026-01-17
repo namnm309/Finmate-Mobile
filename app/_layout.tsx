@@ -1,37 +1,26 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { ClerkProvider } from '@clerk/clerk-expo';
+import InitialLayout from '@/components/InitialLayout';
+import { ClerkLoaded, ClerkProvider } from '@clerk/clerk-expo';
 import { tokenCache } from '@clerk/clerk-expo/token-cache';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { CLERK_PUBLISHABLE_KEY } from '@/lib/clerk';
 
-const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || '';
-
-if (!publishableKey) {
+if (!CLERK_PUBLISHABLE_KEY) {
   throw new Error(
-    'Missing Clerk Publishable Key. Please set EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY in your .env.local file'
+    'Thiếu key cho Clerk Auth. Hãy tạo file .env.local nếu chưa có và nạp key vào'
   );
 }
 
-export const unstable_settings = {
-  anchor: '(protected)/(tabs)',
-};
-
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
   return (
-    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack>
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          <Stack.Screen name="(protected)" options={{ headerShown: false }} />
-        </Stack>
-        <StatusBar style="auto" />
-      </ThemeProvider>
+    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache}>
+      <ClerkLoaded>
+        <SafeAreaProvider>
+          <SafeAreaView style={{ flex: 1, backgroundColor: '#0f1729' }} edges={['top', 'left', 'right']}>
+            <InitialLayout />
+          </SafeAreaView>
+        </SafeAreaProvider>
+      </ClerkLoaded>
     </ClerkProvider>
   );
 }

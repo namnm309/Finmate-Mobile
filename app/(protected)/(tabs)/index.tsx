@@ -2,28 +2,23 @@ import { useUser } from '@clerk/clerk-expo';
 import { MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   Dimensions,
   SafeAreaView,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
+import { styles } from '@/styles/index.styles';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Format số tiền VNĐ
 const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('vi-VN').format(amount) + ' ₫';
-};
-
-// Format thời gian
-const formatTime = (date: Date): string => {
-  return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 };
 
 // Format ngày tháng
@@ -33,7 +28,6 @@ const formatDate = (date: Date): string => {
 
 export default function HomeScreen() {
   const { user } = useUser();
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [balanceVisible, setBalanceVisible] = useState(true);
   const [aiInput, setAiInput] = useState('');
 
@@ -65,12 +59,6 @@ export default function HomeScreen() {
     'Nấu ăn tại nhà thay vì ăn ngoài',
   ];
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   const getUserInitial = () => {
     if (user?.firstName) return user.firstName[0].toUpperCase();
@@ -94,9 +82,28 @@ export default function HomeScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
-        {/* Top Status Bar */}
+        {/* Top Status Bar with User Info */}
         <View style={styles.statusBar}>
-          <Text style={styles.timeText}>{formatTime(currentTime)}</Text>
+          {/* User Info Section - Left */}
+          <View style={styles.userSection}>
+            <View style={styles.avatarContainer}>
+              <View style={styles.avatarBorder}>
+                <LinearGradient
+                  colors={['#51A2FF', '#AD46FF']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.avatarGradient}>
+                  <Text style={styles.avatarText}>{getUserInitial()}</Text>
+                </LinearGradient>
+              </View>
+            </View>
+            <View style={styles.userInfo}>
+              <Text style={styles.greetingText}>Xin chào!</Text>
+              <Text style={styles.userNameText}>{getUserName()}</Text>
+            </View>
+          </View>
+          
+          {/* Status Bar Icons - Right */}
           <View style={styles.statusBarIcons}>
             <TouchableOpacity style={styles.statusIconButton}>
               <LinearGradient
@@ -114,25 +121,6 @@ export default function HomeScreen() {
               <MaterialIcons name="notifications-none" size={16} color="#99A1AF" />
               <View style={styles.notificationDot} />
             </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* User Info Section */}
-        <View style={styles.userSection}>
-          <View style={styles.avatarContainer}>
-            <View style={styles.avatarBorder}>
-              <LinearGradient
-                colors={['#51A2FF', '#AD46FF']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.avatarGradient}>
-                <Text style={styles.avatarText}>{getUserInitial()}</Text>
-              </LinearGradient>
-            </View>
-          </View>
-          <View style={styles.userInfo}>
-            <Text style={styles.greetingText}>Xin chào!</Text>
-            <Text style={styles.userNameText}>{getUserName()}</Text>
           </View>
         </View>
 
@@ -379,558 +367,3 @@ export default function HomeScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#0F1729',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 20,
-  },
-  statusBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-    paddingTop: 12,
-  },
-  timeText: {
-    fontSize: 11.1,
-    lineHeight: 16,
-    color: '#FFFFFF',
-    fontFamily: 'Inter',
-  },
-  statusBarIcons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  statusIconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  statusIconGradient: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  statusIconDark: {
-    backgroundColor: '#1A2332',
-  },
-  notificationDot: {
-    position: 'absolute',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#FB2C36',
-    top: 4,
-    right: 4,
-  },
-  userSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  avatarContainer: {
-    marginRight: 12,
-  },
-  avatarBorder: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 2,
-    borderColor: '#00D492',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarGradient: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#FFFFFF',
-    fontWeight: '400',
-  },
-  userInfo: {
-    flex: 1,
-  },
-  greetingText: {
-    fontSize: 13.2,
-    lineHeight: 20,
-    color: '#99A1AF',
-    marginBottom: 4,
-  },
-  userNameText: {
-    fontSize: 14.3,
-    lineHeight: 24,
-    color: '#FFFFFF',
-  },
-  balanceSection: {
-    marginBottom: 24,
-  },
-  balanceLabel: {
-    fontSize: 13.2,
-    lineHeight: 20,
-    color: '#99A1AF',
-    marginBottom: 8,
-  },
-  balanceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  balanceAmount: {
-    fontSize: 27.4,
-    lineHeight: 36,
-    color: '#FFFFFF',
-    marginRight: 8,
-  },
-  eyeButton: {
-    padding: 4,
-  },
-  card: {
-    marginBottom: 20,
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  aiCardGradient: {
-    padding: 20,
-    minHeight: 164,
-  },
-  aiCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  aiIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  aiHeaderText: {
-    flex: 1,
-  },
-  aiTitle: {
-    fontSize: 14.6,
-    lineHeight: 24,
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  aiSubtitle: {
-    fontSize: 11.4,
-    lineHeight: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  aiInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  aiInputButton: {
-    width: 40,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  aiSendButton: {
-    opacity: 0.5,
-  },
-  aiInput: {
-    flex: 1,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 16,
-    color: '#FFFFFF',
-    fontSize: 13,
-    lineHeight: 16,
-  },
-  suggestionsCardGradient: {
-    padding: 20,
-    minHeight: 604,
-  },
-  suggestionsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  suggestionsIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  suggestionsHeaderText: {
-    flex: 1,
-  },
-  suggestionsTitle: {
-    fontSize: 15.1,
-    lineHeight: 24,
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  suggestionsDate: {
-    fontSize: 11.6,
-    lineHeight: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  goalBox: {
-    backgroundColor: 'rgba(253, 199, 0, 0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(253, 199, 0, 0.3)',
-    borderRadius: 14,
-    padding: 13,
-    marginBottom: 20,
-  },
-  goalHeader: {
-    marginBottom: 12,
-  },
-  goalText: {
-    fontSize: 11.4,
-    lineHeight: 16,
-    color: '#FFFFFF',
-  },
-  goalStats: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
-  goalStatBox: {
-    flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 10,
-    padding: 8,
-  },
-  goalStatLabel: {
-    fontSize: 9.4,
-    lineHeight: 15,
-    color: 'rgba(255, 255, 255, 0.6)',
-    marginBottom: 4,
-  },
-  goalStatValue: {
-    fontSize: 13.5,
-    lineHeight: 20,
-    color: '#FFFFFF',
-  },
-  goalDescription: {
-    fontSize: 13.3,
-    lineHeight: 20,
-    color: '#FFFFFF',
-    textAlign: 'center',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 20,
-  },
-  statBox: {
-    flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 10,
-    padding: 8,
-    alignItems: 'center',
-    minHeight: 84,
-    justifyContent: 'center',
-  },
-  statLabel: {
-    fontSize: 9.5,
-    lineHeight: 15,
-    color: 'rgba(255, 255, 255, 0.6)',
-    marginTop: 4,
-    marginBottom: 4,
-  },
-  statValue: {
-    fontSize: 12.1,
-    lineHeight: 20,
-    color: '#FFFFFF',
-    textAlign: 'center',
-  },
-  tipsSection: {
-    marginTop: 20,
-  },
-  tipsTitle: {
-    fontSize: 12,
-    lineHeight: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: 8,
-  },
-  tipBox: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 8,
-    alignItems: 'center',
-  },
-  tipBullet: {
-    fontSize: 12,
-    lineHeight: 16,
-    color: 'rgba(255, 255, 255, 0.6)',
-    marginRight: 8,
-  },
-  tipText: {
-    flex: 1,
-    fontSize: 11.3,
-    lineHeight: 16,
-    color: '#FFFFFF',
-  },
-  darkCard: {
-    backgroundColor: '#1A2332',
-    padding: 20,
-  },
-  overviewHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  overviewTitle: {
-    fontSize: 15.1,
-    lineHeight: 24,
-    color: '#FFFFFF',
-  },
-  overviewActions: {
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
-  },
-  overviewButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: '#0F1729',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  overviewDropdown: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0F1729',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    gap: 4,
-  },
-  overviewDropdownText: {
-    fontSize: 12.9,
-    lineHeight: 20,
-    color: '#99A1AF',
-  },
-  summaryStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 24,
-  },
-  summaryStat: {
-    flex: 1,
-  },
-  summaryLabel: {
-    fontSize: 10.9,
-    lineHeight: 16,
-    color: '#99A1AF',
-    marginBottom: 8,
-  },
-  summaryValue: {
-    fontSize: 14.5,
-    lineHeight: 24,
-  },
-  incomeValue: {
-    color: '#05DF72',
-  },
-  expenseValue: {
-    color: '#FF6467',
-  },
-  chartContainer: {
-    height: 100,
-    marginBottom: 24,
-  },
-  barChart: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-around',
-    height: '100%',
-    paddingHorizontal: 20,
-  },
-  bar: {
-    width: 40,
-    borderRadius: 4,
-  },
-  incomeBar: {
-    backgroundColor: '#10B981',
-  },
-  expenseBar: {
-    backgroundColor: '#EF4444',
-  },
-  pieChartSection: {
-    flexDirection: 'row',
-    marginBottom: 24,
-  },
-  pieChartPlaceholder: {
-    width: 120,
-    height: 120,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  pieChartCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#2A2A3E',
-  },
-  legend: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 8,
-  },
-  legendName: {
-    flex: 1,
-    fontSize: 10.9,
-    lineHeight: 16,
-    color: '#D1D5DC',
-  },
-  legendPercentage: {
-    fontSize: 10.9,
-    lineHeight: 16,
-    color: '#99A1AF',
-  },
-  historyButton: {
-    borderWidth: 1,
-    borderColor: '#4A5565',
-    borderRadius: 10,
-    height: 38,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  historyButtonText: {
-    fontSize: 12.9,
-    lineHeight: 20,
-    color: '#D1D5DC',
-  },
-  limitHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  limitTitle: {
-    fontSize: 15,
-    lineHeight: 24,
-    color: '#FFFFFF',
-  },
-  limitActions: {
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
-  },
-  limitButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: '#1A2332',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  limitLink: {
-    fontSize: 13,
-    lineHeight: 20,
-    color: '#51A2FF',
-  },
-  limitContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  limitIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  limitEmoji: {
-    fontSize: 20,
-    lineHeight: 28,
-  },
-  limitInfo: {
-    flex: 1,
-  },
-  limitLabel: {
-    fontSize: 15.4,
-    lineHeight: 24,
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  limitDate: {
-    fontSize: 11.8,
-    lineHeight: 16,
-    color: '#99A1AF',
-    marginBottom: 8,
-  },
-  limitAmount: {
-    fontSize: 14.5,
-    lineHeight: 24,
-    color: '#FFFFFF',
-  },
-  progressContainer: {
-    marginBottom: 16,
-  },
-  progressBar: {
-    height: 6,
-    backgroundColor: '#0F1729',
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  todayBox: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#0F1729',
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  todayText: {
-    fontSize: 11.4,
-    lineHeight: 16,
-    color: '#99A1AF',
-  },
-  bottomSpacing: {
-    height: 20,
-  },
-});

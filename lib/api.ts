@@ -1,5 +1,13 @@
 import { useAuth } from '@clerk/clerk-expo';
 
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || '';
+
+if (!API_BASE_URL) {
+  console.warn(
+    'Warning: EXPO_PUBLIC_API_BASE_URL is not set. Please add it to your .env.local file'
+  );
+}
+
 export interface ApiClientOptions extends RequestInit {
   skipAuth?: boolean;
 }
@@ -13,9 +21,9 @@ export const useApiClient = () => {
   ): Promise<T> => {
     const { skipAuth = false, headers = {}, ...fetchOptions } = options;
 
-    const requestHeaders: HeadersInit = {
+    const requestHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...headers,
+      ...(headers as Record<string, string>),
     };
 
     // Add authentication token if not skipped

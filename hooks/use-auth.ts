@@ -6,7 +6,6 @@ export const useAuth = () => {
     isSignedIn,
     userId,
     sessionId,
-    user,
     getToken,
     signOut,
   } = useClerkAuth();
@@ -16,7 +15,6 @@ export const useAuth = () => {
     isSignedIn: isSignedIn ?? false,
     userId,
     sessionId,
-    user,
     getToken,
     signOut,
     // Helper to check if user is authenticated
