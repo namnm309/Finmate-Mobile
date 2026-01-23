@@ -12,20 +12,14 @@ import {
   View,
   ActivityIndicator,
   TextInput,
-  Modal
+  Modal,
+  Platform,
 } from 'react-native';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { styles } from '@/styles/index.styles';
 import { useUserService } from '@/lib/services/userService';
 import { UserResponse } from '@/lib/types/user';
 import { useAuth } from '@/hooks/use-auth';
-
-// Mock data cho thống kê
-const accountStats = {
-  totalTransactions: 248,
-  categories: 12,
-  goalProgress: 78,
-  daysUsed: 45,
-};
 
 // Helper function để format date từ ISO string sang DD/MM/YYYY
 const formatDate = (dateString?: string): string => {
@@ -53,6 +47,37 @@ const parseDateToISO = (dateString: string): string | undefined => {
   }
 };
 
+// Helper function để parse date từ DD/MM/YYYY sang Date object
+const parseDisplayDateToDate = (dateString?: string): Date | null => {
+  if (!dateString || dateString === 'Chưa cập nhật') return null;
+  try {
+    const [day, month, year] = dateString.split('/');
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    return isNaN(date.getTime()) ? null : date;
+  } catch {
+    return null;
+  }
+};
+
+// Helper function để format Date object sang DD/MM/YYYY
+const formatDateFromDate = (date: Date | null): string => {
+  if (!date) return 'Chọn ngày sinh';
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
+// Convert local Date (date-only) -> ISO at 00:00:00Z to avoid timezone shift
+const toUTCDateOnlyISOString = (date: Date): string => {
+  const utc = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0));
+  return utc.toISOString();
+};
+
+// Normalize any Date -> local date-only (00:00 local)
+const toLocalDateOnly = (date: Date): Date =>
+  new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
 export default function AccountSettingsScreen() {
   const { user } = useUser();
   const router = useRouter();
@@ -66,6 +91,7 @@ export default function AccountSettingsScreen() {
   const [updating, setUpdating] = useState<boolean>(false);
   const [editingField, setEditingField] = useState<{ key: string; label: string; value: string; isDate?: boolean } | null>(null);
   const [editValue, setEditValue] = useState<string>('');
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   // Fetch user data khi component mount
   useEffect(() => {
@@ -166,21 +192,32 @@ export default function AccountSettingsScreen() {
     }
 
     // Mở modal để edit
+    const isDateField = !!fieldInfo.isDate;
+    const initialValue = currentValue === 'Chưa cập nhật' ? '' : currentValue;
+
     setEditingField({
       key: fieldInfo.key as string,
       label: fieldInfo.label,
-      value: currentValue === 'Chưa cập nhật' ? '' : currentValue,
+      value: initialValue,
       isDate: fieldInfo.isDate,
     });
-    setEditValue(currentValue === 'Chưa cập nhật' ? '' : currentValue);
+    setEditValue(initialValue);
+    setSelectedDate(isDateField ? parseDisplayDateToDate(initialValue) : null);
   };
 
   const handleSaveEdit = async () => {
     if (!editingField) return;
 
-    if (!editValue || editValue.trim() === '') {
-      Alert.alert('Lỗi', 'Vui lòng nhập giá trị');
-      return;
+    if (editingField.isDate) {
+      if (!selectedDate) {
+        Alert.alert('Lỗi', 'Vui lòng chọn ngày sinh');
+        return;
+      }
+    } else {
+      if (!editValue || editValue.trim() === '') {
+        Alert.alert('Lỗi', 'Vui lòng nhập giá trị');
+        return;
+      }
     }
 
     try {
@@ -188,14 +225,9 @@ export default function AccountSettingsScreen() {
       const updateData: any = {};
       
       if (editingField.isDate) {
-        // Validate date format DD/MM/YYYY
-        const dateRegex = /^\d{2}\/\d{2}\/\d{4}$/;
-        if (!dateRegex.test(editValue)) {
-          Alert.alert('Lỗi', 'Vui lòng nhập ngày theo định dạng DD/MM/YYYY');
-          setUpdating(false);
-          return;
+        if (selectedDate) {
+          updateData[editingField.key] = toUTCDateOnlyISOString(selectedDate);
         }
-        updateData[editingField.key] = parseDateToISO(editValue);
       } else {
         updateData[editingField.key] = editValue.trim();
       }
@@ -204,6 +236,7 @@ export default function AccountSettingsScreen() {
       await refreshUserData();
       setEditingField(null);
       setEditValue('');
+      setSelectedDate(null);
       Alert.alert('Thành công', 'Đã cập nhật thông tin');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Không thể cập nhật thông tin';
@@ -319,33 +352,6 @@ export default function AccountSettingsScreen() {
     },
   ];
 
-  const statCards = [
-    {
-      id: 1,
-      value: accountStats.totalTransactions.toString(),
-      label: 'Tổng giao dịch',
-      color: '#51A2FF',
-    },
-    {
-      id: 2,
-      value: accountStats.categories.toString(),
-      label: 'Danh mục',
-      color: '#9810FA',
-    },
-    {
-      id: 3,
-      value: `${accountStats.goalProgress}%`,
-      label: 'Tiến độ mục tiêu',
-      color: '#00D492',
-    },
-    {
-      id: 4,
-      value: accountStats.daysUsed.toString(),
-      label: 'Ngày sử dụng',
-      color: '#EF4444',
-    },
-  ];
-
   // Loading state
   if (loading) {
     return (
@@ -406,16 +412,8 @@ export default function AccountSettingsScreen() {
           <View style={styles.accountSettingsHeaderCenter}>
             <Text style={styles.accountSettingsTitle}>Cài đặt tài khoản</Text>
           </View>
-          <TouchableOpacity 
-            onPress={handleEdit} 
-            style={styles.accountSettingsEditButton}
-            disabled={updating}>
-            {updating ? (
-              <ActivityIndicator size="small" color="#51A2FF" />
-            ) : (
-              <MaterialIcons name="edit" size={24} color="#51A2FF" />
-            )}
-          </TouchableOpacity>
+          {/* Bỏ nút chỉnh sửa (icon cây bút) */}
+          <View style={styles.accountSettingsEditButton} />
         </View>
 
         {/* Profile Section */}
@@ -455,21 +453,6 @@ export default function AccountSettingsScreen() {
                 </View>
                 <MaterialIcons name="chevron-right" size={24} color="#99A1AF" />
               </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Account Statistics Section */}
-        <View style={styles.accountSettingsSection}>
-          <Text style={styles.accountSettingsSectionTitle}>Thống kê tài khoản</Text>
-          <View style={styles.accountSettingsStatsGrid}>
-            {statCards.map((card) => (
-              <View
-                key={card.id}
-                style={[styles.accountSettingsStatCard, { backgroundColor: card.color }]}>
-                <Text style={styles.accountSettingsStatValue}>{card.value}</Text>
-                <Text style={styles.accountSettingsStatLabel}>{card.label}</Text>
-              </View>
             ))}
           </View>
         </View>
@@ -539,30 +522,49 @@ export default function AccountSettingsScreen() {
               Chỉnh sửa {editingField?.label}
             </Text>
             
-            <TextInput
-              style={{
-                backgroundColor: '#374151',
-                borderRadius: 8,
-                padding: 12,
-                color: '#FFFFFF',
-                fontSize: 16,
-                marginBottom: 16,
-              }}
-              placeholder={`Nhập ${editingField?.label.toLowerCase()}`}
-              placeholderTextColor="#9CA3AF"
-              value={editValue}
-              onChangeText={setEditValue}
-              autoFocus
-            />
+            {!editingField?.isDate ? (
+              <TextInput
+                style={{
+                  backgroundColor: '#374151',
+                  borderRadius: 8,
+                  padding: 12,
+                  color: '#FFFFFF',
+                  fontSize: 16,
+                  marginBottom: 16,
+                }}
+                placeholder={`Nhập ${editingField?.label.toLowerCase()}`}
+                placeholderTextColor="#9CA3AF"
+                value={editValue}
+                onChangeText={setEditValue}
+                autoFocus
+              />
+            ) : (
+              <>
+                <Text
+                  style={{
+                    color: '#9CA3AF',
+                    fontSize: 14,
+                    marginBottom: 8,
+                  }}
+                >
+                  Chọn ngày sinh
+                </Text>
 
-            {editingField?.isDate && (
-              <Text style={{
-                color: '#9CA3AF',
-                fontSize: 12,
-                marginBottom: 16,
-              }}>
-                Định dạng: DD/MM/YYYY
-              </Text>
+                <DateTimePicker
+                  value={selectedDate || new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  maximumDate={new Date()}
+                  locale="vi-VN"
+                  onChange={(event: DateTimePickerEvent, date?: Date) => {
+                    if (event.type === 'set' && date) {
+                      const normalized = toLocalDateOnly(date);
+                      setSelectedDate(normalized);
+                      setEditValue(formatDateFromDate(normalized));
+                    }
+                  }}
+                />
+              </>
             )}
 
             <View style={{

@@ -2,27 +2,42 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Tabs } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HapticTab } from '@/components/haptic-tab';
+import { InputMethodModal } from '@/components/input-method-modal';
 
 // Custom button cho tab Add ở giữa
 function AddTabButton(props: BottomTabBarButtonProps) {
+  const [modalVisible, setModalVisible] = useState(false);
+
+  const handlePress = (e: any) => {
+    e.preventDefault();
+    setModalVisible(true);
+  };
+
   return (
-    <TouchableOpacity
-      {...props}
-      style={[props.style, styles.addButtonContainer]}
-      activeOpacity={0.8}>
-      <LinearGradient
-        colors={['#99a1af', '#d1d5dc']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.addButtonGradient}>
-        <MaterialIcons name="add" size={28} color="#FFFFFF" />
-      </LinearGradient>
-    </TouchableOpacity>
+    <>
+      <TouchableOpacity
+        {...props}
+        onPress={handlePress}
+        style={[props.style, styles.addButtonContainer]}
+        activeOpacity={0.8}>
+        <LinearGradient
+          colors={['#99a1af', '#d1d5dc']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.addButtonGradient}>
+          <MaterialIcons name="add" size={28} color="#FFFFFF" />
+        </LinearGradient>
+      </TouchableOpacity>
+      <InputMethodModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+      />
+    </>
   );
 }
 
@@ -86,6 +101,20 @@ export default function TabLayout() {
           title: '',
           tabBarButton: AddTabButton,
           tabBarIcon: () => null,
+        }}
+      />
+      <Tabs.Screen
+        name="ai-assistant"
+        options={{
+          href: null, // Ẩn khỏi tab bar
+          title: 'AI Assistant',
+        }}
+      />
+      <Tabs.Screen
+        name="manual-input"
+        options={{
+          href: null, // Ẩn khỏi tab bar
+          title: 'Nhập thủ công',
         }}
       />
       <Tabs.Screen

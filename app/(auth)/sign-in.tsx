@@ -122,6 +122,8 @@ export default function SignInScreen() {
     }
   }, []);
 
+  // Dùng chung cho Đăng nhập và Đăng ký: Clerk startSSOFlow tự quyết định
+  // sign-in (user đã có) hay sign-up (user mới) theo tài khoản Google.
   const handleGoogleAuth = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -193,7 +195,7 @@ export default function SignInScreen() {
     } finally {
       setLoading(false);
     }
-  }, [startSSOFlow, mode]);
+  }, [startSSOFlow]);
 
   return (
     <KeyboardAvoidingView

@@ -1,4 +1,5 @@
 import { useAuth } from '@clerk/clerk-expo';
+import { useMemo, useCallback } from 'react';
 
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || '';
 
@@ -15,7 +16,7 @@ export interface ApiClientOptions extends RequestInit {
 export const useApiClient = () => {
   const { getToken } = useAuth();
 
-  const apiCall = async <T = any>(
+  const apiCall = useCallback(async <T = any>(
     url: string,
     options: ApiClientOptions = {}
   ): Promise<T> => {
@@ -67,34 +68,34 @@ export const useApiClient = () => {
       }
       throw new Error('Network request failed');
     }
-  };
+  }, [getToken]);
 
-  // Convenience methods
-  const get = <T = any>(url: string, options?: ApiClientOptions) =>
-    apiCall<T>(url, { ...options, method: 'GET' });
+  // Convenience methods - memoize để đảm bảo stable
+  const get = useCallback((url: string, options?: ApiClientOptions) =>
+    apiCall(url, { ...options, method: 'GET' }), [apiCall]);
 
-  const post = <T = any>(url: string, body?: any, options?: ApiClientOptions) =>
-    apiCall<T>(url, {
+  const post = useCallback((url: string, body?: any, options?: ApiClientOptions) =>
+    apiCall(url, {
       ...options,
       method: 'POST',
       body: body ? JSON.stringify(body) : undefined,
-    });
+    }), [apiCall]);
 
-  const put = <T = any>(url: string, body?: any, options?: ApiClientOptions) =>
-    apiCall<T>(url, {
+  const put = useCallback((url: string, body?: any, options?: ApiClientOptions) =>
+    apiCall(url, {
       ...options,
       method: 'PUT',
       body: body ? JSON.stringify(body) : undefined,
-    });
+    }), [apiCall]);
 
-  const del = <T = any>(url: string, options?: ApiClientOptions) =>
-    apiCall<T>(url, { ...options, method: 'DELETE' });
+  const del = useCallback((url: string, options?: ApiClientOptions) =>
+    apiCall(url, { ...options, method: 'DELETE' }), [apiCall]);
 
-  return {
+  return useMemo(() => ({
     apiCall,
     get,
     post,
     put,
     delete: del,
-  };
+  }), [apiCall, get, post, put, del]);
 };
