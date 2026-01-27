@@ -1,18 +1,31 @@
 # Finmate-Mobile
 
+## Mục lục
 
-# Giới thiệu
+1. [Giới thiệu](#giới-thiệu)
+2. [Công nghệ chính](#công-nghệ-chính)
+3. [Cấu trúc thư mục chính](#cấu-trúc-thư-mục-chính)
+4. [Cách chạy dự án](#cách-chạy-dự-án)
+5. [Luồng xác thực với Clerk](#luồng-xác-thực-với-clerk)
+	1. [Đăng nhập / Đăng ký](#1-đăng-nhập--đăng-ký)
+	2. [Khi đăng nhập thành công](#2-khi-đăng-nhập-thành-công)
+	3. [Nhận token từ Clerk](#3-nhận-token-từ-clerk)
+	4. [Nạp token vào header khi gọi API](#4-nạp-token-vào-header-khi-gọi-api)
+6. [Lưu ý quan trọng](#lưu-ý-quan-trọng)
+7. [Nhật kí build ngày 1](#nhật-kí-build-ngày-1)
+
+## Giới thiệu
 
 Finmate-Mobile là ứng dụng quản lý tài chính cá nhân trên nền tảng Expo + React Native. Ứng dụng cung cấp các màn hình nhập liệu, phân tích tài chính, báo cáo và các trang UI theo thiết kế Figma. Xác thực người dùng sử dụng Clerk (Email/Password và Google OAuth).
 
-# Công nghệ chính
+## Công nghệ chính
 
 - Expo / React Native / TypeScript
 - Expo Router cho điều hướng
 - Clerk cho xác thực
 - API backend đã deploy
 
-# Cấu trúc thư mục chính
+## Cấu trúc thư mục chính
 
 - app/: routing theo Expo Router
 - components/: UI components dùng chung
@@ -20,7 +33,7 @@ Finmate-Mobile là ứng dụng quản lý tài chính cá nhân trên nền t�
 - hooks/: custom hooks (auth, theme)
 - styles/: style dùng chung
 
-# Cách chạy dự án
+## Cách chạy dự án
 
 1) Cài dependency:
 
@@ -35,7 +48,7 @@ Finmate-Mobile là ứng dụng quản lý tài chính cá nhân trên nền t�
 
 - npx expo start
 
-# Luồng xác thực với Clerk
+## Luồng xác thực với Clerk
 
 ## 1) Đăng nhập / Đăng ký
 
@@ -65,13 +78,12 @@ Authorization: Bearer <token>
 
 - Với các request không cần auth có thể truyền skipAuth = true
 
-# Lưu ý quan trọng
+## Lưu ý quan trọng
 
 - Clerk Dashboard không nên bật bắt buộc thêm username/phone nếu chỉ dùng Google OAuth, vì thiếu field sẽ không tạo được sessionId.
 - Clerk cần sync user với DB trước khi gọi các API dữ liệu, nếu không backend có thể trả lỗi 500.
 
-
-#Nhật kí build ngày 1 
+## Nhật kí build ngày 1 
 
 -Xài expo framework tạo repo 
 -Refactor làm sơ route 

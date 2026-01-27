@@ -1,12 +1,13 @@
 import { useAuth as useClerkAuth } from '@clerk/clerk-expo';
 
+// Tùy chỉnh hook useAuth để phù hợp với nhu cầu của ứng dụng
 export const useAuth = () => {
   const {
     isLoaded,
     isSignedIn,
     userId,
     sessionId,
-    getToken,
+    getToken, //Lấy token để gọi api
     signOut,
   } = useClerkAuth();
 
