@@ -1,11 +1,12 @@
 import { useAuth } from '@clerk/clerk-expo';
-import { useMemo, useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
+//Lấy url host của BE đã host để call api
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || '';
 
 if (!API_BASE_URL) {
   console.warn(
-    'Warning: EXPO_PUBLIC_API_BASE_URL is not set. Please add it to your .env.local file'
+    'Warning: EXPO_PUBLIC_API_BASE_URL chưa được setup . Điền url vào file .env.local .Đây là địa chỉ host của backend server.'
   );
 }
 
@@ -27,7 +28,7 @@ export const useApiClient = () => {
       ...(headers as Record<string, string>),
     };
 
-    // Add authentication token if not skipped
+    // Nạp token vào header nếu không bỏ qua xác thực , nạp để be có thể xác thực người dùng
     if (!skipAuth) {
       try {
         const token = await getToken();
