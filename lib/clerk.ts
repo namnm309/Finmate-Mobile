@@ -4,6 +4,6 @@ export const CLERK_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_K
 
 if (!CLERK_PUBLISHABLE_KEY) {
   console.warn(
-    'Warning: EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY is not set. Please add it to your .env.local file'
+    'Warning: EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY chưa được setup. Điền key vào file .env.local . Vào API Keys trong Clerk dashboard để lấy key này.'
   );
 }

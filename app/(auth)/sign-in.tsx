@@ -106,7 +106,7 @@ export default function SignInScreen() {
     try {
       if (mode === 'login') {
         if (!signInLoaded || !signIn) {
-          throw new Error('Sign in not ready');
+          throw new Error('Đăng nhập chưa hoạt động');
         }
 
         // Create sign-in attempt
@@ -130,7 +130,7 @@ export default function SignInScreen() {
         }
       } else {
         if (!signUpLoaded || !signUp) {
-          throw new Error('Sign up not ready');
+          throw new Error('Đăng ký chưa hoạt động');
         }
 
         // Create sign-up attempt
