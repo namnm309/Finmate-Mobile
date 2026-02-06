@@ -53,9 +53,10 @@ export const useApiClient = () => {
 
       // Handle other errors
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = await response.json().catch(() => ({})) as { message?: string; error?: string };
+        const serverMessage = errorData?.error ?? errorData?.message;
         throw new Error(
-          errorData.message || `API Error: ${response.status} ${response.statusText}`
+          serverMessage || `API Error: ${response.status} ${response.statusText}`
         );
       }
 

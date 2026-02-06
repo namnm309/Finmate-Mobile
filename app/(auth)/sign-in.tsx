@@ -1,13 +1,14 @@
-import { useSignIn, useSignUp, useSSO } from '@clerk/clerk-expo';
+import { useSignIn, useSignUp, useSSO, useClerk } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -17,6 +18,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { useUserService } from '@/lib/services/userService';
 
 // Warm up the browser for OAuth - QUAN TRỌNG cho Android
 WebBrowser.maybeCompleteAuthSession();
@@ -29,19 +33,58 @@ export default function SignInScreen() {
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tabLayoutWidth, setTabLayoutWidth] = useState(0);
+  const tabSlideAnim = useRef(new Animated.Value(0)).current;
 
   const { signIn, isLoaded: signInLoaded } = useSignIn();
+
+  useEffect(() => {
+    if (tabLayoutWidth <= 0) return;
+    const toValue = mode === 'signup' ? 1 : 0;
+    Animated.spring(tabSlideAnim, {
+      toValue,
+      useNativeDriver: true,
+      tension: 68,
+      friction: 12,
+    }).start();
+  }, [mode, tabLayoutWidth, tabSlideAnim]);
   const { signUp, isLoaded: signUpLoaded } = useSignUp();
   const { startSSOFlow } = useSSO();
+  const { setActive } = useClerk();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { getUserProfile } = useUserService();
+
+  const syncUserProfile = useCallback(async () => {
+    try {
+      // Gọi API backend để đảm bảo user đã được tạo/sync trong DB
+      await getUserProfile();
+    } catch (err) {
+      console.error('Error syncing user profile after sign-in:', err);
+      // Không chặn flow đăng nhập nếu sync lỗi, chỉ log để debug
+    }
+  }, [getUserProfile]);
 
   const handleEmailAuth = async () => {
     if (!email || !password) {
       setError('Vui lòng nhập đầy đủ thông tin');
       return;
+    }
+
+    if (mode === 'signup') {
+      if (!confirmPassword) {
+        setError('Vui lòng xác nhận mật khẩu');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError('Mật khẩu xác nhận không khớp');
+        return;
+      }
     }
 
     // Validate email format
@@ -78,7 +121,11 @@ export default function SignInScreen() {
         });
 
         if (result.status === 'complete') {
-          // Sign in successful, router will handle redirect
+          // Sign in successful -> set active session, sync user với backend rồi chuyển sang khu vực protected
+          if (signIn.createdSessionId && setActive) {
+            await setActive({ session: signIn.createdSessionId });
+          }
+          await syncUserProfile();
           router.replace('/(protected)/(tabs)');
         }
       } else {
@@ -97,12 +144,11 @@ export default function SignInScreen() {
           strategy: 'email_code',
         });
 
-        // For now, we'll show an alert. In production, you might want a verification screen
-        Alert.alert(
-          'Xác thực email',
-          'Chúng tôi đã gửi mã xác thực đến email của bạn. Vui lòng kiểm tra và xác thực tài khoản.',
-          [{ text: 'OK' }]
-        );
+        // Chuyển sang màn hình verify-email để nhập OTP
+        router.push({
+          pathname: '/(auth)/verify-email',
+          params: { email },
+        });
       }
     } catch (err: any) {
       console.error('Auth error:', err);
@@ -138,6 +184,7 @@ export default function SignInScreen() {
       // Trường hợp 1: Đã có session được tạo (thành công)
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
+        await syncUserProfile();
         // InitialLayout sẽ tự động redirect khi isSignedIn thay đổi
         return;
       }
@@ -195,309 +242,378 @@ export default function SignInScreen() {
     } finally {
       setLoading(false);
     }
-  }, [startSSOFlow]);
+  }, [startSSOFlow, syncUserProfile]);
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#dcfce7', '#ffffff', '#dcfce7']}
+        locations={[0, 0.5, 1]}
+        style={StyleSheet.absoluteFill}
+      />
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.content}>
-          {/* Logo Section */}
-          <View style={styles.logoContainer}>
-            <View style={styles.logoWrapper}>
-              <Image
-                source={logo}
-                style={styles.logo}
-                contentFit="contain"
-              />
-            </View>
-            <Text style={styles.title}>FinMate</Text>
-            <Text style={styles.subtitle}>Quản lý tài chính thông minh với AI</Text>
-          </View>
-
-          {/* Tab Toggle */}
-          <View style={styles.tabContainer}>
-            <TouchableOpacity
-              style={[styles.tab, mode === 'login' && styles.tabActive]}
-              onPress={() => {
-                setMode('login');
-                setError(null);
-              }}
-            >
-              {mode === 'login' ? (
-                <LinearGradient
-                  colors={['#155dfc', '#2b7fff']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.tabGradient}
-                >
-                  <Text style={styles.tabTextActive}>Đăng nhập</Text>
-                </LinearGradient>
-              ) : (
-                <Text style={styles.tabText}>Đăng nhập</Text>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, mode === 'signup' && styles.tabActive]}
-              onPress={() => {
-                setMode('signup');
-                setError(null);
-              }}
-            >
-              {mode === 'signup' ? (
-                <LinearGradient
-                  colors={['#155dfc', '#2b7fff']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.tabGradient}
-                >
-                  <Text style={styles.tabTextActive}>Đăng ký</Text>
-                </LinearGradient>
-              ) : (
-                <Text style={styles.tabText}>Đăng ký</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-
-          {/* Form */}
-          <View style={styles.formContainer}>
-            {/* Email Input */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email</Text>
-              <View style={styles.inputWrapper}>
-                <Ionicons
-                  name="mail-outline"
-                  size={20}
-                  color="#d1d5dc"
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Nhập email của bạn"
-                  placeholderTextColor="#6a7282"
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, { paddingTop: 16, paddingBottom: insets.bottom + 24 }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={{ height: insets.top }} />
+          <View style={styles.content}>
+            {/* Logo Section - trên nền pastel */}
+            <View style={styles.logoContainer}>
+              <View style={styles.logoWrapper}>
+                <Image
+                  source={logo}
+                  style={styles.logo}
+                  contentFit="contain"
                 />
               </View>
+              <Text style={styles.title}>FinMate</Text>
+              <Text style={styles.subtitle}>Quản lý tài chính thông minh với AI</Text>
             </View>
 
-            {/* Password Input */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Mật khẩu</Text>
-              <View style={styles.inputWrapper}>
-                <Ionicons
-                  name="lock-closed-outline"
-                  size={20}
-                  color="#d1d5dc"
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Nhập mật khẩu"
-                  placeholderTextColor="#6a7282"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
+            {/* Card trắng chứa form */}
+            <View style={styles.card}>
+              {/* Tab Toggle - pill sliding */}
+              <View
+                style={styles.tabContainer}
+                onLayout={(e) => setTabLayoutWidth(e.nativeEvent.layout.width)}
+              >
+                {tabLayoutWidth > 0 && (
+                  <Animated.View
+                    style={[
+                      styles.tabPill,
+                      {
+                        width: (tabLayoutWidth - 8) / 2,
+                        transform: [
+                          {
+                            translateX: tabSlideAnim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [0, (tabLayoutWidth - 8) / 2],
+                            }),
+                          },
+                        ],
+                      },
+                    ]}
+                  >
+                    <LinearGradient
+                      colors={['#16a34a', '#22c55e']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.tabPillGradient}
+                    />
+                  </Animated.View>
+                )}
                 <TouchableOpacity
-                  onPress={() => setShowPassword(!showPassword)}
-                  style={styles.eyeIcon}
+                  style={styles.tabTouchable}
+                  onPress={() => {
+                    setMode('login');
+                    setConfirmPassword('');
+                    setError(null);
+                  }}
+                  activeOpacity={0.8}
                 >
-                  <Ionicons
-                    name={showPassword ? 'eye-outline' : 'eye-off-outline'}
-                    size={20}
-                    color="#d1d5dc"
-                  />
+                  <Text style={[styles.tabText, mode === 'login' && styles.tabTextActive]}>
+                    Đăng nhập
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.tabTouchable}
+                  onPress={() => {
+                    setMode('signup');
+                    setConfirmPassword('');
+                    setError(null);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.tabText, mode === 'signup' && styles.tabTextActive]}>
+                    Đăng ký
+                  </Text>
                 </TouchableOpacity>
               </View>
-            </View>
 
-            {/* Forgot Password Link */}
-            {mode === 'login' && (
-              <TouchableOpacity style={styles.forgotPasswordContainer}>
-                <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
-              </TouchableOpacity>
-            )}
+              {/* Form */}
+              <View style={styles.formContainer}>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Email</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons
+                      name="mail-outline"
+                      size={20}
+                      color="#6b7280"
+                      style={styles.inputIcon}
+                    />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Nhập email của bạn"
+                      placeholderTextColor="#9ca3af"
+                      value={email}
+                      onChangeText={setEmail}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                  </View>
+                </View>
 
-            {/* Error Message */}
-            {error && (
-              <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            )}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Mật khẩu</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons
+                      name="lock-closed-outline"
+                      size={20}
+                      color="#6b7280"
+                      style={styles.inputIcon}
+                    />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Nhập mật khẩu"
+                      placeholderTextColor="#9ca3af"
+                      value={password}
+                      onChangeText={setPassword}
+                      secureTextEntry={!showPassword}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                    <TouchableOpacity
+                      onPress={() => setShowPassword(!showPassword)}
+                      style={styles.eyeIcon}
+                    >
+                      <Ionicons
+                        name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                        size={20}
+                        color="#6b7280"
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
 
-            {/* Submit Button */}
-            <TouchableOpacity
-              onPress={handleEmailAuth}
-              disabled={loading}
-              style={styles.submitButtonContainer}
-            >
-              <LinearGradient
-                colors={['#155dfc', '#2b7fff']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.submitButton}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#ffffff" />
-                ) : (
-                  <Text style={styles.submitButtonText}>
-                    {mode === 'login' ? 'Đăng nhập' : 'Đăng ký'}
-                  </Text>
+                {mode === 'signup' && (
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Xác nhận mật khẩu</Text>
+                    <View style={styles.inputWrapper}>
+                      <Ionicons
+                        name="lock-closed-outline"
+                        size={20}
+                        color="#6b7280"
+                        style={styles.inputIcon}
+                      />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Nhập lại mật khẩu"
+                        placeholderTextColor="#9ca3af"
+                        value={confirmPassword}
+                        onChangeText={setConfirmPassword}
+                        secureTextEntry={!showConfirmPassword}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                      <TouchableOpacity
+                        onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                        style={styles.eyeIcon}
+                      >
+                        <Ionicons
+                          name={showConfirmPassword ? 'eye-outline' : 'eye-off-outline'}
+                          size={20}
+                          color="#6b7280"
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                 )}
-              </LinearGradient>
-            </TouchableOpacity>
 
-            {/* Divider */}
-            <View style={styles.dividerContainer}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>hoặc</Text>
-              <View style={styles.dividerLine} />
-            </View>
+                {mode === 'login' && (
+                  <TouchableOpacity style={styles.forgotPasswordContainer}>
+                    <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
+                  </TouchableOpacity>
+                )}
 
-            {/* Google Button */}
-            <TouchableOpacity
-              onPress={handleGoogleAuth}
-              disabled={loading}
-              style={styles.googleButton}
-            >
-              <Ionicons name="logo-google" size={16} color="#1e2939" />
-              <Text style={styles.googleButtonText}>Tiếp tục với Google</Text>
-            </TouchableOpacity>
+                {error && (
+                  <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>{error}</Text>
+                  </View>
+                )}
 
-            {/* Footer Links */}
-            <View style={styles.footerContainer}>
-              <Text style={styles.footerText}>Bằng việc đăng nhập, bạn đồng ý với </Text>
-              <TouchableOpacity>
-                <Text style={styles.footerLink}>Điều khoản</Text>
-              </TouchableOpacity>
-              <Text style={styles.footerText}> và </Text>
-              <TouchableOpacity>
-                <Text style={styles.footerLink}>Chính sách bảo mật</Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleEmailAuth}
+                  disabled={loading}
+                  style={styles.submitButtonContainer}
+                >
+                  <LinearGradient
+                    colors={['#16a34a', '#22c55e']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.submitButton}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color="#ffffff" />
+                    ) : (
+                      <Text style={styles.submitButtonText}>
+                        {mode === 'login' ? 'Đăng nhập' : 'Đăng ký'}
+                      </Text>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <View style={styles.dividerContainer}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>hoặc</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+
+                <TouchableOpacity
+                  onPress={handleGoogleAuth}
+                  disabled={loading}
+                  style={styles.googleButton}
+                >
+                  <Ionicons name="logo-google" size={16} color="#1e2939" />
+                  <Text style={styles.googleButtonText}>Tiếp tục với Google</Text>
+                </TouchableOpacity>
+
+                <View style={styles.footerContainer}>
+                  <Text style={styles.footerText}>Bằng việc đăng nhập, bạn đồng ý với </Text>
+                  <TouchableOpacity>
+                    <Text style={styles.footerLink}>Điều khoản</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.footerText}> và </Text>
+                  <TouchableOpacity>
+                    <Text style={styles.footerLink}>Chính sách bảo mật</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
           </View>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f1729',
+    backgroundColor: '#dcfce7',
+  },
+  keyboardView: {
+    flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
-    padding: 24,
+    paddingHorizontal: 24,
   },
   content: {
     flex: 1,
     maxWidth: 448,
     width: '100%',
     alignSelf: 'center',
+    minHeight: 0,
   },
   logoContainer: {
     alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 24,
+    flexShrink: 0,
+    marginBottom: 20,
   },
   logoWrapper: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#1a2332',
+    width: 120,
+    height: 120,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
-    shadowColor: 'rgba(120, 91, 239, 0.36)',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 16,
-    elevation: 8,
+    marginBottom: 12,
   },
   logo: {
-    width: 40,
-    height: 40,
+    width: 88,
+    height: 88,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '400',
-    color: '#ffffff',
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#16a34a',
     marginBottom: 4,
     fontFamily: 'Inter',
   },
   subtitle: {
-    fontSize: 15,
-    color: '#99a1af',
+    fontSize: 14,
+    color: '#374151',
     textAlign: 'center',
+  },
+  card: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 4,
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#1a2332',
+    backgroundColor: 'rgba(243, 244, 246, 0.9)',
     borderRadius: 14,
     padding: 4,
-    marginBottom: 24,
-    gap: 8,
+    marginBottom: 20,
+    flexShrink: 0,
+    position: 'relative',
+    overflow: 'hidden',
+    minHeight: 44,
   },
-  tab: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+  tabPill: {
+    position: 'absolute',
+    left: 4,
+    top: 4,
+    bottom: 4,
     borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
+    overflow: 'hidden',
+    shadowColor: '#16a34a',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  tabActive: {
-    // Gradient will be applied via LinearGradient component
-  },
-  tabGradient: {
+  tabPillGradient: {
     flex: 1,
     width: '100%',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
     borderRadius: 10,
+  },
+  tabTouchable: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    zIndex: 1,
   },
   tabText: {
-    fontSize: 15,
-    color: '#99a1af',
+    fontSize: 14,
+    color: '#737373',
+    fontWeight: '500',
   },
   tabTextActive: {
-    fontSize: 15,
     color: '#ffffff',
     fontWeight: '600',
   },
   formContainer: {
-    gap: 24,
+    gap: 14,
   },
   inputGroup: {
     gap: 6,
+    flexShrink: 0,
   },
   label: {
     fontSize: 13,
-    color: '#d1d5dc',
+    color: '#374151',
     marginBottom: 2,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1a2332',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#364153',
-    borderRadius: 8,
+    borderColor: '#e5e7eb',
+    borderRadius: 10,
     height: 48,
     paddingHorizontal: 12,
   },
@@ -506,7 +622,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    color: '#ffffff',
+    color: '#1e2939',
     fontSize: 15,
   },
   eyeIcon: {
@@ -514,11 +630,12 @@ const styles = StyleSheet.create({
   },
   forgotPasswordContainer: {
     alignSelf: 'flex-end',
-    marginTop: -16,
+    marginTop: -8,
   },
   forgotPasswordText: {
     fontSize: 13,
-    color: '#51a2ff',
+    color: '#22c55e',
+    fontWeight: '500',
   },
   errorContainer: {
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
@@ -532,38 +649,40 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   submitButtonContainer: {
-    marginTop: 8,
+    marginTop: 4,
+    flexShrink: 0,
   },
   submitButton: {
     height: 48,
-    borderRadius: 8,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: 'rgba(43, 127, 255, 0.3)',
-    shadowOffset: { width: 0, height: 5 },
+    shadowColor: 'rgba(34, 197, 94, 0.3)',
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 1,
-    shadowRadius: 15,
-    elevation: 8,
+    shadowRadius: 12,
+    elevation: 6,
   },
   submitButtonText: {
     color: '#ffffff',
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '600',
   },
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-    marginVertical: 8,
+    marginVertical: 12,
+    flexShrink: 0,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#364153',
+    backgroundColor: '#e5e7eb',
   },
   dividerText: {
     fontSize: 13,
-    color: '#6a7282',
+    color: '#6b7280',
   },
   googleButton: {
     flexDirection: 'row',
@@ -571,9 +690,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#ffffff',
     height: 48,
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 12,
     gap: 8,
+    flexShrink: 0,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
   },
   googleButtonText: {
     color: '#1e2939',
@@ -585,16 +707,17 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: 12,
     gap: 4,
+    flexShrink: 0,
   },
   footerText: {
     fontSize: 11,
-    color: '#6a7282',
+    color: '#6b7280',
   },
   footerLink: {
-    fontSize: 15,
-    color: '#51a2ff',
+    fontSize: 12,
+    color: '#22c55e',
     fontWeight: '600',
   },
 });

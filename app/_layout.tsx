@@ -16,7 +16,7 @@ export default function RootLayout() {
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache}>
       <ClerkLoaded>
         <SafeAreaProvider>
-          <SafeAreaView style={{ flex: 1, backgroundColor: '#0f1729' }} edges={['top', 'left', 'right']}>
+          <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }} edges={['left', 'right']}>
             <InitialLayout />
           </SafeAreaView>
         </SafeAreaProvider>
