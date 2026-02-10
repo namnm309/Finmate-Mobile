@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useApiClient, API_BASE_URL } from '@/lib/api';
 import {
   TransactionDto,
@@ -32,44 +33,59 @@ export const useTransactionService = () => {
   const { get, post, put, delete: del } = useApiClient();
 
   // Lấy danh sách giao dịch (có filter và pagination)
-  const getTransactions = async (params?: GetTransactionsParams): Promise<TransactionListResponseDto> => {
-    const searchParams = new URLSearchParams();
-    
-    if (params?.transactionTypeId) searchParams.append('transactionTypeId', params.transactionTypeId);
-    if (params?.categoryId) searchParams.append('categoryId', params.categoryId);
-    if (params?.moneySourceId) searchParams.append('moneySourceId', params.moneySourceId);
-    if (params?.startDate) searchParams.append('startDate', params.startDate);
-    if (params?.endDate) searchParams.append('endDate', params.endDate);
-    if (params?.page) searchParams.append('page', params.page.toString());
-    if (params?.pageSize) searchParams.append('pageSize', params.pageSize.toString());
+  const getTransactions = useCallback(
+    async (params?: GetTransactionsParams): Promise<TransactionListResponseDto> => {
+      const searchParams = new URLSearchParams();
+      
+      if (params?.transactionTypeId) searchParams.append('transactionTypeId', params.transactionTypeId);
+      if (params?.categoryId) searchParams.append('categoryId', params.categoryId);
+      if (params?.moneySourceId) searchParams.append('moneySourceId', params.moneySourceId);
+      if (params?.startDate) searchParams.append('startDate', params.startDate);
+      if (params?.endDate) searchParams.append('endDate', params.endDate);
+      if (params?.page) searchParams.append('page', params.page.toString());
+      if (params?.pageSize) searchParams.append('pageSize', params.pageSize.toString());
 
-    const queryString = searchParams.toString();
-    const url = queryString
-      ? `${API_BASE_URL}/api/transactions?${queryString}`
-      : `${API_BASE_URL}/api/transactions`;
-    
-    return get<TransactionListResponseDto>(url);
-  };
+      const queryString = searchParams.toString();
+      const url = queryString
+        ? `${API_BASE_URL}/api/transactions?${queryString}`
+        : `${API_BASE_URL}/api/transactions`;
+      
+      return get<TransactionListResponseDto>(url);
+    },
+    [get],
+  );
 
   // Lấy chi tiết giao dịch
-  const getTransactionById = async (id: string): Promise<TransactionDto> => {
-    return get<TransactionDto>(`${API_BASE_URL}/api/transactions/${id}`);
-  };
+  const getTransactionById = useCallback(
+    async (id: string): Promise<TransactionDto> => {
+      return get<TransactionDto>(`${API_BASE_URL}/api/transactions/${id}`);
+    },
+    [get],
+  );
 
   // Tạo giao dịch mới
-  const createTransaction = async (data: CreateTransactionRequest): Promise<TransactionDto> => {
-    return post<TransactionDto>(`${API_BASE_URL}/api/transactions`, data);
-  };
+  const createTransaction = useCallback(
+    async (data: CreateTransactionRequest): Promise<TransactionDto> => {
+      return post<TransactionDto>(`${API_BASE_URL}/api/transactions`, data);
+    },
+    [post],
+  );
 
   // Cập nhật giao dịch
-  const updateTransaction = async (id: string, data: UpdateTransactionRequest): Promise<TransactionDto> => {
-    return put<TransactionDto>(`${API_BASE_URL}/api/transactions/${id}`, data);
-  };
+  const updateTransaction = useCallback(
+    async (id: string, data: UpdateTransactionRequest): Promise<TransactionDto> => {
+      return put<TransactionDto>(`${API_BASE_URL}/api/transactions/${id}`, data);
+    },
+    [put],
+  );
 
   // Xóa giao dịch
-  const deleteTransaction = async (id: string): Promise<{ message: string }> => {
-    return del<{ message: string }>(`${API_BASE_URL}/api/transactions/${id}`);
-  };
+  const deleteTransaction = useCallback(
+    async (id: string): Promise<{ message: string }> => {
+      return del<{ message: string }>(`${API_BASE_URL}/api/transactions/${id}`);
+    },
+    [del],
+  );
 
   return {
     getTransactions,

@@ -37,6 +37,11 @@ interface PieChartProps {
   data: PieChartDataItem[];
   size?: number;
   strokeWidth?: number;
+  /**
+   * Tỉ lệ bán kính vòng rỗng bên trong so với bán kính ngoài.
+   * Ví dụ: 0.6 → innerRadius = 60% outerRadius.
+   */
+  innerRadiusRatio?: number;
 }
 
 function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
@@ -64,9 +69,19 @@ function arcPath(cx: number, cy: number, rOuter: number, rInner: number, startAn
   ].join(' ');
 }
 
-export const PieChart: React.FC<PieChartProps> = ({ data, size = 100, strokeWidth = 16 }) => {
+export const PieChart: React.FC<PieChartProps> = ({
+  data,
+  size = 100,
+  strokeWidth = 16,
+  innerRadiusRatio,
+}) => {
   const radiusOuter = size / 2;
-  const radiusInner = Math.max(0, radiusOuter - strokeWidth);
+  // Nếu có innerRadiusRatio thì ưu tiên dùng (giúp donut dày hơn, giống Figma hơn),
+  // fallback sang cách tính cũ bằng strokeWidth.
+  const radiusInner =
+    typeof innerRadiusRatio === 'number'
+      ? Math.max(0, radiusOuter * innerRadiusRatio)
+      : Math.max(0, radiusOuter - strokeWidth);
   const cx = radiusOuter;
   const cy = radiusOuter;
 

@@ -91,9 +91,14 @@ export default function AddMoneySourceScreen() {
         setSelectedCurrency(vnd);
       }
     } catch (err) {
+      // Log chi tiết để biết request nào lỗi (xem [API] log trước đó để biết URL/status)
+      console.error('[AddMoneySource] Error fetching data (account types / currencies / icons):', {
+        error: err,
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      });
       const errorMessage = err instanceof Error ? err.message : 'Không thể tải dữ liệu';
       setError(errorMessage);
-      console.error('Error fetching data:', err);
     } finally {
       setLoadingData(false);
     }
@@ -137,15 +142,65 @@ export default function AddMoneySourceScreen() {
       });
 
       Alert.alert('Thành công', 'Đã tạo tài khoản mới', [
-        { text: 'OK', onPress: () => router.replace('/(protected)/(tabs)/account') }
+        {
+          text: 'OK',
+          onPress: () =>
+            router.replace({
+              pathname: '/(protected)/(tabs)/account',
+              params: { __replace: 'pop' },
+            } as any),
+        },
       ]);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Không thể tạo tài khoản';
+      // Log chi tiết lỗi để debug
+      console.error('[AddMoneySource] Error creating money source:', {
+        error: err,
+        requestData: {
+          accountTypeId: selectedAccountType.id,
+          name: name.trim(),
+          icon: selectedIcon,
+          color: selectedAccountType.color || '#51A2FF',
+          balance: balanceNumber,
+          currency: selectedCurrency?.code || 'VND',
+        },
+        stack: err instanceof Error ? err.stack : undefined,
+      });
+
+      // Xử lý error message chi tiết hơn
+      let errorMessage = 'Không thể tạo tài khoản';
+      
+      if (err instanceof Error) {
+        errorMessage = err.message;
+        
+        // Hiển thị thông báo lỗi cụ thể hơn
+        if (errorMessage.includes('Invalid AccountTypeId')) {
+          errorMessage = 'Loại tài khoản không hợp lệ. Vui lòng thử lại.';
+        } else if (errorMessage.includes('foreign key')) {
+          errorMessage = 'Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.';
+        } else if (errorMessage.includes('Database error')) {
+          errorMessage = 'Lỗi hệ thống. Vui lòng thử lại sau.';
+        } else if (errorMessage.includes('Unauthorized')) {
+          errorMessage = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+        }
+      }
+
       Alert.alert('Lỗi', errorMessage);
-      console.error('Error creating money source:', err);
     } finally {
       setSaving(false);
     }
+  };
+
+  // Format số dư: chỉ lấy số, bỏ số 0 đầu khi nhập, hiển thị dấu chấm phân cách hàng nghìn (1.000)
+  const formatWithThousandSeparators = (numStr: string): string => {
+    if (!numStr) return numStr;
+    return numStr.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  };
+
+  const handleBalanceChange = (text: string) => {
+    const rawDigits = text.replace(/\D/g, '');
+    const numStr = rawDigits === '' ? '' : parseInt(rawDigits, 10).toString();
+    const displayValue = numStr === '' ? '0' : formatWithThousandSeparators(numStr);
+    setBalance(displayValue);
   };
 
   // Filter currencies by search
@@ -161,7 +216,12 @@ export default function AddMoneySourceScreen() {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.headerButton}
-          onPress={() => router.replace('/(protected)/(tabs)/account')}
+            onPress={() =>
+              router.replace({
+                pathname: '/(protected)/(tabs)/account',
+                params: { __replace: 'pop' },
+              } as any)
+            }
             activeOpacity={0.7}>
             <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
@@ -193,7 +253,12 @@ export default function AddMoneySourceScreen() {
         <View style={styles.errorContainer}>
           <MaterialIcons name="error-outline" size={48} color="#F87171" />
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => fetchData()}>
+          {(error.includes('does not exist') || error.includes('relation') || error.includes('API Error: 500')) && (
+            <Text style={[styles.errorText, { marginTop: 8, fontSize: 13, opacity: 0.9 }]}>
+              Có thể database server chưa sẵn sàng. Thử lại sau hoặc liên hệ hỗ trợ.
+            </Text>
+          )}
+          <TouchableOpacity style={styles.retryButton} onPress={() => { setError(null); fetchData(); }}>
             <Text style={styles.retryButtonText}>Thử lại</Text>
           </TouchableOpacity>
         </View>
@@ -207,7 +272,12 @@ export default function AddMoneySourceScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.headerButton}
-          onPress={() => router.replace('/(protected)/(tabs)/account')}
+          onPress={() =>
+            router.replace({
+              pathname: '/(protected)/(tabs)/account',
+              params: { __replace: 'pop' },
+            } as any)
+          }
           activeOpacity={0.7}>
           <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
@@ -237,7 +307,7 @@ export default function AddMoneySourceScreen() {
             <TextInput
               style={styles.balanceInput}
               value={balance}
-              onChangeText={setBalance}
+              onChangeText={handleBalanceChange}
               keyboardType="numeric"
               placeholder="0"
               placeholderTextColor="#6B7280"

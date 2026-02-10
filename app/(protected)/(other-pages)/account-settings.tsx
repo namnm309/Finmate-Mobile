@@ -295,7 +295,10 @@ export default function AccountSettingsScreen() {
               Alert.alert('Thành công', 'Tài khoản đã được xóa. Bạn sẽ được đăng xuất.');
               // Sign out và redirect về login
               await signOut();
-              router.replace('/(auth)/sign-in');
+              router.replace({
+                pathname: '/(auth)/sign-in',
+                params: { __replace: 'push' },
+              } as any);
             } catch (err) {
               const errorMessage = err instanceof Error ? err.message : 'Không thể xóa tài khoản';
               Alert.alert('Lỗi', errorMessage);

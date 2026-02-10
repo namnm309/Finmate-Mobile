@@ -1,9 +1,11 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useSegments } from 'expo-router';
-import React from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { InputMethodModal } from '@/components/input-method-modal';
 
 // Custom button cho tab Add ở giữa
 function AddTabButton({ onPress }: { onPress: () => void }) {
@@ -27,64 +29,127 @@ export default function BottomNavigationBar() {
   const router = useRouter();
   const segments = useSegments();
   const insets = useSafeAreaInsets();
+  const [modalVisible, setModalVisible] = useState(false);
 
-  const isActive = (path: string) => {
+  const TAB_ORDER = [
+    '/(protected)/(tabs)', // Tổng quan (index)
+    '/(protected)/(tabs)/account',
+    '/(protected)/(tabs)/report',
+    '/(protected)/(tabs)/other',
+  ] as const;
+
+  const getCurrentTabIndex = (): number | null => {
     const currentPath = segments.join('/');
-    return currentPath.includes(path);
+    // Thứ tự: account, report, other phải check trước vì path có thể chứa nhiều segment
+    if (currentPath.includes('(tabs)/account')) return 1;
+    if (currentPath.includes('(tabs)/report')) return 2;
+    if (currentPath.includes('(tabs)/other') || currentPath.includes('(other-pages)')) return 3;
+    // Tổng quan: đang ở (tabs) và không phải account/report/other => index (route gốc (tabs) có thể không có "index" trong path)
+    if (currentPath.includes('(tabs)')) return 0;
+    return null;
   };
 
+  const currentTabIndex = getCurrentTabIndex();
+  const isHomeActive = currentTabIndex === 0;
+  const isAccountActive = currentTabIndex === 1;
+  const isReportActive = currentTabIndex === 2;
+  const isOtherActive = currentTabIndex === 3;
+
   const handleNavigate = (path: string) => {
-    router.push(path as any);
+    const currentIndex = getCurrentTabIndex();
+    const targetIndex = TAB_ORDER.indexOf(path as any);
+
+    // Nếu không phải route tab, fallback hành vi cũ (push)
+    if (targetIndex === -1) {
+      router.push(path as any);
+      return;
+    }
+
+    // Nếu đang ở đúng tab rồi thì thôi
+    if (currentIndex !== null && currentIndex === targetIndex) return;
+
+    // Quy ước: tab bên phải = "push", tab bên trái = "pop"
+    const replaceType: 'push' | 'pop' =
+      currentIndex === null || targetIndex > currentIndex ? 'push' : 'pop';
+
+    router.replace(
+      {
+        pathname: path,
+        params: { __replace: replaceType },
+      } as any
+    );
+  };
+
+  const handleAddPress = () => {
+    setModalVisible(true);
   };
 
   return (
-    <View style={[styles.tabBar, { height: 60 + insets.bottom, paddingBottom: insets.bottom }]}>
-      <TouchableOpacity
-        onPress={() => handleNavigate('/(protected)/(tabs)')}
-        style={styles.tabItem}
-        activeOpacity={0.7}>
-        <MaterialIcons
-          name="home"
-          size={30}
-          color={isActive('(tabs)/index') ? '#51a2ff' : '#6a7282'}
-        />
-      </TouchableOpacity>
+    <>
+      <View style={[styles.tabBar, { height: 70 + insets.bottom, paddingBottom: insets.bottom }]}>
+        <TouchableOpacity
+          onPress={() => handleNavigate('/(protected)/(tabs)')}
+          style={styles.tabItem}
+          activeOpacity={0.7}>
+          <MaterialIcons
+            name="home"
+            size={30}
+            color={isHomeActive ? '#51a2ff' : '#6a7282'}
+          />
+          <Text style={[styles.tabLabel, isHomeActive && styles.tabLabelActive]}>
+            Tổng quan
+          </Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        onPress={() => handleNavigate('/(protected)/(tabs)/account')}
-        style={styles.tabItem}
-        activeOpacity={0.7}>
-        <MaterialIcons
-          name="wallet"
-          size={30}
-          color={isActive('(tabs)/account') ? '#51a2ff' : '#6a7282'}
-        />
-      </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => handleNavigate('/(protected)/(tabs)/account')}
+          style={styles.tabItem}
+          activeOpacity={0.7}>
+          <MaterialIcons
+            name="wallet"
+            size={30}
+            color={isAccountActive ? '#51a2ff' : '#6a7282'}
+          />
+          <Text style={[styles.tabLabel, isAccountActive && styles.tabLabelActive]}>
+            Tài khoản
+          </Text>
+        </TouchableOpacity>
 
-      <AddTabButton onPress={() => handleNavigate('/(protected)/(tabs)/add')} />
+        <AddTabButton onPress={handleAddPress} />
 
-      <TouchableOpacity
-        onPress={() => handleNavigate('/(protected)/(tabs)/report')}
-        style={styles.tabItem}
-        activeOpacity={0.7}>
-        <MaterialIcons
-          name="bar-chart"
-          size={30}
-          color={isActive('(tabs)/report') ? '#51a2ff' : '#6a7282'}
-        />
-      </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => handleNavigate('/(protected)/(tabs)/report')}
+          style={styles.tabItem}
+          activeOpacity={0.7}>
+          <MaterialIcons
+            name="bar-chart"
+            size={30}
+            color={isReportActive ? '#51a2ff' : '#6a7282'}
+          />
+          <Text style={[styles.tabLabel, isReportActive && styles.tabLabelActive]}>
+            Báo cáo
+          </Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        onPress={() => handleNavigate('/(protected)/(tabs)/other')}
-        style={styles.tabItem}
-        activeOpacity={0.7}>
-        <MaterialIcons
-          name="grid-view"
-          size={30}
-          color={isActive('(tabs)/other') || isActive('(other-pages)') ? '#51a2ff' : '#6a7282'}
-        />
-      </TouchableOpacity>
-    </View>
+        <TouchableOpacity
+          onPress={() => handleNavigate('/(protected)/(tabs)/other')}
+          style={styles.tabItem}
+          activeOpacity={0.7}>
+          <MaterialIcons
+            name="grid-view"
+            size={30}
+            color={isOtherActive ? '#51a2ff' : '#6a7282'}
+          />
+          <Text style={[styles.tabLabel, isOtherActive && styles.tabLabelActive]}>
+            Khác
+          </Text>
+        </TouchableOpacity>
+      </View>
+      <InputMethodModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+      />
+    </>
   );
 }
 
@@ -105,13 +170,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  tabLabelContainer: {
-    height: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
+  tabLabel: {
+    fontSize: 10.9,
+    fontFamily: 'Inter',
+    color: '#6a7282',
+    marginTop: 4,
   },
-  tabLabelPlaceholder: {
-    // Placeholder for label spacing
+  tabLabelActive: {
+    color: '#51a2ff',
   },
   addButtonContainer: {
     top: -20,

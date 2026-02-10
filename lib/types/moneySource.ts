@@ -66,4 +66,5 @@ export interface UpdateMoneySourceRequest {
   color?: string;
   balance?: number;
   currency?: string;
+  isActive?: boolean;
 }

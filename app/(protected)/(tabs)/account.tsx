@@ -1,11 +1,14 @@
+import { DeleteMoneySourceDialog } from '@/components/DeleteMoneySourceDialog';
 import { useMoneySourceService } from '@/lib/services/moneySourceService';
-import { MoneySourceGroupedDto, MoneySourceGroupedResponseDto } from '@/lib/types/moneySource';
+import { MoneySourceDto, MoneySourceGroupedDto, MoneySourceGroupedResponseDto } from '@/lib/types/moneySource';
 import { styles } from '@/styles/index.styles';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Modal,
   RefreshControl,
   SafeAreaView,
   ScrollView,
@@ -24,14 +27,18 @@ type TabType = 'accounts' | 'savings' | 'accumulation';
 
 export default function AccountScreen() {
   const router = useRouter();
+  const { refresh } = useLocalSearchParams<{ refresh?: string }>();
   const [activeTab, setActiveTab] = useState<TabType>('accounts');
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<MoneySourceGroupedResponseDto | null>(null);
+  const [selectedAccount, setSelectedAccount] = useState<MoneySourceDto | null>(null);
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
-  const { getGroupedMoneySources } = useMoneySourceService();
+  const { getGroupedMoneySources, updateMoneySource, deleteMoneySource } = useMoneySourceService();
 
   // Navigate to add money source screen
   const handleAddMoneySource = () => {
@@ -75,6 +82,13 @@ export default function AccountScreen() {
     fetchData();
   }, [fetchData]);
 
+  // Refetch khi quay lại từ màn sửa (có param refresh) để thấy số dư mới
+  useEffect(() => {
+    if (refresh) {
+      fetchData(true);
+    }
+  }, [refresh]);
+
   const onRefresh = useCallback(() => {
     fetchData(true);
   }, [fetchData]);
@@ -85,6 +99,58 @@ export default function AccountScreen() {
         ? prev.filter(id => id !== categoryId)
         : [...prev, categoryId]
     );
+  };
+
+  const openAccountMenu = (account: MoneySourceDto) => {
+    setSelectedAccount(account);
+    setShowAccountMenu(true);
+  };
+
+  const closeAccountMenu = () => {
+    setShowAccountMenu(false);
+    setSelectedAccount(null);
+  };
+
+  const handleMenuEdit = () => {
+    if (!selectedAccount) return;
+    const id = selectedAccount.id;
+    closeAccountMenu();
+    router.push({ pathname: '/(protected)/(other-pages)/edit-money-source', params: { id } });
+  };
+
+  const handleMenuDelete = () => {
+    setShowAccountMenu(false);
+    setShowDeleteDialog(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!selectedAccount) return;
+    try {
+      await deleteMoneySource(selectedAccount.id);
+      setShowDeleteDialog(false);
+      setSelectedAccount(null);
+      fetchData();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Không thể xóa tài khoản';
+      Alert.alert('Lỗi', msg);
+    }
+  };
+
+  const handleMenuDeactivate = async () => {
+    if (!selectedAccount) return;
+    try {
+      await updateMoneySource(selectedAccount.id, { isActive: false });
+      closeAccountMenu();
+      fetchData();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Không thể ngừng sử dụng';
+      Alert.alert('Lỗi', msg);
+    }
+  };
+
+  const handleMenuPlaceholder = () => {
+    closeAccountMenu();
+    Alert.alert('Thông báo', 'Tính năng đang phát triển');
   };
 
   // Loading state
@@ -268,7 +334,10 @@ export default function AccountScreen() {
                           <Text style={styles.accountItemName}>{account.name}</Text>
                           <Text style={styles.accountItemAmount}>{formatCurrency(account.balance)}</Text>
                         </View>
-                        <TouchableOpacity style={styles.accountItemMenu}>
+                        <TouchableOpacity
+                          style={styles.accountItemMenu}
+                          onPress={() => openAccountMenu(account)}
+                          activeOpacity={0.7}>
                           <MaterialIcons name="more-vert" size={20} color="#99A1AF" />
                         </TouchableOpacity>
                       </View>
@@ -291,11 +360,95 @@ export default function AccountScreen() {
         activeOpacity={0.8}>
         <MaterialIcons name="add" size={28} color="#FFFFFF" />
       </TouchableOpacity>
+
+      {/* Account actions bottom sheet */}
+      <Modal
+        visible={showAccountMenu}
+        transparent
+        animationType="slide"
+        onRequestClose={closeAccountMenu}>
+        <TouchableOpacity
+          style={localStyles.sheetOverlay}
+          activeOpacity={1}
+          onPress={closeAccountMenu}>
+          <TouchableOpacity
+            style={localStyles.sheetContent}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}>
+            <View style={localStyles.sheetHandle} />
+            <TouchableOpacity style={localStyles.sheetItem} onPress={handleMenuPlaceholder}>
+              <MaterialIcons name="swap-horiz" size={24} color="#FFFFFF" />
+              <Text style={localStyles.sheetItemText}>Chuyển khoản</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={localStyles.sheetItem} onPress={handleMenuPlaceholder}>
+              <MaterialIcons name="attach-money" size={24} color="#FFFFFF" />
+              <Text style={localStyles.sheetItemText}>Điều chỉnh số dư</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={localStyles.sheetItem} onPress={handleMenuPlaceholder}>
+              <MaterialIcons name="share" size={24} color="#FFFFFF" />
+              <Text style={localStyles.sheetItemText}>Chia sẻ tài khoản</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={localStyles.sheetItem} onPress={handleMenuEdit}>
+              <MaterialIcons name="edit" size={24} color="#FFFFFF" />
+              <Text style={localStyles.sheetItemText}>Chỉnh sửa</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={localStyles.sheetItem} onPress={handleMenuDelete}>
+              <MaterialIcons name="delete" size={24} color="#FFFFFF" />
+              <Text style={localStyles.sheetItemText}>Xóa</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={localStyles.sheetItem} onPress={handleMenuDeactivate}>
+              <MaterialIcons name="lock" size={24} color="#FFFFFF" />
+              <Text style={localStyles.sheetItemText}>Ngừng sử dụng</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      <DeleteMoneySourceDialog
+        visible={showDeleteDialog}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => {
+          setShowDeleteDialog(false);
+          setSelectedAccount(null);
+        }}
+      />
     </SafeAreaView>
   );
 }
 
 const localStyles = StyleSheet.create({
+  sheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  sheetContent: {
+    backgroundColor: '#1A2332',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 34,
+    paddingHorizontal: 16,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#6B7280',
+    alignSelf: 'center',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  sheetItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    gap: 16,
+  },
+  sheetItemText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+  },
   fab: {
     position: 'absolute',
     right: 20,

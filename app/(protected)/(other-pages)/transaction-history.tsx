@@ -15,6 +15,7 @@ import {
 import { styles } from '@/styles/index.styles';
 import { useTransactionService } from '@/lib/services/transactionService';
 import { TransactionDto } from '@/lib/types/transaction';
+import { useTransactionHub } from '@/lib/realtime/useTransactionHub';
 
 // Format số tiền VNĐ
 const formatCurrency = (amount: number): string => {
@@ -79,38 +80,55 @@ export default function TransactionHistoryScreen() {
   const [totalCount, setTotalCount] = useState<number>(0);
   const pageSize = 20;
 
-  const fetchTransactions = useCallback(async (pageNum: number = 1, append: boolean = false) => {
-    try {
-      setLoading(true);
-      const response = await getTransactions({
-        page: pageNum,
-        pageSize: pageSize,
-        ...(searchQuery && { 
-          // Note: Backend might need to support search by description
-          // For now, we'll filter on frontend
-        })
-      });
-
-      if (append) {
-        setTransactions(prev => [...prev, ...response.transactions]);
-      } else {
-        setTransactions(response.transactions);
+  const fetchTransactions = useCallback(
+    async (pageNum: number = 1, append: boolean = false) => {
+      // Guard nhẹ tránh gọi chồng khi đang loading và không phải load thêm trang
+      if (loading && !append) {
+        return;
       }
 
-      setTotalCount(response.totalCount);
-      setHasMore(response.transactions.length === pageSize && (pageNum * pageSize) < response.totalCount);
-    } catch (err) {
-      console.error('Error fetching transactions:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [getTransactions, searchQuery]);
+      try {
+        setLoading(true);
+        const response = await getTransactions({
+          page: pageNum,
+          pageSize: pageSize,
+          ...(searchQuery && {
+            // Note: Backend might need to support search by description
+            // For now, we'll filter on frontend
+          }),
+        });
+
+        if (append) {
+          setTransactions(prev => [...prev, ...response.transactions]);
+        } else {
+          setTransactions(response.transactions);
+        }
+
+        setTotalCount(response.totalCount);
+        setHasMore(response.transactions.length === pageSize && pageNum * pageSize < response.totalCount);
+      } catch (err) {
+        console.error('Error fetching transactions:', err);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [getTransactions, searchQuery, loading],
+  );
+
+  // Lắng nghe SignalR để refetch khi có giao dịch mới / cập nhật / xoá
+  const handleTransactionsUpdated = useCallback(() => {
+    // Khi có thay đổi, luôn refetch từ trang 1 để đảm bảo dữ liệu đồng bộ
+    fetchTransactions(1, false);
+    setPage(1);
+  }, [fetchTransactions]);
+
+  useTransactionHub(handleTransactionsUpdated);
 
   useFocusEffect(
     useCallback(() => {
       fetchTransactions(1, false);
       setPage(1);
-    }, [fetchTransactions])
+    }, []),
   );
 
   // Filter transactions by search query

@@ -82,7 +82,10 @@ export default function VerifyEmailScreen() {
           await syncUserProfile();
           
           // Redirect vào app
-          router.replace('/(protected)/(tabs)');
+          router.replace({
+            pathname: '/(protected)/(tabs)',
+            params: { __replace: 'push' },
+          } as any);
         } else {
           setError('Đăng ký thành công nhưng không thể tạo phiên đăng nhập. Vui lòng thử đăng nhập lại.');
         }
@@ -137,7 +140,10 @@ export default function VerifyEmailScreen() {
     // Nếu không có signUp object hoặc signUp đã complete (đã verify xong), quay lại màn hình đăng ký
     // Nhưng chỉ check khi chưa có session (chưa verify thành công)
     if (signUpLoaded && (!signUp || (signUp.status === 'complete' && !signUp.createdSessionId))) {
-      router.replace('/(auth)/sign-in');
+      router.replace({
+        pathname: '/(auth)/sign-in',
+        params: { __replace: 'pop' },
+      } as any);
     }
   }, [signUpLoaded, signUp, router]);
 

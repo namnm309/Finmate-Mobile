@@ -2,7 +2,7 @@ import { useUser } from '@clerk/clerk-expo';
 import { MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
   Dimensions,
@@ -19,7 +19,8 @@ import { styles } from '@/styles/index.styles';
 import { useMoneySourceService } from '@/lib/services/moneySourceService';
 import { useReportService } from '@/lib/services/reportService';
 import { OverviewReportDto } from '@/lib/types/report';
-import { SimplePieChart } from '@/components/SimplePieChart';
+import { SpendingIncomeOverviewCard } from '@/components/SpendingIncomeOverviewCard';
+import { useTransactionHub } from '@/lib/realtime/useTransactionHub';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -51,6 +52,11 @@ export default function HomeScreen() {
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('month');
   const [showPeriodModal, setShowPeriodModal] = useState<boolean>(false);
   const isFetchingRef = useRef<boolean>(false);
+  const fetchOverviewRef = useRef<(period: TimePeriod, forceRefresh?: boolean) => Promise<void>>(() => Promise.resolve());
+  const selectedPeriodRef = useRef<TimePeriod>(selectedPeriod);
+  const isFocusedRef = useRef<boolean>(false);
+  const lastFetchTimeRef = useRef<number>(0);
+  const OVERVIEW_FETCH_THROTTLE_MS = 3000;
 
   // Mock data for other sections
   const today = new Date();
@@ -104,18 +110,23 @@ export default function HomeScreen() {
 
 
   // Fetch overview function - dùng ref để tránh dependency issues
-  const fetchOverviewData = useCallback(async (period: TimePeriod) => {
-    // Tránh fetch đồng thời
+  const fetchOverviewData = useCallback(async (period: TimePeriod, forceRefresh = false) => {
     if (isFetchingRef.current) return;
-    
+    // Throttle: tránh gọi lại trong vòng OVERVIEW_FETCH_THROTTLE_MS trừ khi forceRefresh (đổi kỳ)
+    if (!forceRefresh && lastFetchTimeRef.current && Date.now() - lastFetchTimeRef.current < OVERVIEW_FETCH_THROTTLE_MS) {
+      return;
+    }
+
     isFetchingRef.current = true;
     setOverviewLoading(true);
     try {
       const { startDate, endDate } = getDateRange(period);
       const overviewResponse = await getOverview(startDate, endDate);
-      // Update state trực tiếp - React sẽ tự optimize
+      if (!isFocusedRef.current) return;
+      lastFetchTimeRef.current = Date.now();
       setOverviewData(overviewResponse);
     } catch (err) {
+      if (!isFocusedRef.current) return;
       console.error('Error fetching overview:', err);
       setOverviewData({
         totalIncome: 0,
@@ -124,38 +135,47 @@ export default function HomeScreen() {
         categoryStats: [],
       });
     } finally {
-      setOverviewLoading(false);
+      if (isFocusedRef.current) setOverviewLoading(false);
       isFetchingRef.current = false;
     }
   }, [getOverview, getDateRange]);
 
-  // Fetch balance - chỉ fetch một lần khi focus, không phụ thuộc vào totalBalance
+  // Lắng nghe thay đổi giao dịch để refresh overview realtime
+  const handleTransactionsUpdated = useCallback(() => {
+    // Force refresh overview với kỳ hiện tại, bỏ qua throttle
+    fetchOverviewData(selectedPeriodRef.current, true);
+  }, [fetchOverviewData]);
+
+  useTransactionHub(handleTransactionsUpdated);
+
+  // Fetch balance - chỉ gọi 1 lần khi mount để tránh gọi API liên tục (giật số tiền)
+  useEffect(() => {
+    setBalanceLoading(true);
+    getGroupedMoneySources()
+      .then((response) => {
+        setTotalBalance(response.totalBalance ?? 0);
+      })
+      .catch((err) => {
+        console.error('Error fetching total balance:', err);
+      })
+      .finally(() => {
+        setBalanceLoading(false);
+      });
+  }, []);
+
+  // Refs luôn trỏ tới giá trị mới nhất (không đưa vào deps của useFocusEffect)
+  selectedPeriodRef.current = selectedPeriod;
+  fetchOverviewRef.current = fetchOverviewData;
+
+  // Chỉ fetch overview khi màn hình được focus (dependency rỗng → không chạy theo từng re-render)
   useFocusEffect(
     useCallback(() => {
-      // Luôn refresh khi focus để lấy số dư mới nhất,
-      // nhưng chỉ bật loading nếu chưa có data (tránh nhấp nháy).
-      const hadData = totalBalance !== 0;
-      if (!hadData) setBalanceLoading(true);
-
-      getGroupedMoneySources()
-        .then((response) => {
-          setTotalBalance(response.totalBalance ?? 0);
-        })
-        .catch((err) => {
-          console.error('Error fetching total balance:', err);
-        })
-        .finally(() => {
-          if (!hadData) setBalanceLoading(false);
-        });
-    }, [getGroupedMoneySources, totalBalance])
-  );
-
-  // Fetch overview khi screen focus hoặc period thay đổi
-  useFocusEffect(
-    useCallback(() => {
-      // Luôn fetch lại khi focus để có data mới nhất
-      fetchOverviewData(selectedPeriod);
-    }, [selectedPeriod, fetchOverviewData])
+      isFocusedRef.current = true;
+      fetchOverviewRef.current(selectedPeriodRef.current, false);
+      return () => {
+        isFocusedRef.current = false;
+      };
+    }, [])
   );
 
   // Get period display text
@@ -185,7 +205,7 @@ export default function HomeScreen() {
     { value: 'year', label: 'Năm nay' },
   ];
 
-  // Handle period change
+  // Handle period change - fetch ngay với kỳ mới (forceRefresh để bỏ qua throttle)
   const handlePeriodChange = (period: TimePeriod) => {
     if (period === selectedPeriod) {
       setShowPeriodModal(false);
@@ -193,24 +213,8 @@ export default function HomeScreen() {
     }
     setSelectedPeriod(period);
     setShowPeriodModal(false);
-    // useEffect sẽ tự động fetch khi selectedPeriod thay đổi
+    fetchOverviewData(period, true);
   };
-
-  // Calculate bar chart heights - memoize để tránh re-render
-  const barHeights = useMemo(() => {
-    if (!overviewData || (overviewData.totalIncome === 0 && overviewData.totalExpense === 0)) {
-      return { incomeHeight: '0%', expenseHeight: '0%' };
-    }
-    const maxValue = Math.max(overviewData.totalIncome, overviewData.totalExpense) || 1;
-    const incomeHeight = `${(overviewData.totalIncome / maxValue) * 100}%`;
-    const expenseHeight = `${(overviewData.totalExpense / maxValue) * 100}%`;
-    return { incomeHeight, expenseHeight };
-  }, [overviewData?.totalIncome, overviewData?.totalExpense]);
-
-  // Memoize category stats để tránh re-render
-  const categoryStats = useMemo(() => {
-    return overviewData?.categoryStats || [];
-  }, [overviewData?.categoryStats]);
 
   const getUserInitial = () => {
     if (user?.firstName) return user.firstName[0].toUpperCase();
@@ -406,113 +410,14 @@ export default function HomeScreen() {
         </View>
 
         {/* Income/Expense Overview Card */}
-        <View style={[styles.card, styles.darkCard]}>
-          <View style={styles.overviewHeader}>
-            <Text style={styles.overviewTitle}>Tình hình thu chi</Text>
-            <View style={styles.overviewActions}>
-              <TouchableOpacity style={styles.overviewButton}>
-                <MaterialIcons name="settings" size={16} color="#99A1AF" />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.overviewDropdown}
-                onPress={() => setShowPeriodModal(true)}>
-                <Text style={styles.overviewDropdownText}>{getPeriodText(selectedPeriod)}</Text>
-                <MaterialIcons name="keyboard-arrow-down" size={16} color="#99A1AF" />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Giữ nguyên layout để tránh "giật"; chỉ overlay loading */}
-          <View style={{ position: 'relative' }}>
-            <>
-              {/* Summary Stats */}
-              <View style={styles.summaryStats}>
-                <View style={styles.summaryStat}>
-                  <Text style={styles.summaryLabel}>Thu</Text>
-                  <Text style={[styles.summaryValue, styles.incomeValue]}>
-                    {formatCurrency(overviewData?.totalIncome ?? 0)}
-                  </Text>
-                </View>
-                <View style={styles.summaryStat}>
-                  <Text style={styles.summaryLabel}>Chi</Text>
-                  <Text style={[styles.summaryValue, styles.expenseValue]}>
-                    {formatCurrency(overviewData?.totalExpense ?? 0)}
-                  </Text>
-                </View>
-                <View style={styles.summaryStat}>
-                  <Text style={styles.summaryLabel}>Chênh lệch</Text>
-                  <Text style={[
-                    styles.summaryValue,
-                    (overviewData?.difference ?? 0) >= 0 ? styles.incomeValue : styles.expenseValue
-                  ]}>
-                    {(overviewData?.difference ?? 0) >= 0 ? '+' : ''}{formatCurrency(overviewData?.difference ?? 0)}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Bar Chart */}
-              <View style={styles.chartContainer}>
-                <View style={styles.barChart}>
-                  <View style={[styles.bar, styles.incomeBar, { height: barHeights.incomeHeight }]} />
-                  <View style={[styles.bar, styles.expenseBar, { height: barHeights.expenseHeight }]} />
-                </View>
-              </View>
-
-              {/* Pie Chart Legend */}
-              <View style={styles.pieChartSection}>
-                <View style={styles.pieChartPlaceholder}>
-                  {categoryStats.length > 0 ? (
-                    <SimplePieChart
-                      data={categoryStats.map(cat => ({
-                        percentage: cat.percentage,
-                        color: cat.color || '#6B7280',
-                      }))}
-                      size={100}
-                    />
-                  ) : (
-                    <View style={styles.pieChartCircle} />
-                  )}
-                </View>
-                <View style={styles.legend}>
-                  {categoryStats.length > 0 ? (
-                    categoryStats.map((category, index) => (
-                      <View key={category.categoryId || index} style={styles.legendItem}>
-                        <View style={[styles.legendDot, { backgroundColor: category.color || '#000000' }]} />
-                        <Text style={styles.legendName}>{category.categoryName}</Text>
-                        <Text style={styles.legendPercentage}>{category.percentage.toFixed(1)}%</Text>
-                      </View>
-                    ))
-                  ) : (
-                    <Text style={{ color: '#99A1AF', fontSize: 12 }}>Chưa có dữ liệu</Text>
-                  )}
-                </View>
-              </View>
-            </>
-
-            {overviewLoading && (
-              <View
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  backgroundColor: 'rgba(0,0,0,0.12)',
-                  borderRadius: 12,
-                }}>
-                <ActivityIndicator size="small" color="#51A2FF" />
-              </View>
-            )}
-          </View>
-
-          <TouchableOpacity 
-            style={styles.historyButton}
-            onPress={() => router.push('/(protected)/(other-pages)/transaction-history')}>
-            <Text style={styles.historyButtonText}>Lịch sử ghi chép</Text>
-          </TouchableOpacity>
-        </View>
+        <SpendingIncomeOverviewCard
+          overviewData={overviewData}
+          overviewLoading={overviewLoading}
+          periodLabel={getPeriodText(selectedPeriod)}
+          onOpenPeriodModal={() => setShowPeriodModal(true)}
+          onPressHistory={() => router.push('/(protected)/(other-pages)/transaction-history')}
+          formatCurrency={formatCurrency}
+        />
 
         {/* Spending Limit Card */}
         <View style={[styles.card, styles.darkCard]}>

@@ -126,7 +126,10 @@ export default function SignInScreen() {
             await setActive({ session: signIn.createdSessionId });
           }
           await syncUserProfile();
-          router.replace('/(protected)/(tabs)');
+          router.replace({
+            pathname: '/(protected)/(tabs)',
+            params: { __replace: 'push' },
+          } as any);
         }
       } else {
         if (!signUpLoaded || !signUp) {

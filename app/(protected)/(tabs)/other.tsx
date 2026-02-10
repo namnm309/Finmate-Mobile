@@ -1,17 +1,18 @@
+import { useAuth } from '@/hooks/use-auth';
+import { styles } from '@/styles/index.styles';
 import { useUser } from '@clerk/clerk-expo';
 import { MaterialIcons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
-  Alert,
-  SafeAreaView,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View
+    Alert,
+    SafeAreaView,
+    ScrollView,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
-import { styles } from '@/styles/index.styles';
-import { useAuth } from '@/hooks/use-auth';
 
 // Mock data - có thể kết nối API sau
 const stats = {
@@ -107,11 +108,17 @@ const supportMenuItems = [
     color: '#9810FA',
     subtext: 'Tiếng Việt',
   },
+  {
+    id: 5,
+    title: 'Lấy token Swagger',
+    icon: 'code',
+    color: '#22D3EE',
+  },
 ];
 
 export default function OtherScreen() {
   const { user } = useUser();
-  const { signOut } = useAuth();
+  const { signOut, getToken } = useAuth();
   const router = useRouter();
 
   const getUserInitial = () => {
@@ -205,6 +212,34 @@ export default function OtherScreen() {
       default:
         break;
     }
+  };
+
+  const handleSupportMenuItemPress = async (itemId: number) => {
+    if (itemId === 5) {
+      // Lấy token Swagger
+      try {
+        const token = await getToken({ template: 'swagger-test' });
+        if (token) {
+          await Clipboard.setStringAsync(token);
+          Alert.alert(
+            'Đã copy token',
+            'Token đã được copy. Mở Swagger → Authorize → Dán (Bearer token).'
+          );
+        } else {
+          Alert.alert(
+            'Lỗi',
+            'Không lấy được token. Kiểm tra đăng nhập và template Clerk.'
+          );
+        }
+      } catch (error) {
+        console.error('Error getting Swagger token:', error);
+        Alert.alert(
+          'Lỗi',
+          'Không lấy được token. Kiểm tra đăng nhập và template Clerk.'
+        );
+      }
+    }
+    // Các item khác (Trợ giúp, Đánh giá, Chia sẻ ứng dụng, Ngôn ngữ) có thể xử lý sau
   };
 
   return (
@@ -316,7 +351,8 @@ export default function OtherScreen() {
             <TouchableOpacity
               key={item.id}
               style={styles.otherMenuItem}
-              activeOpacity={0.7}>
+              activeOpacity={0.7}
+              onPress={() => handleSupportMenuItemPress(item.id)}>
               <View style={[styles.otherMenuItemIcon, { backgroundColor: item.color }]}>
                 <MaterialIcons name={item.icon as any} size={20} color="#FFFFFF" />
               </View>

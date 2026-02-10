@@ -63,7 +63,7 @@ export default function AIAssistantScreen() {
           <View style={styles.messageContainer}>
             <View style={styles.messageBubble}>
               <Text style={styles.messageText}>
-                Xin chào! Tôi là AI Assistant của FinMate. Bạn có thể nói hoặc gõ về các khoản chi tiêu của mình, tôi sẽ giúp bạn tự động ghi chép. Ví dụ: "Hôm nay tui đi chợ hết 100k"
+                Xin chào! Tôi là AI Assistant của FinMate. Bạn có thể nói hoặc gõ về các khoản chi tiêu của mình, tôi sẽ giúp bạn tự động ghi chép. Ví dụ: “Hôm nay tui đi chợ hết 100k”
               </Text>
             </View>
           </View>

@@ -383,9 +383,12 @@ export const styles = StyleSheet.create({
   expenseValue: {
     color: '#FF6467',
   },
+  differenceValue: {
+    color: '#FFFFFF',
+  },
   chartContainer: {
-    height: 100,
-    marginBottom: 24,
+    height: 96,
+    marginBottom: 20,
   },
   barChart: {
     flexDirection: 'row',
@@ -395,8 +398,8 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   bar: {
-    width: 40,
-    borderRadius: 4,
+    width: 90,
+    borderRadius: 6,
   },
   incomeBar: {
     backgroundColor: '#10B981',
@@ -406,18 +409,19 @@ export const styles = StyleSheet.create({
   },
   pieChartSection: {
     flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 24,
   },
   pieChartPlaceholder: {
-    width: 120,
-    height: 120,
+    width: 140,
+    height: 140,
     justifyContent: 'center',
     alignItems: 'center',
   },
   pieChartCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     backgroundColor: '#2A2A3E',
   },
   legend: {
@@ -2503,5 +2507,39 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     color: '#99A1AF',
+  },
+  // Account tab: bottom sheet menu (reference; account.tsx uses local styles)
+  accountBottomSheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#6B7280',
+    alignSelf: 'center',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  accountBottomSheetItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    gap: 16,
+  },
+  accountBottomSheetItemText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+  },
+  // Delete money source dialog (reference; DeleteMoneySourceDialog has its own styles)
+  deleteDialogTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  deleteDialogMessage: {
+    color: '#E5E7EB',
+    fontSize: 14,
+    lineHeight: 22,
+    textAlign: 'center',
   },
 });

@@ -153,7 +153,10 @@ export default function ExpenseAnalysisScreen() {
   const maxTrendValue = Math.max(...weeklyTrend);
 
   const handleBack = () => {
-    router.replace('/(protected)/(tabs)/report');
+    router.replace({
+      pathname: '/(protected)/(tabs)/report',
+      params: { __replace: 'pop' },
+    } as any);
   };
 
   return (

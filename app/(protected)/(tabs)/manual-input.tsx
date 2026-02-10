@@ -160,14 +160,30 @@ export default function ManualInputScreen() {
     }
   };
 
+  // Format số tiền: dấu chấm phân cách hàng nghìn (1.000, 100.000)
+  const formatWithThousandSeparators = (numStr: string): string => {
+    if (!numStr) return numStr;
+    return numStr.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  };
+
+  const handleAmountChange = (text: string) => {
+    const rawDigits = text.replace(/\D/g, '');
+    if (rawDigits === '') {
+      setAmount('');
+      return;
+    }
+    setAmount(formatWithThousandSeparators(rawDigits));
+  };
+
   const handleSave = async () => {
     // Validation
-    if (!amount.trim()) {
+    const digitsOnly = amount.replace(/\D/g, '');
+    if (digitsOnly === '') {
       Alert.alert('Lỗi', 'Vui lòng nhập số tiền');
       return;
     }
 
-    const amountNumber = parseFloat(amount.replace(/[^0-9.]/g, ''));
+    const amountNumber = parseInt(digitsOnly, 10);
     if (isNaN(amountNumber) || amountNumber <= 0) {
       Alert.alert('Lỗi', 'Số tiền không hợp lệ');
       return;
@@ -344,8 +360,8 @@ export default function ManualInputScreen() {
             placeholder="Số tiền"
             placeholderTextColor="#6a7282"
             value={amount}
-            onChangeText={setAmount}
-            keyboardType="numeric"
+            onChangeText={handleAmountChange}
+            keyboardType="decimal-pad"
             autoFocus={false}
           />
           <Text style={[styles.currencySymbol, { color: currentTypeColor }]}>vnđ</Text>

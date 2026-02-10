@@ -1,6 +1,7 @@
 import { useAuth } from "@clerk/clerk-expo";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
+import { Platform } from "react-native";
 
 // Này dùng để check authentication state khi app khởi động, khi restart app thì nó sẽ check lại trạng thái đăng nhập
 export default function InitialLayout() {
@@ -26,5 +27,20 @@ export default function InitialLayout() {
 
   if (!isLoaded) return null;
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <Stack
+      screenOptions={({ route }) => {
+        const replaceType = (route.params as any)?.__replace as
+          | 'push'
+          | 'pop'
+          | undefined;
+
+        return {
+          headerShown: false,
+          animation: Platform.OS === 'android' ? 'slide_from_right' : 'default',
+          animationTypeForReplace: replaceType === 'pop' ? 'pop' : 'push',
+        };
+      }}
+    />
+  );
 }
