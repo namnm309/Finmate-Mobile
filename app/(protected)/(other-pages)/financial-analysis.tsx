@@ -1,3 +1,5 @@
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { styles } from '@/styles/index.styles';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -75,6 +77,9 @@ interface AIPrediction {
 
 export default function FinancialAnalysisScreen() {
   const router = useRouter();
+  const resolvedTheme = useColorScheme();
+  const themeColors = Colors[resolvedTheme];
+  const isLight = resolvedTheme === 'light';
   const [activeTab, setActiveTab] = useState<InsightTab>('smart');
 
   // Mock data
@@ -243,7 +248,7 @@ export default function FinancialAnalysisScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -252,14 +257,34 @@ export default function FinancialAnalysisScreen() {
         {/* Header */}
         <View style={styles.financialAnalysisHeader}>
           <TouchableOpacity onPress={handleBack} style={styles.financialAnalysisBackButton}>
-            <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
+            <MaterialIcons
+              name="arrow-back"
+              size={24}
+              color={isLight ? themeColors.text : '#FFFFFF'}
+            />
           </TouchableOpacity>
           <View style={styles.financialAnalysisHeaderCenter}>
-            <Text style={styles.financialAnalysisTitle}>Phân tích tài chính</Text>
-            <Text style={styles.financialAnalysisSubtitle}>AI-Powered Analysis</Text>
+            <Text
+              style={[
+                styles.financialAnalysisTitle,
+                { color: themeColors.text },
+              ]}>
+              Phân tích tài chính
+            </Text>
+            <Text
+              style={[
+                styles.financialAnalysisSubtitle,
+                { color: themeColors.textSecondary },
+              ]}>
+              AI-Powered Analysis
+            </Text>
           </View>
           <TouchableOpacity style={styles.financialAnalysisSettingsButton}>
-            <MaterialIcons name="settings" size={24} color="#FFFFFF" />
+            <MaterialIcons
+              name="settings"
+              size={24}
+              color={isLight ? themeColors.text : '#FFFFFF'}
+            />
           </TouchableOpacity>
         </View>
 
@@ -271,15 +296,27 @@ export default function FinancialAnalysisScreen() {
             end={{ x: 1, y: 1 }}
             style={styles.financialAnalysisHealthScoreCard}>
             <View style={styles.financialAnalysisHealthScoreHeader}>
-              <View style={styles.financialAnalysisHealthScoreTitleRow}>
+            <View style={styles.financialAnalysisHealthScoreTitleRow}>
                 <MaterialIcons name="bolt" size={20} color="#FFFFFF" />
-                <Text style={styles.financialAnalysisHealthScoreTitle}>Điểm sức khỏe tài chính</Text>
+              <Text
+                style={[
+                  styles.financialAnalysisHealthScoreTitle,
+                  { color: '#FFFFFF' },
+                ]}>
+                Điểm sức khỏe tài chính
+              </Text>
               </View>
               <TouchableOpacity style={styles.financialAnalysisRestoreButton}>
                 <Text style={styles.financialAnalysisRestoreButtonText}>Khôi phục</Text>
               </TouchableOpacity>
             </View>
-            <Text style={styles.financialAnalysisHealthScoreSubtitle}>Dựa trên 4 yếu tố chính</Text>
+            <Text
+              style={[
+                styles.financialAnalysisHealthScoreSubtitle,
+                { color: 'rgba(255, 255, 255, 0.9)' },
+              ]}>
+              Dựa trên 4 yếu tố chính
+            </Text>
             
             <View style={styles.financialAnalysisHealthScoreContent}>
               <View style={styles.financialAnalysisHealthScoreCircleContainer}>
@@ -291,7 +328,13 @@ export default function FinancialAnalysisScreen() {
               <View style={styles.financialAnalysisHealthScoreFactors}>
                 {healthScoreFactors.map((factor, index) => (
                   <View key={index} style={styles.financialAnalysisHealthScoreFactor}>
-                    <Text style={styles.financialAnalysisHealthScoreFactorName}>{factor.name}</Text>
+                    <Text
+                      style={[
+                        styles.financialAnalysisHealthScoreFactorName,
+                        { color: '#FFFFFF' },
+                      ]}>
+                      {factor.name}
+                    </Text>
                     <View style={styles.financialAnalysisHealthScoreBarContainer}>
                       <View style={[styles.financialAnalysisHealthScoreBarTrack]}>
                         <View 
@@ -316,24 +359,77 @@ export default function FinancialAnalysisScreen() {
         </View>
 
         {/* AI Insights */}
-        <View style={[styles.card, styles.darkCard]}>
+        <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }]}>
           <View style={styles.financialAnalysisSectionHeader}>
             <View style={styles.financialAnalysisSectionTitleRow}>
               <MaterialIcons name="bolt" size={20} color="#51A2FF" />
-              <Text style={styles.financialAnalysisSectionTitle}>AI Insights</Text>
+              <Text
+                style={[
+                  styles.financialAnalysisSectionTitle,
+                  { color: themeColors.text },
+                ]}>
+                AI Insights
+              </Text>
             </View>
             <View style={styles.financialAnalysisInsightTabs}>
               <TouchableOpacity
-                style={[styles.financialAnalysisInsightTab, activeTab === 'smart' && styles.financialAnalysisInsightTabActive]}
+                style={[
+                  styles.financialAnalysisInsightTab,
+                  activeTab === 'smart' && styles.financialAnalysisInsightTabActive,
+                  isLight && {
+                    backgroundColor:
+                      activeTab === 'smart' ? themeColors.tint : 'transparent',
+                    borderWidth: 1,
+                    borderColor:
+                      activeTab === 'smart' ? themeColors.tint : themeColors.border,
+                  },
+                ]}
                 onPress={() => setActiveTab('smart')}>
-                <Text style={[styles.financialAnalysisInsightTabText, activeTab === 'smart' && styles.financialAnalysisInsightTabTextActive]}>
+                <Text
+                  style={[
+                    styles.financialAnalysisInsightTabText,
+                    activeTab === 'smart' &&
+                      styles.financialAnalysisInsightTabTextActive,
+                    isLight && {
+                      color:
+                        activeTab === 'smart'
+                          ? '#FFFFFF'
+                          : themeColors.textSecondary,
+                    },
+                  ]}>
                   Smart Analysis
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.financialAnalysisInsightTab, activeTab === 'recommendations' && styles.financialAnalysisInsightTabActive]}
+                style={[
+                  styles.financialAnalysisInsightTab,
+                  activeTab === 'recommendations' &&
+                    styles.financialAnalysisInsightTabActive,
+                  isLight && {
+                    backgroundColor:
+                      activeTab === 'recommendations'
+                        ? themeColors.tint
+                        : 'transparent',
+                    borderWidth: 1,
+                    borderColor:
+                      activeTab === 'recommendations'
+                        ? themeColors.tint
+                        : themeColors.border,
+                  },
+                ]}
                 onPress={() => setActiveTab('recommendations')}>
-                <Text style={[styles.financialAnalysisInsightTabText, activeTab === 'recommendations' && styles.financialAnalysisInsightTabTextActive]}>
+                <Text
+                  style={[
+                    styles.financialAnalysisInsightTabText,
+                    activeTab === 'recommendations' &&
+                      styles.financialAnalysisInsightTabTextActive,
+                    isLight && {
+                      color:
+                        activeTab === 'recommendations'
+                          ? '#FFFFFF'
+                          : themeColors.textSecondary,
+                    },
+                  ]}>
                   Recommendations
                 </Text>
               </TouchableOpacity>
@@ -341,13 +437,34 @@ export default function FinancialAnalysisScreen() {
           </View>
 
           {aiInsights.map((insight) => (
-            <View key={insight.id} style={styles.financialAnalysisInsightCard}>
+            <View
+              key={insight.id}
+              style={[
+                styles.financialAnalysisInsightCard,
+                isLight && {
+                  backgroundColor: themeColors.background,
+                  borderWidth: 1,
+                  borderColor: themeColors.border,
+                },
+              ]}>
               <View style={[styles.financialAnalysisInsightIcon, { backgroundColor: insight.color + '20' }]}>
                 <MaterialIcons name={insight.icon as any} size={20} color={insight.color} />
               </View>
               <View style={styles.financialAnalysisInsightContent}>
-                <Text style={styles.financialAnalysisInsightTitle}>{insight.title}</Text>
-                <Text style={styles.financialAnalysisInsightDescription}>{insight.description}</Text>
+                <Text
+                  style={[
+                    styles.financialAnalysisInsightTitle,
+                    { color: themeColors.text },
+                  ]}>
+                  {insight.title}
+                </Text>
+                <Text
+                  style={[
+                    styles.financialAnalysisInsightDescription,
+                    { color: themeColors.textSecondary },
+                  ]}>
+                  {insight.description}
+                </Text>
               </View>
             </View>
           ))}
@@ -356,12 +473,38 @@ export default function FinancialAnalysisScreen() {
         {/* Số liệu tổng quan */}
         <View style={styles.financialAnalysisMetricsGrid}>
           {financialMetrics.map((metric) => (
-            <View key={metric.id} style={styles.financialAnalysisMetricCard}>
+            <View
+              key={metric.id}
+              style={[
+                styles.financialAnalysisMetricCard,
+                isLight && {
+                  backgroundColor: themeColors.card,
+                  borderWidth: 1,
+                  borderColor: themeColors.border,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.06,
+                  shadowRadius: 4,
+                  elevation: 2,
+                },
+              ]}>
               <View style={[styles.financialAnalysisMetricIcon, { backgroundColor: metric.iconColor + '20' }]}>
                 <MaterialIcons name={metric.icon as any} size={24} color={metric.iconColor} />
               </View>
-              <Text style={styles.financialAnalysisMetricValue}>{metric.value}</Text>
-              <Text style={styles.financialAnalysisMetricLabel}>{metric.label}</Text>
+              <Text
+                style={[
+                  styles.financialAnalysisMetricValue,
+                  { color: themeColors.text },
+                ]}>
+                {metric.value}
+              </Text>
+              <Text
+                style={[
+                  styles.financialAnalysisMetricLabel,
+                  { color: themeColors.textSecondary },
+                ]}>
+                {metric.label}
+              </Text>
               {metric.change && (
                 <Text style={[styles.financialAnalysisMetricChange, { color: metric.changeColor }]}>
                   {metric.change}
@@ -375,8 +518,14 @@ export default function FinancialAnalysisScreen() {
         </View>
 
         {/* Tăng trưởng tài sản ròng */}
-        <View style={[styles.card, styles.darkCard]}>
-          <Text style={styles.financialAnalysisSectionTitle}>Tăng trưởng tài sản ròng</Text>
+        <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }]}>
+          <Text
+            style={[
+              styles.financialAnalysisSectionTitle,
+              { color: themeColors.text },
+            ]}>
+            Tăng trưởng tài sản ròng
+          </Text>
           <View style={styles.financialAnalysisGrowthChartContainer}>
             <View style={styles.financialAnalysisGrowthChart}>
               {growthData.map((value, index) => {
@@ -391,8 +540,15 @@ export default function FinancialAnalysisScreen() {
             </View>
           </View>
           <View style={styles.financialAnalysisGrowthSummary}>
-            <Text style={styles.financialAnalysisGrowthSummaryText}>
-              Tăng trưởng: <Text style={styles.financialAnalysisGrowthSummaryValue}>+{growthChange}%</Text>
+            <Text
+              style={[
+                styles.financialAnalysisGrowthSummaryText,
+                { color: themeColors.textSecondary },
+              ]}>
+              Tăng trưởng:{' '}
+              <Text style={styles.financialAnalysisGrowthSummaryValue}>
+                +{growthChange}%
+              </Text>
             </Text>
             <Text style={[styles.financialAnalysisGrowthSummaryAmount, { color: '#10B981' }]}>
               +{formatCurrency(growthAmount)}
@@ -401,16 +557,47 @@ export default function FinancialAnalysisScreen() {
         </View>
 
         {/* Tiến độ mục tiêu */}
-        <View style={[styles.card, styles.darkCard]}>
-          <Text style={styles.financialAnalysisSectionTitle}>Tiến độ mục tiêu</Text>
+        <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }]}>
+          <Text
+            style={[
+              styles.financialAnalysisSectionTitle,
+              { color: themeColors.text },
+            ]}>
+            Tiến độ mục tiêu
+          </Text>
           {goalProgresses.map((goal) => (
-            <View key={goal.id} style={styles.financialAnalysisGoalProgressCard}>
+            <View
+              key={goal.id}
+              style={[
+                styles.financialAnalysisGoalProgressCard,
+                isLight && {
+                  backgroundColor: themeColors.background,
+                  borderWidth: 1,
+                  borderColor: themeColors.border,
+                },
+              ]}>
               <View style={styles.financialAnalysisGoalProgressHeader}>
-                <Text style={styles.financialAnalysisGoalProgressName}>{goal.name}</Text>
-                <Text style={styles.financialAnalysisGoalProgressPercentage}>{goal.progress}%</Text>
+                <Text
+                  style={[
+                    styles.financialAnalysisGoalProgressName,
+                    { color: themeColors.text },
+                  ]}>
+                  {goal.name}
+                </Text>
+                <Text
+                  style={[
+                    styles.financialAnalysisGoalProgressPercentage,
+                    { color: themeColors.text },
+                  ]}>
+                  {goal.progress}%
+                </Text>
               </View>
               <View style={styles.financialAnalysisGoalProgressBarContainer}>
-                <View style={styles.financialAnalysisGoalProgressBarTrack}>
+                <View
+                  style={[
+                    styles.financialAnalysisGoalProgressBarTrack,
+                    isLight && { backgroundColor: themeColors.border },
+                  ]}>
                   <View 
                     style={[
                       styles.financialAnalysisGoalProgressBarFill,
@@ -422,7 +609,11 @@ export default function FinancialAnalysisScreen() {
                   />
                 </View>
               </View>
-              <Text style={styles.financialAnalysisGoalProgressAmount}>
+              <Text
+                style={[
+                  styles.financialAnalysisGoalProgressAmount,
+                  { color: themeColors.textSecondary },
+                ]}>
                 {formatCurrency(goal.current)} / {formatCurrency(goal.target)}
               </Text>
             </View>
@@ -430,20 +621,49 @@ export default function FinancialAnalysisScreen() {
         </View>
 
         {/* Khuyến nghị từ AI */}
-        <View style={[styles.card, styles.darkCard]}>
+        <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }]}>
           <View style={styles.financialAnalysisSectionTitleRow}>
             <MaterialIcons name="bolt" size={20} color="#51A2FF" />
-            <Text style={styles.financialAnalysisSectionTitle}>Khuyến nghị từ AI</Text>
+            <Text
+              style={[
+                styles.financialAnalysisSectionTitle,
+                { color: themeColors.text },
+              ]}>
+              Khuyến nghị từ AI
+            </Text>
           </View>
           {aiRecommendations.map((recommendation) => (
-            <View key={recommendation.id} style={styles.financialAnalysisRecommendationCard}>
+            <View
+              key={recommendation.id}
+              style={[
+                styles.financialAnalysisRecommendationCard,
+                isLight && {
+                  backgroundColor: themeColors.background,
+                  borderWidth: 1,
+                  borderColor: themeColors.border,
+                },
+              ]}>
               <View style={[styles.financialAnalysisRecommendationIcon, { backgroundColor: recommendation.iconColor + '20' }]}>
                 <MaterialIcons name={recommendation.icon as any} size={24} color={recommendation.iconColor} />
               </View>
               <View style={styles.financialAnalysisRecommendationContent}>
-                <Text style={styles.financialAnalysisRecommendationTitle}>{recommendation.title}</Text>
-                <Text style={styles.financialAnalysisRecommendationDescription}>{recommendation.description}</Text>
-                <Text style={styles.financialAnalysisRecommendationAction}>{recommendation.action}</Text>
+                <Text
+                  style={[
+                    styles.financialAnalysisRecommendationTitle,
+                    { color: themeColors.text },
+                  ]}>
+                  {recommendation.title}
+                </Text>
+                <Text
+                  style={[
+                    styles.financialAnalysisRecommendationDescription,
+                    { color: themeColors.textSecondary },
+                  ]}>
+                  {recommendation.description}
+                </Text>
+                <Text style={styles.financialAnalysisRecommendationAction}>
+                  {recommendation.action}
+                </Text>
               </View>
               <TouchableOpacity 
                 style={[styles.financialAnalysisRecommendationButton, { backgroundColor: recommendation.buttonColor }]}>

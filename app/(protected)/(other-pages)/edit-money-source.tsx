@@ -1,4 +1,6 @@
 import { DeleteMoneySourceDialog } from '@/components/DeleteMoneySourceDialog';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useMoneySourceService } from '@/lib/services/moneySourceService';
 import {
   AccountTypeDto,
@@ -34,6 +36,8 @@ const getCountryFlag = (countryCode: string): string => {
 export default function EditMoneySourceScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const resolvedTheme = useColorScheme();
+  const themeColors = Colors[resolvedTheme];
   const moneySourceService = useMoneySourceService();
   const serviceRef = useRef(moneySourceService);
   serviceRef.current = moneySourceService;
@@ -224,7 +228,7 @@ export default function EditMoneySourceScreen() {
 
   if (!id) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.headerButton} onPress={() => router.back()} activeOpacity={0.7}>
             <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
@@ -241,7 +245,7 @@ export default function EditMoneySourceScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.headerButton} onPress={() => router.back()} activeOpacity={0.7}>
             <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
@@ -259,7 +263,7 @@ export default function EditMoneySourceScreen() {
 
   if (error) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.headerButton} onPress={() => router.back()} activeOpacity={0.7}>
             <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
@@ -278,7 +282,7 @@ export default function EditMoneySourceScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerButton} onPress={() => router.back()} activeOpacity={0.7}>
           <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />

@@ -15,6 +15,8 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useMoneySourceService } from '@/lib/services/moneySourceService';
 import { AccountTypeDto, CurrencyDto, IconDto } from '@/lib/types/moneySource';
 
@@ -32,6 +34,8 @@ const getCountryFlag = (countryCode: string): string => {
 
 export default function AddMoneySourceScreen() {
   const router = useRouter();
+  const resolvedTheme = useColorScheme();
+  const themeColors = Colors[resolvedTheme];
   const { 
     getAccountTypes, 
     getCurrencies, 
@@ -212,7 +216,7 @@ export default function AddMoneySourceScreen() {
   // Loading state
   if (loadingData) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.headerButton}
@@ -239,7 +243,7 @@ export default function AddMoneySourceScreen() {
   // Error state
   if (error) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.headerButton}
@@ -267,7 +271,7 @@ export default function AddMoneySourceScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -416,7 +420,7 @@ export default function AddMoneySourceScreen() {
         transparent={false}
         animationType="slide"
         onRequestClose={() => setShowAccountTypeModal(false)}>
-        <SafeAreaView style={styles.modalContainer}>
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: themeColors.background }]}>
           <View style={styles.modalHeader}>
             <TouchableOpacity
               style={styles.modalHeaderButton}
@@ -456,7 +460,7 @@ export default function AddMoneySourceScreen() {
         transparent={false}
         animationType="slide"
         onRequestClose={() => setShowCurrencyModal(false)}>
-        <SafeAreaView style={styles.modalContainer}>
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: themeColors.background }]}>
           <View style={styles.modalHeader}>
             <TouchableOpacity
               style={styles.modalHeaderButton}
@@ -515,7 +519,7 @@ export default function AddMoneySourceScreen() {
         transparent={false}
         animationType="slide"
         onRequestClose={() => setShowIconModal(false)}>
-        <SafeAreaView style={styles.modalContainer}>
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: themeColors.background }]}>
           <View style={styles.modalHeader}>
             <TouchableOpacity
               style={styles.modalHeaderButton}

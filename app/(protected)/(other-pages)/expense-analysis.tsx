@@ -1,3 +1,5 @@
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { styles } from '@/styles/index.styles';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -59,6 +61,9 @@ interface UnusualTransaction {
 
 export default function ExpenseAnalysisScreen() {
   const router = useRouter();
+  const resolvedTheme = useColorScheme();
+  const themeColors = Colors[resolvedTheme];
+  const isLight = resolvedTheme === 'light';
   const [activePeriod, setActivePeriod] = useState<TimePeriod>('month');
 
   // Mock data
@@ -160,7 +165,7 @@ export default function ExpenseAnalysisScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -169,31 +174,107 @@ export default function ExpenseAnalysisScreen() {
         {/* Header */}
         <View style={styles.expenseAnalysisHeader}>
           <TouchableOpacity onPress={handleBack} style={styles.expenseAnalysisBackButton}>
-            <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
+            <MaterialIcons
+              name="arrow-back"
+              size={24}
+              color={isLight ? themeColors.text : '#FFFFFF'}
+            />
           </TouchableOpacity>
           <View style={styles.expenseAnalysisHeaderCenter}>
-            <Text style={styles.expenseAnalysisTitle}>Phân tích chi tiêu</Text>
-            <Text style={styles.expenseAnalysisSubtitle}>Powered by AI</Text>
+            <Text
+              style={[
+                styles.expenseAnalysisTitle,
+                { color: themeColors.text },
+              ]}>
+              Phân tích chi tiêu
+            </Text>
+            <Text
+              style={[
+                styles.expenseAnalysisSubtitle,
+                { color: themeColors.textSecondary },
+              ]}>
+              Powered by AI
+            </Text>
           </View>
           <View style={styles.expenseAnalysisTabs}>
             <TouchableOpacity
-              style={[styles.expenseAnalysisTab, activePeriod === 'week' && styles.expenseAnalysisTabActive]}
+              style={[
+                styles.expenseAnalysisTab,
+                activePeriod === 'week' && styles.expenseAnalysisTabActive,
+                isLight && {
+                  backgroundColor:
+                    activePeriod === 'week' ? themeColors.tint : 'transparent',
+                  borderWidth: 1,
+                  borderColor:
+                    activePeriod === 'week' ? themeColors.tint : themeColors.border,
+                },
+              ]}
               onPress={() => setActivePeriod('week')}>
-              <Text style={[styles.expenseAnalysisTabText, activePeriod === 'week' && styles.expenseAnalysisTabTextActive]}>
+              <Text
+                style={[
+                  styles.expenseAnalysisTabText,
+                  activePeriod === 'week' && styles.expenseAnalysisTabTextActive,
+                  isLight && {
+                    color:
+                      activePeriod === 'week'
+                        ? '#FFFFFF'
+                        : themeColors.textSecondary,
+                  },
+                ]}>
                 Tuần này
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.expenseAnalysisTab, activePeriod === 'month' && styles.expenseAnalysisTabActive]}
+              style={[
+                styles.expenseAnalysisTab,
+                activePeriod === 'month' && styles.expenseAnalysisTabActive,
+                isLight && {
+                  backgroundColor:
+                    activePeriod === 'month' ? themeColors.tint : 'transparent',
+                  borderWidth: 1,
+                  borderColor:
+                    activePeriod === 'month' ? themeColors.tint : themeColors.border,
+                },
+              ]}
               onPress={() => setActivePeriod('month')}>
-              <Text style={[styles.expenseAnalysisTabText, activePeriod === 'month' && styles.expenseAnalysisTabTextActive]}>
+              <Text
+                style={[
+                  styles.expenseAnalysisTabText,
+                  activePeriod === 'month' && styles.expenseAnalysisTabTextActive,
+                  isLight && {
+                    color:
+                      activePeriod === 'month'
+                        ? '#FFFFFF'
+                        : themeColors.textSecondary,
+                  },
+                ]}>
                 Tháng này
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.expenseAnalysisTab, activePeriod === 'year' && styles.expenseAnalysisTabActive]}
+              style={[
+                styles.expenseAnalysisTab,
+                activePeriod === 'year' && styles.expenseAnalysisTabActive,
+                isLight && {
+                  backgroundColor:
+                    activePeriod === 'year' ? themeColors.tint : 'transparent',
+                  borderWidth: 1,
+                  borderColor:
+                    activePeriod === 'year' ? themeColors.tint : themeColors.border,
+                },
+              ]}
               onPress={() => setActivePeriod('year')}>
-              <Text style={[styles.expenseAnalysisTabText, activePeriod === 'year' && styles.expenseAnalysisTabTextActive]}>
+              <Text
+                style={[
+                  styles.expenseAnalysisTabText,
+                  activePeriod === 'year' && styles.expenseAnalysisTabTextActive,
+                  isLight && {
+                    color:
+                      activePeriod === 'year'
+                        ? '#FFFFFF'
+                        : themeColors.textSecondary,
+                  },
+                ]}>
                 Năm nay
               </Text>
             </TouchableOpacity>
@@ -224,11 +305,17 @@ export default function ExpenseAnalysisScreen() {
         </View>
 
         {/* AI Insights */}
-        <View style={[styles.card, styles.darkCard]}>
+        <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }]}>
           <View style={styles.expenseAnalysisSectionHeader}>
             <View style={styles.expenseAnalysisSectionTitleRow}>
               <MaterialIcons name="bolt" size={20} color="#51A2FF" />
-              <Text style={styles.expenseAnalysisSectionTitle}>AI Insights</Text>
+              <Text
+                style={[
+                  styles.expenseAnalysisSectionTitle,
+                  { color: themeColors.text },
+                ]}>
+                AI Insights
+              </Text>
             </View>
             <TouchableOpacity style={styles.expenseAnalysisSmartButton}>
               <Text style={styles.expenseAnalysisSmartButtonText}>Smart</Text>
@@ -236,7 +323,17 @@ export default function ExpenseAnalysisScreen() {
           </View>
 
           {aiInsights.map((insight) => (
-            <View key={insight.id} style={[styles.expenseAnalysisInsightCard, { borderLeftColor: insight.color }]}>
+            <View
+              key={insight.id}
+              style={[
+                styles.expenseAnalysisInsightCard,
+                { borderLeftColor: insight.color },
+                isLight && {
+                  backgroundColor: themeColors.background,
+                  borderWidth: 1,
+                  borderColor: themeColors.border,
+                },
+              ]}>
               <View style={[styles.expenseAnalysisInsightIcon, { backgroundColor: insight.color + '20' }]}>
                 <MaterialIcons 
                   name={insight.type === 'success' ? 'trending-down' : 'trending-up'} 
@@ -245,8 +342,20 @@ export default function ExpenseAnalysisScreen() {
                 />
               </View>
               <View style={styles.expenseAnalysisInsightContent}>
-                <Text style={styles.expenseAnalysisInsightTitle}>{insight.title}</Text>
-                <Text style={styles.expenseAnalysisInsightDescription}>{insight.description}</Text>
+                <Text
+                  style={[
+                    styles.expenseAnalysisInsightTitle,
+                    { color: themeColors.text },
+                  ]}>
+                  {insight.title}
+                </Text>
+                <Text
+                  style={[
+                    styles.expenseAnalysisInsightDescription,
+                    { color: themeColors.textSecondary },
+                  ]}>
+                  {insight.description}
+                </Text>
                 <View style={styles.expenseAnalysisInsightTip}>
                   <MaterialIcons name="push-pin" size={14} color={insight.color} />
                   <Text style={[styles.expenseAnalysisInsightTipText, { color: insight.color }]}>
@@ -259,8 +368,14 @@ export default function ExpenseAnalysisScreen() {
         </View>
 
         {/* Phân bố chi tiêu */}
-        <View style={[styles.card, styles.darkCard]}>
-          <Text style={styles.expenseAnalysisSectionTitle}>Phân bố chi tiêu</Text>
+        <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }]}>
+          <Text
+            style={[
+              styles.expenseAnalysisSectionTitle,
+              { color: themeColors.text },
+            ]}>
+            Phân bố chi tiêu
+          </Text>
           <View style={styles.expenseAnalysisPieChartContainer}>
             <View style={styles.expenseAnalysisPieChartPlaceholder}>
               {/* Placeholder for pie chart */}
@@ -269,10 +384,33 @@ export default function ExpenseAnalysisScreen() {
             <View style={styles.expenseAnalysisLegend}>
               {expenseCategories.map((category, index) => (
                 <View key={index} style={styles.expenseAnalysisLegendItem}>
-                  <View style={[styles.expenseAnalysisLegendDot, { backgroundColor: category.color }]} />
-                  <Text style={styles.expenseAnalysisLegendName}>{category.name}</Text>
-                  <Text style={styles.expenseAnalysisLegendPercentage}>{category.percentage}%</Text>
-                  <Text style={styles.expenseAnalysisLegendAmount}>{formatCurrency(category.amount)}</Text>
+                  <View
+                    style={[
+                      styles.expenseAnalysisLegendDot,
+                      { backgroundColor: category.color },
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.expenseAnalysisLegendName,
+                      { color: themeColors.text },
+                    ]}>
+                    {category.name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.expenseAnalysisLegendPercentage,
+                      { color: themeColors.textSecondary },
+                    ]}>
+                    {category.percentage}%
+                  </Text>
+                  <Text
+                    style={[
+                      styles.expenseAnalysisLegendAmount,
+                      { color: themeColors.text },
+                    ]}>
+                    {formatCurrency(category.amount)}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -280,8 +418,14 @@ export default function ExpenseAnalysisScreen() {
         </View>
 
         {/* Xu hướng 7 ngày qua */}
-        <View style={[styles.card, styles.darkCard]}>
-          <Text style={styles.expenseAnalysisSectionTitle}>Xu hướng 7 ngày qua</Text>
+        <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }]}>
+          <Text
+            style={[
+              styles.expenseAnalysisSectionTitle,
+              { color: themeColors.text },
+            ]}>
+            Xu hướng 7 ngày qua
+          </Text>
           <View style={styles.expenseAnalysisLineChartContainer}>
             <View style={styles.expenseAnalysisLineChart}>
               {weeklyTrend.map((value, index) => {
@@ -289,21 +433,42 @@ export default function ExpenseAnalysisScreen() {
                 const days = ['T3', 'T4', 'T5', 'T6', 'T7', 'CN', 'T2'];
                 return (
                   <View key={index} style={styles.expenseAnalysisLineChartPoint}>
-                    <View style={[styles.expenseAnalysisLineChartBar, { height: `${height}%` }]} />
-                    <Text style={styles.expenseAnalysisLineChartLabel}>{days[index]}</Text>
+                    <View
+                      style={[
+                        styles.expenseAnalysisLineChartBar,
+                        { height: `${height}%` },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.expenseAnalysisLineChartLabel,
+                        { color: themeColors.textSecondary },
+                      ]}>
+                      {days[index]}
+                    </Text>
                   </View>
                 );
               })}
             </View>
           </View>
-          <Text style={styles.expenseAnalysisLineChartSubtitle}>
+          <Text
+            style={[
+              styles.expenseAnalysisLineChartSubtitle,
+              { color: themeColors.textSecondary },
+            ]}>
             Tổng chi tiêu: {formatCurrency(avgDaily)} trung bình
           </Text>
         </View>
 
         {/* So sánh tháng trước */}
-        <View style={[styles.card, styles.darkCard]}>
-          <Text style={styles.expenseAnalysisSectionTitle}>So sánh tháng trước</Text>
+        <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }]}>
+          <Text
+            style={[
+              styles.expenseAnalysisSectionTitle,
+              { color: themeColors.text },
+            ]}>
+            So sánh tháng trước
+          </Text>
           {comparisons.map((item, index) => {
             const maxValue = Math.max(item.current, item.previous);
             const currentWidth = (item.current / maxValue) * 100;
@@ -312,15 +477,46 @@ export default function ExpenseAnalysisScreen() {
             
             return (
               <View key={index} style={styles.expenseAnalysisComparisonItem}>
-                <Text style={styles.expenseAnalysisComparisonCategory}>{item.category}</Text>
+                <Text
+                  style={[
+                    styles.expenseAnalysisComparisonCategory,
+                    { color: themeColors.text },
+                  ]}>
+                  {item.category}
+                </Text>
                 <View style={styles.expenseAnalysisComparisonBars}>
                   <View style={styles.expenseAnalysisComparisonBarContainer}>
-                    <View style={[styles.expenseAnalysisComparisonBar, { width: `${currentWidth}%`, backgroundColor: item.color }]} />
-                    <Text style={styles.expenseAnalysisComparisonValue}>{formatCurrency(item.current)}</Text>
+                    <View
+                      style={[
+                        styles.expenseAnalysisComparisonBar,
+                        { width: `${currentWidth}%`, backgroundColor: item.color },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.expenseAnalysisComparisonValue,
+                        { color: themeColors.textSecondary },
+                      ]}>
+                      {formatCurrency(item.current)}
+                    </Text>
                   </View>
                   <View style={styles.expenseAnalysisComparisonBarContainer}>
-                    <View style={[styles.expenseAnalysisComparisonBar, { width: `${previousWidth}%`, backgroundColor: item.color + '60' }]} />
-                    <Text style={styles.expenseAnalysisComparisonValue}>{formatCurrency(item.previous)}</Text>
+                    <View
+                      style={[
+                        styles.expenseAnalysisComparisonBar,
+                        {
+                          width: `${previousWidth}%`,
+                          backgroundColor: item.color + '60',
+                        },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.expenseAnalysisComparisonValue,
+                        { color: themeColors.textSecondary },
+                      ]}>
+                      {formatCurrency(item.previous)}
+                    </Text>
                   </View>
                 </View>
                 <Text style={[styles.expenseAnalysisComparisonChange, { color: changeColor }]}>
@@ -332,19 +528,46 @@ export default function ExpenseAnalysisScreen() {
         </View>
 
         {/* Gợi ý tiết kiệm */}
-        <View style={[styles.card, styles.darkCard]}>
+        <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }]}>
           <View style={styles.expenseAnalysisSectionTitleRow}>
             <MaterialIcons name="bolt" size={20} color="#51A2FF" />
-            <Text style={styles.expenseAnalysisSectionTitle}>Gợi ý tiết kiệm</Text>
+            <Text
+              style={[
+                styles.expenseAnalysisSectionTitle,
+                { color: themeColors.text },
+              ]}>
+              Gợi ý tiết kiệm
+            </Text>
           </View>
           {savingTips.map((tip) => (
-            <View key={tip.id} style={styles.expenseAnalysisSavingTipCard}>
+            <View
+              key={tip.id}
+              style={[
+                styles.expenseAnalysisSavingTipCard,
+                isLight && {
+                  backgroundColor: themeColors.background,
+                  borderWidth: 1,
+                  borderColor: themeColors.border,
+                },
+              ]}>
               <View style={styles.expenseAnalysisSavingTipIcon}>
                 <Text style={styles.expenseAnalysisSavingTipEmoji}>💡</Text>
               </View>
               <View style={styles.expenseAnalysisSavingTipContent}>
-                <Text style={styles.expenseAnalysisSavingTipTitle}>{tip.title}</Text>
-                <Text style={styles.expenseAnalysisSavingTipDescription}>{tip.description}</Text>
+                <Text
+                  style={[
+                    styles.expenseAnalysisSavingTipTitle,
+                    { color: themeColors.text },
+                  ]}>
+                  {tip.title}
+                </Text>
+                <Text
+                  style={[
+                    styles.expenseAnalysisSavingTipDescription,
+                    { color: themeColors.textSecondary },
+                  ]}>
+                  {tip.description}
+                </Text>
               </View>
               <TouchableOpacity style={styles.expenseAnalysisSavingTipButton}>
                 <Text style={styles.expenseAnalysisSavingTipButtonText}>Đã Khắc Phục</Text>
@@ -354,21 +577,50 @@ export default function ExpenseAnalysisScreen() {
         </View>
 
         {/* Giao dịch bất thường */}
-        <View style={[styles.card, styles.darkCard]}>
+        <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }]}>
           <View style={styles.expenseAnalysisSectionTitleRow}>
             <MaterialIcons name="warning" size={20} color="#EF4444" />
-            <Text style={styles.expenseAnalysisSectionTitle}>Giao dịch bất thường</Text>
+            <Text
+              style={[
+                styles.expenseAnalysisSectionTitle,
+                { color: themeColors.text },
+              ]}>
+              Giao dịch bất thường
+            </Text>
           </View>
           <View style={styles.expenseAnalysisUnusualTransactionsContainer}>
             {unusualTransactions.map((transaction) => (
-              <View key={transaction.id} style={styles.expenseAnalysisUnusualTransactionCard}>
+              <View
+                key={transaction.id}
+                style={[
+                  styles.expenseAnalysisUnusualTransactionCard,
+                  isLight && {
+                    backgroundColor: themeColors.background,
+                  },
+                ]}>
                 <View style={styles.expenseAnalysisUnusualTransactionContent}>
-                  <Text style={styles.expenseAnalysisUnusualTransactionName}>{transaction.name}</Text>
+                  <Text
+                    style={[
+                      styles.expenseAnalysisUnusualTransactionName,
+                      { color: themeColors.text },
+                    ]}>
+                    {transaction.name}
+                  </Text>
                   <Text style={styles.expenseAnalysisUnusualTransactionAmount}>
                     {formatCurrency(transaction.amount)}
                   </Text>
-                  <Text style={styles.expenseAnalysisUnusualTransactionTime}>{transaction.time}</Text>
-                  <Text style={styles.expenseAnalysisUnusualTransactionDescription}>
+                  <Text
+                    style={[
+                      styles.expenseAnalysisUnusualTransactionTime,
+                      { color: themeColors.textSecondary },
+                    ]}>
+                    {transaction.time}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.expenseAnalysisUnusualTransactionDescription,
+                      { color: themeColors.textSecondary },
+                    ]}>
                     {transaction.description}
                   </Text>
                 </View>

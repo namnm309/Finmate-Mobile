@@ -16,6 +16,8 @@ import {
   Platform,
 } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { styles } from '@/styles/index.styles';
 import { useUserService } from '@/lib/services/userService';
 import { UserResponse } from '@/lib/types/user';
@@ -82,6 +84,9 @@ export default function AccountSettingsScreen() {
   const { user } = useUser();
   const router = useRouter();
   const { signOut } = useAuth();
+  const resolvedTheme = useColorScheme();
+  const themeColors = Colors[resolvedTheme];
+  const isLight = resolvedTheme === 'light';
   const { getUserProfile, updateUserProfile, deleteUserData, deleteUserAccount } = useUserService();
   
   // State management
@@ -358,10 +363,16 @@ export default function AccountSettingsScreen() {
   // Loading state
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color="#51A2FF" />
-          <Text style={{ marginTop: 16, color: '#FFFFFF' }}>Đang tải thông tin...</Text>
+          <ActivityIndicator size="large" color={themeColors.tint} />
+          <Text
+            style={{
+              marginTop: 16,
+              color: themeColors.text,
+            }}>
+            Đang tải thông tin...
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -370,7 +381,7 @@ export default function AccountSettingsScreen() {
   // Error state
   if (error && !userData) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
           <Text style={{ color: '#EF4444', marginBottom: 16, textAlign: 'center' }}>{error}</Text>
           <TouchableOpacity
@@ -388,7 +399,7 @@ export default function AccountSettingsScreen() {
               }
             }}
             style={{
-              backgroundColor: '#51A2FF',
+              backgroundColor: themeColors.tint,
               paddingHorizontal: 20,
               paddingVertical: 10,
               borderRadius: 8,
@@ -401,7 +412,7 @@ export default function AccountSettingsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 }]}
@@ -410,10 +421,10 @@ export default function AccountSettingsScreen() {
         {/* Header */}
         <View style={styles.accountSettingsHeader}>
           <TouchableOpacity onPress={handleBack} style={styles.accountSettingsBackButton}>
-            <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
+            <MaterialIcons name="arrow-back" size={24} color={themeColors.text} />
           </TouchableOpacity>
           <View style={styles.accountSettingsHeaderCenter}>
-            <Text style={styles.accountSettingsTitle}>Cài đặt tài khoản</Text>
+            <Text style={[styles.accountSettingsTitle, { color: themeColors.text }]}>Cài đặt tài khoản</Text>
           </View>
           {/* Bỏ nút chỉnh sửa (icon cây bút) */}
           <View style={styles.accountSettingsEditButton} />
@@ -432,18 +443,47 @@ export default function AccountSettingsScreen() {
               </LinearGradient>
             </View>
           </View>
-          <Text style={styles.accountSettingsProfileName}>{getUserFullName()}</Text>
-          <Text style={styles.accountSettingsMemberSince}>{getMemberSince()}</Text>
+          <Text
+            style={[
+              styles.accountSettingsProfileName,
+              { color: themeColors.text },
+            ]}>
+            {getUserFullName()}
+          </Text>
+          <Text
+            style={[
+              styles.accountSettingsMemberSince,
+              { color: themeColors.textSecondary },
+            ]}>
+            {getMemberSince()}
+          </Text>
         </View>
 
         {/* Account Information Section */}
         <View style={styles.accountSettingsSection}>
-          <Text style={styles.accountSettingsSectionTitle}>Thông tin tài khoản</Text>
-          <View style={styles.accountSettingsInfoContainer}>
+          <Text
+            style={[
+              styles.accountSettingsSectionTitle,
+              { color: themeColors.text },
+            ]}>
+            Thông tin tài khoản
+          </Text>
+          <View
+            style={[
+              styles.accountSettingsInfoContainer,
+              isLight && {
+                backgroundColor: themeColors.card,
+                borderWidth: 1,
+                borderColor: themeColors.border,
+              },
+            ]}>
             {accountInfoItems.map((item) => (
               <TouchableOpacity
                 key={item.id}
-                style={styles.accountSettingsInfoItem}
+                style={[
+                  styles.accountSettingsInfoItem,
+                  isLight && { borderBottomColor: themeColors.border },
+                ]}
                 activeOpacity={0.7}
                 onPress={() => handleInfoItemPress(item.label, item.value)}
                 disabled={updating}>
@@ -451,10 +491,26 @@ export default function AccountSettingsScreen() {
                   <MaterialIcons name={item.icon as any} size={20} color="#FFFFFF" />
                 </View>
                 <View style={styles.accountSettingsInfoContent}>
-                  <Text style={styles.accountSettingsInfoLabel}>{item.label}</Text>
-                  <Text style={styles.accountSettingsInfoValue}>{item.value}</Text>
+                  <Text
+                    style={[
+                      styles.accountSettingsInfoLabel,
+                      { color: themeColors.textSecondary },
+                    ]}>
+                    {item.label}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.accountSettingsInfoValue,
+                      { color: themeColors.text },
+                    ]}>
+                    {item.value}
+                  </Text>
                 </View>
-                <MaterialIcons name="chevron-right" size={24} color="#99A1AF" />
+                <MaterialIcons
+                  name="chevron-right"
+                  size={24}
+                  color={themeColors.icon}
+                />
               </TouchableOpacity>
             ))}
           </View>
@@ -462,29 +518,57 @@ export default function AccountSettingsScreen() {
 
         {/* Danger Zone Section */}
         <View style={styles.accountSettingsSection}>
-          <Text style={styles.accountSettingsSectionTitle}>Khu vực nguy hiểm</Text>
-          <View style={styles.accountSettingsDangerZone}>
+          <Text
+            style={[
+              styles.accountSettingsSectionTitle,
+              { color: themeColors.text },
+            ]}>
+            Khu vực nguy hiểm
+          </Text>
+          <View
+            style={[
+              styles.accountSettingsDangerZone,
+              isLight && {
+                backgroundColor: themeColors.card,
+                borderWidth: 1,
+                borderColor: themeColors.border,
+              },
+            ]}>
             <TouchableOpacity
-              style={styles.accountSettingsDangerItem}
+              style={[
+                styles.accountSettingsDangerItem,
+                isLight && { borderBottomColor: themeColors.border },
+              ]}
               activeOpacity={0.7}
               onPress={handleDeleteAllData}
               disabled={updating}>
               <View style={styles.accountSettingsDangerContent}>
                 <Text style={styles.accountSettingsDangerLabel}>Xóa tất cả dữ liệu</Text>
-                <Text style={styles.accountSettingsDangerDescription}>
+                <Text
+                  style={[
+                    styles.accountSettingsDangerDescription,
+                    { color: themeColors.textSecondary },
+                  ]}>
                   Xóa toàn bộ giao dịch và cài đặt
                 </Text>
               </View>
               <MaterialIcons name="chevron-right" size={24} color="#FB2C36" />
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.accountSettingsDangerItem}
+              style={[
+                styles.accountSettingsDangerItem,
+                isLight && { borderBottomColor: themeColors.border },
+              ]}
               activeOpacity={0.7}
               onPress={handleDeleteAccount}
               disabled={updating}>
               <View style={styles.accountSettingsDangerContent}>
                 <Text style={styles.accountSettingsDangerLabel}>Xóa tài khoản</Text>
-                <Text style={styles.accountSettingsDangerDescription}>
+                <Text
+                  style={[
+                    styles.accountSettingsDangerDescription,
+                    { color: themeColors.textSecondary },
+                  ]}>
                   Xóa vĩnh viễn tài khoản của bạn
                 </Text>
               </View>
@@ -503,40 +587,45 @@ export default function AccountSettingsScreen() {
         transparent={true}
         animationType="slide"
         onRequestClose={() => setEditingField(null)}>
-        <View style={{
-          flex: 1,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}>
-          <View style={{
-            backgroundColor: '#1F2937',
-            borderRadius: 16,
-            padding: 24,
-            width: '90%',
-            maxWidth: 400,
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
           }}>
-            <Text style={{
-              color: '#FFFFFF',
-              fontSize: 20,
-              fontWeight: 'bold',
-              marginBottom: 16,
+          <View
+            style={{
+              backgroundColor: isLight ? themeColors.card : '#1F2937',
+              borderRadius: 16,
+              padding: 24,
+              width: '90%',
+              maxWidth: 400,
             }}>
+            <Text
+              style={{
+                color: themeColors.text,
+                fontSize: 20,
+                fontWeight: 'bold',
+                marginBottom: 16,
+              }}>
               Chỉnh sửa {editingField?.label}
             </Text>
             
             {!editingField?.isDate ? (
               <TextInput
                 style={{
-                  backgroundColor: '#374151',
+                  backgroundColor: isLight ? themeColors.background : '#374151',
                   borderRadius: 8,
                   padding: 12,
-                  color: '#FFFFFF',
+                  color: themeColors.text,
                   fontSize: 16,
                   marginBottom: 16,
+                  borderWidth: isLight ? 1 : 0,
+                  borderColor: isLight ? themeColors.border : 'transparent',
                 }}
                 placeholder={`Nhập ${editingField?.label.toLowerCase()}`}
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={themeColors.textSecondary}
                 value={editValue}
                 onChangeText={setEditValue}
                 autoFocus
@@ -545,11 +634,10 @@ export default function AccountSettingsScreen() {
               <>
                 <Text
                   style={{
-                    color: '#9CA3AF',
+                    color: themeColors.textSecondary,
                     fontSize: 14,
                     marginBottom: 8,
-                  }}
-                >
+                  }}>
                   Chọn ngày sinh
                 </Text>
 
@@ -570,11 +658,12 @@ export default function AccountSettingsScreen() {
               </>
             )}
 
-            <View style={{
-              flexDirection: 'row',
-              justifyContent: 'flex-end',
-              gap: 12,
-            }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'flex-end',
+                gap: 12,
+              }}>
               <TouchableOpacity
                 onPress={() => {
                   setEditingField(null);
@@ -585,13 +674,19 @@ export default function AccountSettingsScreen() {
                   paddingVertical: 10,
                   borderRadius: 8,
                 }}>
-                <Text style={{ color: '#9CA3AF', fontSize: 16 }}>Hủy</Text>
+                <Text
+                  style={{
+                    color: themeColors.textSecondary,
+                    fontSize: 16,
+                  }}>
+                  Hủy
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleSaveEdit}
                 disabled={updating}
                 style={{
-                  backgroundColor: '#51A2FF',
+                  backgroundColor: themeColors.tint,
                   paddingHorizontal: 20,
                   paddingVertical: 10,
                   borderRadius: 8,

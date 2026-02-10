@@ -1,3 +1,5 @@
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -24,7 +26,21 @@ const getMonthName = (monthIndex: number): string => {
 
 export default function ReportScreen() {
   const router = useRouter();
-  
+  const resolvedTheme = useColorScheme();
+  const themeColors = Colors[resolvedTheme];
+  const isLight = resolvedTheme === 'light';
+  const lightCardSurface = isLight
+    ? {
+        borderWidth: 1,
+        borderColor: themeColors.border,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+        elevation: 3,
+      }
+    : null;
+
   // Mock data
   const currentBalance = 24815000;
   const totalAssets = 26450000;
@@ -55,7 +71,7 @@ export default function ReportScreen() {
   ];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -63,17 +79,17 @@ export default function ReportScreen() {
         
         {/* Header */}
         <View style={styles.reportHeader}>
-          <Text style={styles.reportHeaderTitle}>Báo cáo</Text>
+          <Text style={[styles.reportHeaderTitle, { color: themeColors.text }]}>Báo cáo</Text>
         </View>
 
         {/* Card Tài chính hiện tại */}
         <View style={styles.card}>
           <LinearGradient
-            colors={['#155DFC', '#51A2FF']}
+            colors={['#009966', '#008236']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.reportCurrentFinanceCard}>
-            <Text style={styles.reportCurrentFinanceTitle}>Tài chính hiện tại</Text>
+            <Text style={[styles.reportCurrentFinanceTitle, { color: '#d0fae5' }]}>Tài chính hiện tại</Text>
             <Text style={styles.reportCurrentBalance}>{formatCurrency(currentBalance)}</Text>
             
             <View style={styles.reportFinanceBoxes}>
@@ -97,14 +113,14 @@ export default function ReportScreen() {
         </View>
 
         {/* Card Tình hình thu chi */}
-        <View style={[styles.card, styles.darkCard]}>
+        <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }, lightCardSurface]}>
           <View style={styles.reportIncomeExpenseHeader}>
             <View>
-              <Text style={styles.reportIncomeExpenseTitle}>Tình hình thu chi</Text>
-              <Text style={styles.reportIncomeExpenseSubtitle}>5 tháng gần nhất</Text>
+              <Text style={[styles.reportIncomeExpenseTitle, { color: themeColors.text }]}>Tình hình thu chi</Text>
+              <Text style={[styles.reportIncomeExpenseSubtitle, { color: themeColors.textSecondary }]}>5 tháng gần nhất</Text>
             </View>
             <TouchableOpacity style={styles.reportViewDetailButton}>
-              <Text style={styles.reportViewDetailText}>Xem chi tiết</Text>
+              <Text style={[styles.reportViewDetailText, { color: themeColors.tint }]}>Xem chi tiết</Text>
             </TouchableOpacity>
           </View>
 
@@ -129,7 +145,7 @@ export default function ReportScreen() {
                       ]}
                     />
                   </View>
-                  <Text style={styles.reportBarChartMonthLabel}>
+                  <Text style={[styles.reportBarChartMonthLabel, { color: themeColors.textSecondary }]}>
                     {getMonthName(data.month)}
                   </Text>
                 </View>
@@ -138,8 +154,16 @@ export default function ReportScreen() {
           </View>
 
           {/* Thông báo trạng thái */}
-          <View style={styles.reportStatusMessage}>
-            <Text style={styles.reportStatusMessageText}>
+          <View
+            style={[
+              styles.reportStatusMessage,
+              isLight && {
+                backgroundColor: themeColors.card,
+                borderWidth: 1,
+                borderColor: themeColors.border,
+              },
+            ]}>
+            <Text style={[styles.reportStatusMessageText, { color: themeColors.textSecondary }]}>
               Chi tiêu tháng trước bằng 0, chưa có dữ liệu so sánh
             </Text>
           </View>
@@ -162,12 +186,12 @@ export default function ReportScreen() {
             return (
               <TouchableOpacity 
                 key={func.id} 
-                style={styles.reportFunctionCard}
+                style={[styles.reportFunctionCard, { backgroundColor: themeColors.card }, lightCardSurface]}
                 onPress={handlePress}>
                 <View style={[styles.reportFunctionIconContainer, { backgroundColor: func.color + '20' }]}>
                   <MaterialIcons name={func.icon as any} size={24} color={func.color} />
                 </View>
-                <Text style={styles.reportFunctionLabel}>{func.label}</Text>
+                <Text style={[styles.reportFunctionLabel, { color: isLight ? '#364153' : themeColors.text }]}>{func.label}</Text>
               </TouchableOpacity>
             );
           })}

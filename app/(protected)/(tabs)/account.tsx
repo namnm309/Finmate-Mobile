@@ -1,8 +1,11 @@
 import { DeleteMoneySourceDialog } from '@/components/DeleteMoneySourceDialog';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useMoneySourceService } from '@/lib/services/moneySourceService';
 import { MoneySourceDto, MoneySourceGroupedDto, MoneySourceGroupedResponseDto } from '@/lib/types/moneySource';
 import { styles } from '@/styles/index.styles';
 import { MaterialIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -28,6 +31,33 @@ type TabType = 'accounts' | 'savings' | 'accumulation';
 export default function AccountScreen() {
   const router = useRouter();
   const { refresh } = useLocalSearchParams<{ refresh?: string }>();
+  const resolvedTheme = useColorScheme();
+  const themeColors = Colors[resolvedTheme];
+  const isLight = resolvedTheme === 'light';
+  const lightOutlinedIcon = isLight
+    ? {
+        backgroundColor: themeColors.card,
+        borderWidth: 1,
+        borderColor: themeColors.border,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.06,
+        shadowRadius: 3,
+        elevation: 2,
+      }
+    : null;
+  const lightCardSurface = isLight
+    ? {
+        backgroundColor: themeColors.card,
+        borderWidth: 1,
+        borderColor: themeColors.border,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+        elevation: 3,
+      }
+    : null;
   const [activeTab, setActiveTab] = useState<TabType>('accounts');
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -156,25 +186,25 @@ export default function AccountScreen() {
   // Loading state
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}>
           <View style={styles.accountHeader}>
-            <Text style={styles.accountTitle}>Tài khoản</Text>
+            <Text style={[styles.accountTitle, { color: themeColors.text }]}>Tài khoản</Text>
             <View style={styles.accountHeaderIcons}>
-              <TouchableOpacity style={styles.accountHeaderIcon} disabled>
-                <MaterialIcons name="search" size={24} color="#FFFFFF" />
+              <TouchableOpacity style={[styles.accountHeaderIcon, lightOutlinedIcon]} disabled>
+                <MaterialIcons name="search" size={24} color={themeColors.icon} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.accountHeaderIcon} disabled>
-                <MaterialIcons name="tune" size={24} color="#FFFFFF" />
+              <TouchableOpacity style={[styles.accountHeaderIcon, lightOutlinedIcon]} disabled>
+                <MaterialIcons name="tune" size={24} color={themeColors.icon} />
               </TouchableOpacity>
             </View>
           </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 }}>
-          <ActivityIndicator size="large" color="#00D492" />
-          <Text style={{ color: '#99A1AF', marginTop: 12, textAlign: 'center' }}>Đang tải dữ liệu tài khoản...</Text>
+          <ActivityIndicator size="large" color={themeColors.tint} />
+          <Text style={{ color: themeColors.textSecondary, marginTop: 12, textAlign: 'center' }}>Đang tải dữ liệu tài khoản...</Text>
         </View>
         </ScrollView>
       </SafeAreaView>
@@ -184,13 +214,13 @@ export default function AccountScreen() {
   // Error state
   if (error) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}>
           <View style={styles.accountHeader}>
-            <Text style={styles.accountTitle}>Tài khoản</Text>
+            <Text style={[styles.accountTitle, { color: themeColors.text }]}>Tài khoản</Text>
           </View>
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 }}>
             <MaterialIcons name="error-outline" size={48} color="#F87171" />
@@ -198,7 +228,7 @@ export default function AccountScreen() {
             <TouchableOpacity
               style={{
                 marginTop: 16,
-                backgroundColor: '#00D492',
+                backgroundColor: themeColors.tint,
                 paddingHorizontal: 24,
                 paddingVertical: 12,
                 borderRadius: 8,
@@ -216,7 +246,7 @@ export default function AccountScreen() {
   const accountCategories = data?.groups ?? [];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -225,20 +255,20 @@ export default function AccountScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor="#00D492"
-            colors={['#00D492']}
+            tintColor={themeColors.tint}
+            colors={[themeColors.tint]}
           />
         }>
         
         {/* Header Section */}
         <View style={styles.accountHeader}>
-          <Text style={styles.accountTitle}>Tài khoản</Text>
+          <Text style={[styles.accountTitle, { color: themeColors.text }]}>Tài khoản</Text>
           <View style={styles.accountHeaderIcons}>
-            <TouchableOpacity style={styles.accountHeaderIcon}>
-              <MaterialIcons name="search" size={24} color="#FFFFFF" />
+            <TouchableOpacity style={[styles.accountHeaderIcon, lightOutlinedIcon]}>
+              <MaterialIcons name="search" size={24} color={themeColors.icon} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.accountHeaderIcon}>
-              <MaterialIcons name="tune" size={24} color="#FFFFFF" />
+            <TouchableOpacity style={[styles.accountHeaderIcon, lightOutlinedIcon]}>
+              <MaterialIcons name="tune" size={24} color={themeColors.icon} />
             </TouchableOpacity>
           </View>
         </View>
@@ -250,50 +280,67 @@ export default function AccountScreen() {
             onPress={() => setActiveTab('accounts')}>
             <Text style={[
               styles.accountTabText,
-              activeTab === 'accounts' && styles.accountTabTextActive
+              { color: themeColors.textSecondary },
+              activeTab === 'accounts' && { color: themeColors.tint }
             ]}>
               Tài khoản
             </Text>
-            {activeTab === 'accounts' && <View style={styles.accountTabUnderline} />}
+            {activeTab === 'accounts' && <View style={[styles.accountTabUnderline, { backgroundColor: themeColors.successBorder }]} />}
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.accountTab, activeTab === 'savings' && styles.accountTabActive]}
             onPress={() => setActiveTab('savings')}>
             <Text style={[
               styles.accountTabText,
-              activeTab === 'savings' && styles.accountTabTextActive
+              { color: themeColors.textSecondary },
+              activeTab === 'savings' && { color: themeColors.tint }
             ]}>
               Sổ tiết kiệm
             </Text>
-            {activeTab === 'savings' && <View style={styles.accountTabUnderline} />}
+            {activeTab === 'savings' && <View style={[styles.accountTabUnderline, { backgroundColor: themeColors.successBorder }]} />}
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.accountTab, activeTab === 'accumulation' && styles.accountTabActive]}
             onPress={() => setActiveTab('accumulation')}>
             <Text style={[
               styles.accountTabText,
-              activeTab === 'accumulation' && styles.accountTabTextActive
+              { color: themeColors.textSecondary },
+              activeTab === 'accumulation' && { color: themeColors.tint }
             ]}>
               Tích lũy
             </Text>
-            {activeTab === 'accumulation' && <View style={styles.accountTabUnderline} />}
+            {activeTab === 'accumulation' && <View style={[styles.accountTabUnderline, { backgroundColor: themeColors.successBorder }]} />}
           </TouchableOpacity>
         </View>
 
         {/* Total Balance Section */}
-        <View style={styles.accountTotalBalance}>
-          <Text style={styles.accountTotalLabel}>Tổng tiền</Text>
-          <Text style={styles.accountTotalAmount}>{formatCurrency(totalBalance)}</Text>
-        </View>
+        <LinearGradient
+          colors={[themeColors.successBorder, themeColors.success2]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={[
+            styles.accountTotalBalance,
+            {
+              backgroundColor: 'transparent',
+              shadowColor: themeColors.successBorder,
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: 0.3,
+              shadowRadius: 10,
+              elevation: 6,
+            },
+          ]}>
+          <Text style={[styles.accountTotalLabel, { color: 'rgba(255,255,255,0.9)' }]}>Tổng tiền</Text>
+          <Text style={[styles.accountTotalAmount, { color: '#ffffff' }]}>{formatCurrency(totalBalance)}</Text>
+        </LinearGradient>
 
         {/* Account Categories Section */}
         <View style={styles.accountCategoriesSection}>
-          <Text style={styles.accountCategoriesLabel}>Đang sử dụng</Text>
+          <Text style={[styles.accountCategoriesLabel, { color: themeColors.text }]}>Đang sử dụng</Text>
           
           {accountCategories.length === 0 ? (
             <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-              <MaterialIcons name="account-balance-wallet" size={48} color="#4B5563" />
-              <Text style={{ color: '#9CA3AF', marginTop: 12, textAlign: 'center', marginBottom: 20 }}>
+              <MaterialIcons name="account-balance-wallet" size={48} color={themeColors.icon} />
+              <Text style={{ color: themeColors.textSecondary, marginTop: 12, textAlign: 'center', marginBottom: 20 }}>
                 Chưa có tài khoản nào.{'\n'}Hãy thêm tài khoản để bắt đầu quản lý tài chính.
               </Text>
               <TouchableOpacity
@@ -312,13 +359,13 @@ export default function AccountScreen() {
                   style={styles.accountCategoryHeader}
                   onPress={() => toggleCategory(category.accountTypeId)}
                   activeOpacity={0.7}>
-                  <Text style={styles.accountCategoryName}>
+                  <Text style={[styles.accountCategoryName, { color: isLight ? themeColors.tint : themeColors.text }]}>
                     {category.accountTypeName} ({formatCurrency(category.totalBalance)})
                   </Text>
                   <MaterialIcons
                     name={expandedCategories.includes(category.accountTypeId) ? 'keyboard-arrow-down' : 'keyboard-arrow-right'}
                     size={24}
-                    color="#00D492"
+                    color={themeColors.tint}
                   />
                 </TouchableOpacity>
 
@@ -326,19 +373,19 @@ export default function AccountScreen() {
                 {expandedCategories.includes(category.accountTypeId) && (
                   <View style={styles.accountItemsContainer}>
                     {category.moneySources.map((account) => (
-                      <View key={account.id} style={styles.accountItem}>
+                      <View key={account.id} style={[styles.accountItem, lightCardSurface]}>
                         <View style={[styles.accountItemIcon, { backgroundColor: account.color || '#51A2FF' }]}>
                           <MaterialIcons name={(account.icon || 'account-balance-wallet') as any} size={20} color="#FFFFFF" />
                         </View>
                         <View style={styles.accountItemInfo}>
-                          <Text style={styles.accountItemName}>{account.name}</Text>
-                          <Text style={styles.accountItemAmount}>{formatCurrency(account.balance)}</Text>
+                          <Text style={[styles.accountItemName, { color: themeColors.text }]}>{account.name}</Text>
+                          <Text style={[styles.accountItemAmount, { color: themeColors.textSecondary }]}>{formatCurrency(account.balance)}</Text>
                         </View>
                         <TouchableOpacity
                           style={styles.accountItemMenu}
                           onPress={() => openAccountMenu(account)}
                           activeOpacity={0.7}>
-                          <MaterialIcons name="more-vert" size={20} color="#99A1AF" />
+                          <MaterialIcons name="more-vert" size={20} color={themeColors.icon} />
                         </TouchableOpacity>
                       </View>
                     ))}
@@ -372,33 +419,33 @@ export default function AccountScreen() {
           activeOpacity={1}
           onPress={closeAccountMenu}>
           <TouchableOpacity
-            style={localStyles.sheetContent}
+            style={[localStyles.sheetContent, { backgroundColor: themeColors.card }]}
             activeOpacity={1}
             onPress={(e) => e.stopPropagation()}>
             <View style={localStyles.sheetHandle} />
             <TouchableOpacity style={localStyles.sheetItem} onPress={handleMenuPlaceholder}>
-              <MaterialIcons name="swap-horiz" size={24} color="#FFFFFF" />
-              <Text style={localStyles.sheetItemText}>Chuyển khoản</Text>
+              <MaterialIcons name="swap-horiz" size={24} color={themeColors.text} />
+              <Text style={[localStyles.sheetItemText, { color: themeColors.text }]}>Chuyển khoản</Text>
             </TouchableOpacity>
             <TouchableOpacity style={localStyles.sheetItem} onPress={handleMenuPlaceholder}>
-              <MaterialIcons name="attach-money" size={24} color="#FFFFFF" />
-              <Text style={localStyles.sheetItemText}>Điều chỉnh số dư</Text>
+              <MaterialIcons name="attach-money" size={24} color={themeColors.text} />
+              <Text style={[localStyles.sheetItemText, { color: themeColors.text }]}>Điều chỉnh số dư</Text>
             </TouchableOpacity>
             <TouchableOpacity style={localStyles.sheetItem} onPress={handleMenuPlaceholder}>
-              <MaterialIcons name="share" size={24} color="#FFFFFF" />
-              <Text style={localStyles.sheetItemText}>Chia sẻ tài khoản</Text>
+              <MaterialIcons name="share" size={24} color={themeColors.text} />
+              <Text style={[localStyles.sheetItemText, { color: themeColors.text }]}>Chia sẻ tài khoản</Text>
             </TouchableOpacity>
             <TouchableOpacity style={localStyles.sheetItem} onPress={handleMenuEdit}>
-              <MaterialIcons name="edit" size={24} color="#FFFFFF" />
-              <Text style={localStyles.sheetItemText}>Chỉnh sửa</Text>
+              <MaterialIcons name="edit" size={24} color={themeColors.text} />
+              <Text style={[localStyles.sheetItemText, { color: themeColors.text }]}>Chỉnh sửa</Text>
             </TouchableOpacity>
             <TouchableOpacity style={localStyles.sheetItem} onPress={handleMenuDelete}>
-              <MaterialIcons name="delete" size={24} color="#FFFFFF" />
-              <Text style={localStyles.sheetItemText}>Xóa</Text>
+              <MaterialIcons name="delete" size={24} color={themeColors.text} />
+              <Text style={[localStyles.sheetItemText, { color: themeColors.text }]}>Xóa</Text>
             </TouchableOpacity>
             <TouchableOpacity style={localStyles.sheetItem} onPress={handleMenuDeactivate}>
-              <MaterialIcons name="lock" size={24} color="#FFFFFF" />
-              <Text style={localStyles.sheetItemText}>Ngừng sử dụng</Text>
+              <MaterialIcons name="lock" size={24} color={themeColors.text} />
+              <Text style={[localStyles.sheetItemText, { color: themeColors.text }]}>Ngừng sử dụng</Text>
             </TouchableOpacity>
           </TouchableOpacity>
         </TouchableOpacity>

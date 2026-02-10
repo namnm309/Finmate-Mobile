@@ -9,6 +9,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 interface InputMethodModalProps {
   visible: boolean;
@@ -17,6 +19,8 @@ interface InputMethodModalProps {
 
 export function InputMethodModal({ visible, onClose }: InputMethodModalProps) {
   const router = useRouter();
+  const resolvedTheme = useColorScheme();
+  const themeColors = Colors[resolvedTheme];
 
   const handleSelectAI = () => {
     onClose();
@@ -40,10 +44,10 @@ export function InputMethodModal({ visible, onClose }: InputMethodModalProps) {
         onPress={onClose}>
         <View style={styles.modalContainer}>
           <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.modalContent}>
+            <View style={[styles.modalContent, { backgroundColor: themeColors.card }]}>
               {/* Header */}
-              <Text style={styles.title}>Chọn cách nhập liệu</Text>
-              <Text style={styles.subtitle}>
+              <Text style={[styles.title, { color: themeColors.text }]}>Chọn cách nhập liệu</Text>
+              <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
                 Bạn muốn nhập giao dịch bằng cách nào?
               </Text>
 
@@ -74,12 +78,12 @@ export function InputMethodModal({ visible, onClose }: InputMethodModalProps) {
                   style={styles.optionCard}
                   onPress={handleSelectManual}
                   activeOpacity={0.8}>
-                  <View style={styles.manualCard}>
+                  <View style={[styles.manualCard, { backgroundColor: themeColors.background }]}>
                     <View style={[styles.iconContainer, styles.manualIconContainer]}>
-                      <MaterialIcons name="edit" size={32} color="#51A2FF" />
+                      <MaterialIcons name="edit" size={32} color={themeColors.tint} />
                     </View>
-                    <Text style={styles.manualOptionTitle}>Nhập thủ công</Text>
-                    <Text style={styles.manualOptionDescription}>
+                    <Text style={[styles.manualOptionTitle, { color: themeColors.text }]}>Nhập thủ công</Text>
+                    <Text style={[styles.manualOptionDescription, { color: themeColors.textSecondary }]}>
                       Nhập chi tiết giao dịch theo form
                     </Text>
                   </View>
@@ -91,7 +95,7 @@ export function InputMethodModal({ visible, onClose }: InputMethodModalProps) {
                 style={styles.cancelButton}
                 onPress={onClose}
                 activeOpacity={0.7}>
-                <Text style={styles.cancelText}>Hủy</Text>
+                <Text style={[styles.cancelText, { color: themeColors.textSecondary }]}>Hủy</Text>
               </TouchableOpacity>
             </View>
           </TouchableOpacity>

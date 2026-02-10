@@ -1,10 +1,15 @@
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Stack } from 'expo-router';
 import { Platform, View } from 'react-native';
 import BottomNavigationBar from '@/components/bottom-navigation-bar';
 
 export default function TabLayout() {
+  const resolvedTheme = useColorScheme();
+  const themeColors = Colors[resolvedTheme];
+
   return (
-    <View style={{ flex: 1, backgroundColor: '#151a25' }}>
+    <View style={{ flex: 1, backgroundColor: themeColors.background }}>
       <Stack
         screenOptions={({ route }) => {
           const replaceType = (route.params as any)?.__replace as
@@ -14,10 +19,8 @@ export default function TabLayout() {
 
           return {
             headerShown: false,
-            contentStyle: { backgroundColor: '#151a25' },
-            // Android: set rõ slide; iOS dùng default (đã tối ưu theo platform)
+            contentStyle: { backgroundColor: themeColors.background },
             animation: Platform.OS === 'android' ? 'slide_from_right' : 'default',
-            // Cho các navigation dùng replace() có thể chọn push/pop theo param
             animationTypeForReplace: replaceType === 'pop' ? 'pop' : 'push',
           };
         }}

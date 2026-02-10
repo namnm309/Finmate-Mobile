@@ -3,6 +3,8 @@ import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 
 import { PieChart } from '@/components/PieChart';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { OverviewReportDto } from '@/lib/types/report';
 import { styles } from '@/styles/index.styles';
 
@@ -23,6 +25,28 @@ export const SpendingIncomeOverviewCard: React.FC<SpendingIncomeOverviewCardProp
   onPressHistory,
   formatCurrency,
 }) => {
+  const resolvedTheme = useColorScheme();
+  const themeColors = Colors[resolvedTheme];
+  const isLight = resolvedTheme === 'light';
+  const lightCardSurface = isLight
+    ? {
+        borderWidth: 1,
+        borderColor: themeColors.border,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+        elevation: 3,
+      }
+    : null;
+  const lightSmallButton = isLight
+    ? {
+        backgroundColor: themeColors.background,
+        borderWidth: 1,
+        borderColor: themeColors.border,
+      }
+    : { backgroundColor: themeColors.background };
+
   const { incomeHeight, expenseHeight } = useMemo(() => {
     if (!overviewData || (overviewData.totalIncome === 0 && overviewData.totalExpense === 0)) {
       return { incomeHeight: '0%', expenseHeight: '0%' };
@@ -57,16 +81,16 @@ export const SpendingIncomeOverviewCard: React.FC<SpendingIncomeOverviewCardProp
   const difference = overviewData?.difference ?? 0;
 
   return (
-    <View style={[styles.card, styles.darkCard]}>
+    <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }, lightCardSurface]}>
       <View style={styles.overviewHeader}>
-        <Text style={styles.overviewTitle}>Tình hình thu chi</Text>
+        <Text style={[styles.overviewTitle, { color: themeColors.text }]}>Tình hình thu chi</Text>
         <View style={styles.overviewActions}>
-          <TouchableOpacity style={styles.overviewButton}>
-            <MaterialIcons name="settings" size={16} color="#99A1AF" />
+          <TouchableOpacity style={[styles.overviewButton, lightSmallButton]}>
+            <MaterialIcons name="settings" size={16} color={themeColors.icon} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.overviewDropdown} onPress={onOpenPeriodModal}>
-            <Text style={styles.overviewDropdownText}>{periodLabel}</Text>
-            <MaterialIcons name="keyboard-arrow-down" size={16} color="#99A1AF" />
+          <TouchableOpacity style={[styles.overviewDropdown, lightSmallButton]} onPress={onOpenPeriodModal}>
+            <Text style={[styles.overviewDropdownText, { color: themeColors.textSecondary }]}>{periodLabel}</Text>
+            <MaterialIcons name="keyboard-arrow-down" size={16} color={themeColors.icon} />
           </TouchableOpacity>
         </View>
       </View>
@@ -77,20 +101,20 @@ export const SpendingIncomeOverviewCard: React.FC<SpendingIncomeOverviewCardProp
           {/* Summary Stats */}
           <View style={styles.summaryStats}>
             <View style={styles.summaryStat}>
-              <Text style={styles.summaryLabel}>Thu</Text>
+              <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Thu</Text>
               <Text style={[styles.summaryValue, styles.incomeValue]}>
                 {formatCurrency(totalIncome)}
               </Text>
             </View>
             <View style={[styles.summaryStat, { alignItems: 'center' }]}>
-              <Text style={styles.summaryLabel}>Chi</Text>
+              <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Chi</Text>
               <Text style={[styles.summaryValue, styles.expenseValue]}>
                 {formatCurrency(totalExpense)}
               </Text>
             </View>
             <View style={[styles.summaryStat, { alignItems: 'flex-end' }]}>
-              <Text style={styles.summaryLabel}>Chênh lệch</Text>
-              <Text style={[styles.summaryValue, styles.differenceValue]}>
+              <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Chênh lệch</Text>
+              <Text style={[styles.summaryValue, styles.differenceValue, { color: themeColors.text }]}>
                 {difference >= 0 ? '+' : ''}
                 {formatCurrency(difference)}
               </Text>
@@ -132,16 +156,16 @@ export const SpendingIncomeOverviewCard: React.FC<SpendingIncomeOverviewCardProp
                         { backgroundColor: category.displayColor },
                       ]}
                     />
-                    <Text numberOfLines={1} style={styles.legendName}>
+                    <Text numberOfLines={1} style={[styles.legendName, { color: themeColors.text }]}>
                       {category.categoryName}
                     </Text>
-                    <Text style={styles.legendPercentage}>
+                    <Text style={[styles.legendPercentage, { color: themeColors.textSecondary }]}>
                       {category.percentage.toFixed(2).replace('.', ',')}%
                     </Text>
                   </View>
                 ))
               ) : (
-                <Text style={{ color: '#99A1AF', fontSize: 12 }}>Chưa có dữ liệu</Text>
+                <Text style={{ color: themeColors.textSecondary, fontSize: 12 }}>Chưa có dữ liệu</Text>
               )}
             </View>
           </View>
@@ -160,13 +184,13 @@ export const SpendingIncomeOverviewCard: React.FC<SpendingIncomeOverviewCardProp
               backgroundColor: 'rgba(0,0,0,0.12)',
               borderRadius: 12,
             }}>
-            <ActivityIndicator size="small" color="#51A2FF" />
+            <ActivityIndicator size="small" color={themeColors.tint} />
           </View>
         )}
       </View>
 
       <TouchableOpacity style={styles.historyButton} onPress={onPressHistory}>
-        <Text style={styles.historyButtonText}>Lịch sử ghi chép</Text>
+        <Text style={[styles.historyButtonText, { color: themeColors.tint }]}>Lịch sử ghi chép</Text>
       </TouchableOpacity>
     </View>
   );

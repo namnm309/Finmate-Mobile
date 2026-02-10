@@ -1,3 +1,5 @@
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useSegments } from 'expo-router';
@@ -7,15 +9,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { InputMethodModal } from '@/components/input-method-modal';
 
-// Custom button cho tab Add ở giữa
-function AddTabButton({ onPress }: { onPress: () => void }) {
+const ADD_BUTTON_COLORS = {
+  light: ['#009966', '#00a63e'] as const,
+  dark: ['#99a1af', '#d1d5dc'] as const,
+};
+
+function AddTabButton({ onPress, isDark }: { onPress: () => void; isDark: boolean }) {
+  const colors = isDark ? ADD_BUTTON_COLORS.dark : ADD_BUTTON_COLORS.light;
   return (
     <TouchableOpacity
       onPress={onPress}
       style={styles.addButtonContainer}
       activeOpacity={0.8}>
       <LinearGradient
-        colors={['#99a1af', '#d1d5dc']}
+        colors={colors}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.addButtonGradient}>
@@ -30,6 +37,9 @@ export default function BottomNavigationBar() {
   const segments = useSegments();
   const insets = useSafeAreaInsets();
   const [modalVisible, setModalVisible] = useState(false);
+  const resolvedTheme = useColorScheme();
+  const themeColors = Colors[resolvedTheme];
+  const isDark = resolvedTheme === 'dark';
 
   const TAB_ORDER = [
     '/(protected)/(tabs)', // Tổng quan (index)
@@ -86,7 +96,16 @@ export default function BottomNavigationBar() {
 
   return (
     <>
-      <View style={[styles.tabBar, { height: 70 + insets.bottom, paddingBottom: insets.bottom }]}>
+      <View
+        style={[
+          styles.tabBar,
+          {
+            height: 70 + insets.bottom,
+            paddingBottom: insets.bottom,
+            backgroundColor: themeColors.card,
+            borderTopColor: themeColors.border,
+          },
+        ]}>
         <TouchableOpacity
           onPress={() => handleNavigate('/(protected)/(tabs)')}
           style={styles.tabItem}
@@ -94,9 +113,14 @@ export default function BottomNavigationBar() {
           <MaterialIcons
             name="home"
             size={30}
-            color={isHomeActive ? '#51a2ff' : '#6a7282'}
+            color={isHomeActive ? themeColors.tabIconSelected : themeColors.tabIconDefault}
           />
-          <Text style={[styles.tabLabel, isHomeActive && styles.tabLabelActive]}>
+          <Text
+            style={[
+              styles.tabLabel,
+              { color: themeColors.tabIconDefault },
+              isHomeActive && { color: themeColors.tabIconSelected },
+            ]}>
             Tổng quan
           </Text>
         </TouchableOpacity>
@@ -108,14 +132,19 @@ export default function BottomNavigationBar() {
           <MaterialIcons
             name="wallet"
             size={30}
-            color={isAccountActive ? '#51a2ff' : '#6a7282'}
+            color={isAccountActive ? themeColors.tabIconSelected : themeColors.tabIconDefault}
           />
-          <Text style={[styles.tabLabel, isAccountActive && styles.tabLabelActive]}>
+          <Text
+            style={[
+              styles.tabLabel,
+              { color: themeColors.tabIconDefault },
+              isAccountActive && { color: themeColors.tabIconSelected },
+            ]}>
             Tài khoản
           </Text>
         </TouchableOpacity>
 
-        <AddTabButton onPress={handleAddPress} />
+        <AddTabButton onPress={handleAddPress} isDark={isDark} />
 
         <TouchableOpacity
           onPress={() => handleNavigate('/(protected)/(tabs)/report')}
@@ -124,9 +153,14 @@ export default function BottomNavigationBar() {
           <MaterialIcons
             name="bar-chart"
             size={30}
-            color={isReportActive ? '#51a2ff' : '#6a7282'}
+            color={isReportActive ? themeColors.tabIconSelected : themeColors.tabIconDefault}
           />
-          <Text style={[styles.tabLabel, isReportActive && styles.tabLabelActive]}>
+          <Text
+            style={[
+              styles.tabLabel,
+              { color: themeColors.tabIconDefault },
+              isReportActive && { color: themeColors.tabIconSelected },
+            ]}>
             Báo cáo
           </Text>
         </TouchableOpacity>
@@ -138,9 +172,14 @@ export default function BottomNavigationBar() {
           <MaterialIcons
             name="grid-view"
             size={30}
-            color={isOtherActive ? '#51a2ff' : '#6a7282'}
+            color={isOtherActive ? themeColors.tabIconSelected : themeColors.tabIconDefault}
           />
-          <Text style={[styles.tabLabel, isOtherActive && styles.tabLabelActive]}>
+          <Text
+            style={[
+              styles.tabLabel,
+              { color: themeColors.tabIconDefault },
+              isOtherActive && { color: themeColors.tabIconSelected },
+            ]}>
             Khác
           </Text>
         </TouchableOpacity>
@@ -155,15 +194,17 @@ export default function BottomNavigationBar() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: '#151a25',
-    borderTopColor: '#1e2939',
     borderTopWidth: 1,
     paddingTop: 8,
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    elevation: 0,
-    shadowOpacity: 0,
+    // Shadow nhẹ theo Figma (iOS); Android dùng elevation
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 8,
   },
   tabItem: {
     flex: 1,
@@ -173,11 +214,7 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontSize: 10.9,
     fontFamily: 'Inter',
-    color: '#6a7282',
     marginTop: 4,
-  },
-  tabLabelActive: {
-    color: '#51a2ff',
   },
   addButtonContainer: {
     top: -20,

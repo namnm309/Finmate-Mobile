@@ -1,6 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useFocusEffect } from 'expo-router';
 import {
   SafeAreaView,
@@ -12,10 +12,11 @@ import {
   ActivityIndicator,
   FlatList
 } from 'react-native';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { styles } from '@/styles/index.styles';
 import { useTransactionService } from '@/lib/services/transactionService';
 import { TransactionDto } from '@/lib/types/transaction';
-import { useTransactionHub } from '@/lib/realtime/useTransactionHub';
 
 // Format số tiền VNĐ
 const formatCurrency = (amount: number): string => {
@@ -70,22 +71,27 @@ interface TransactionGroup {
 
 export default function TransactionHistoryScreen() {
   const router = useRouter();
+  const resolvedTheme = useColorScheme();
+  const themeColors = Colors[resolvedTheme];
+  const isLight = resolvedTheme === 'light';
   const { getTransactions } = useTransactionService();
   
   const [transactions, setTransactions] = useState<TransactionDto[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [page, setPage] = useState<number>(1);
   const [hasMore, setHasMore] = useState<boolean>(true);
   const [totalCount, setTotalCount] = useState<number>(0);
   const pageSize = 20;
+  const isFetchingRef = useRef(false);
+  // Đảm bảo chỉ fetch 1 lần khi mở màn (theo yêu cầu "chỉ call khi mở")
+  const hasLoadedInitiallyRef = useRef(false);
 
   const fetchTransactions = useCallback(
     async (pageNum: number = 1, append: boolean = false) => {
-      // Guard nhẹ tránh gọi chồng khi đang loading và không phải load thêm trang
-      if (loading && !append) {
-        return;
-      }
+      // Tránh gọi chồng request (spinner bị kẹt nếu return sớm lúc loading=true)
+      if (isFetchingRef.current) return;
+      isFetchingRef.current = true;
 
       try {
         setLoading(true);
@@ -110,25 +116,21 @@ export default function TransactionHistoryScreen() {
         console.error('Error fetching transactions:', err);
       } finally {
         setLoading(false);
+        isFetchingRef.current = false;
       }
     },
-    [getTransactions, searchQuery, loading],
+    [getTransactions, searchQuery],
   );
-
-  // Lắng nghe SignalR để refetch khi có giao dịch mới / cập nhật / xoá
-  const handleTransactionsUpdated = useCallback(() => {
-    // Khi có thay đổi, luôn refetch từ trang 1 để đảm bảo dữ liệu đồng bộ
-    fetchTransactions(1, false);
-    setPage(1);
-  }, [fetchTransactions]);
-
-  useTransactionHub(handleTransactionsUpdated);
 
   useFocusEffect(
     useCallback(() => {
-      fetchTransactions(1, false);
-      setPage(1);
-    }, []),
+      // Chỉ fetch lần đầu khi màn được mở
+      if (!hasLoadedInitiallyRef.current) {
+        hasLoadedInitiallyRef.current = true;
+        fetchTransactions(1, false);
+        setPage(1);
+      }
+    }, [fetchTransactions]),
   );
 
   // Filter transactions by search query
@@ -158,15 +160,30 @@ export default function TransactionHistoryScreen() {
     return (
       <View
         key={transaction.id}
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingVertical: 12,
-          paddingHorizontal: 16,
-          backgroundColor: '#1F2937',
-          marginBottom: 8,
-          borderRadius: 8,
-        }}>
+        style={[
+          {
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            marginBottom: 8,
+            borderRadius: 8,
+          },
+          isLight
+            ? {
+                backgroundColor: themeColors.card,
+                borderWidth: 1,
+                borderColor: themeColors.border,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.06,
+                shadowRadius: 4,
+                elevation: 2,
+              }
+            : {
+                backgroundColor: '#1F2937',
+              },
+        ]}>
         {/* Icon */}
         <View
           style={{
@@ -189,7 +206,7 @@ export default function TransactionHistoryScreen() {
         <View style={{ flex: 1 }}>
           <Text
             style={{
-              color: '#FFFFFF',
+              color: themeColors.text,
               fontSize: 16,
               fontWeight: '500',
               marginBottom: 4,
@@ -198,7 +215,7 @@ export default function TransactionHistoryScreen() {
           </Text>
           <Text
             style={{
-              color: '#9CA3AF',
+              color: themeColors.textSecondary,
               fontSize: 12,
             }}>
             {formatTime(transaction.transactionDate)}
@@ -206,7 +223,7 @@ export default function TransactionHistoryScreen() {
           {transaction.description && (
             <Text
               style={{
-                color: '#6B7280',
+                color: themeColors.textSecondary,
                 fontSize: 11,
                 marginTop: 2,
               }}>
@@ -242,7 +259,7 @@ export default function TransactionHistoryScreen() {
           }}>
           <Text
             style={{
-              color: '#FFFFFF',
+              color: themeColors.text,
               fontSize: 18,
               fontWeight: '600',
             }}>
@@ -250,7 +267,7 @@ export default function TransactionHistoryScreen() {
           </Text>
           <Text
             style={{
-              color: '#9CA3AF',
+              color: themeColors.textSecondary,
               fontSize: 14,
             }}>
             {group.transactions.length} giao dịch
@@ -264,20 +281,30 @@ export default function TransactionHistoryScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: '#111827' }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
       {/* Header */}
       <View
-        style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          paddingHorizontal: 16,
-          paddingVertical: 16,
-          backgroundColor: '#1F2937',
-        }}>
+        style={[
+          {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingHorizontal: 16,
+            paddingVertical: 16,
+          },
+          isLight
+            ? {
+                backgroundColor: themeColors.card,
+                borderBottomWidth: 1,
+                borderBottomColor: themeColors.border,
+              }
+            : {
+                backgroundColor: '#1F2937',
+              },
+        ]}>
         <Text
           style={{
-            color: '#FFFFFF',
+            color: themeColors.text,
             fontSize: 20,
             fontWeight: '600',
           }}>
@@ -285,44 +312,66 @@ export default function TransactionHistoryScreen() {
         </Text>
         <TouchableOpacity
           onPress={() => router.back()}
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 8,
-            backgroundColor: '#3B82F6',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
+          style={[
+            {
+              width: 32,
+              height: 32,
+              borderRadius: 8,
+              alignItems: 'center',
+              justifyContent: 'center',
+            },
+            {
+              backgroundColor: themeColors.tint,
+            },
+          ]}>
           <MaterialIcons name="close" size={20} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
       {/* Search Bar */}
       <View
-        style={{
-          paddingHorizontal: 16,
-          paddingVertical: 12,
-          backgroundColor: '#1F2937',
-        }}>
+        style={[
+          {
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+          },
+          isLight
+            ? { backgroundColor: themeColors.card }
+            : { backgroundColor: '#1F2937' },
+        ]}>
         <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            backgroundColor: '#374151',
-            borderRadius: 8,
-            paddingHorizontal: 12,
-            paddingVertical: 10,
-          }}>
-          <MaterialIcons name="search" size={20} color="#9CA3AF" />
+          style={[
+            {
+              flexDirection: 'row',
+              alignItems: 'center',
+              borderRadius: 8,
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+            },
+            isLight
+              ? {
+                  backgroundColor: themeColors.background,
+                  borderWidth: 1,
+                  borderColor: themeColors.border,
+                }
+              : {
+                  backgroundColor: '#374151',
+                },
+          ]}>
+          <MaterialIcons
+            name="search"
+            size={20}
+            color={isLight ? themeColors.icon : '#9CA3AF'}
+          />
           <TextInput
             style={{
               flex: 1,
               marginLeft: 8,
-              color: '#FFFFFF',
+              color: themeColors.text,
               fontSize: 14,
             }}
             placeholder="Tìm kiếm giao dịch..."
-            placeholderTextColor="#6B7280"
+            placeholderTextColor={themeColors.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -331,19 +380,27 @@ export default function TransactionHistoryScreen() {
 
       {/* Filter Bar */}
       <View
-        style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          paddingHorizontal: 16,
-          paddingVertical: 12,
-          backgroundColor: '#1F2937',
-        }}>
+        style={[
+          {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+          },
+          isLight
+            ? { backgroundColor: themeColors.card }
+            : { backgroundColor: '#1F2937' },
+        ]}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <MaterialIcons name="calendar-today" size={18} color="#9CA3AF" />
+          <MaterialIcons
+            name="calendar-today"
+            size={18}
+            color={isLight ? themeColors.icon : '#9CA3AF'}
+          />
           <Text
             style={{
-              color: '#FFFFFF',
+              color: themeColors.text,
               fontSize: 14,
               marginLeft: 8,
             }}>
@@ -351,14 +408,18 @@ export default function TransactionHistoryScreen() {
           </Text>
         </View>
         <TouchableOpacity
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            backgroundColor: '#3B82F6',
-            paddingHorizontal: 12,
-            paddingVertical: 6,
-            borderRadius: 6,
-          }}>
+          style={[
+            {
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 6,
+            },
+            {
+              backgroundColor: themeColors.tint,
+            },
+          ]}>
           <MaterialIcons name="filter-list" size={16} color="#FFFFFF" />
           <Text
             style={{
@@ -374,14 +435,18 @@ export default function TransactionHistoryScreen() {
       {/* Transaction List */}
       {loading && transactions.length === 0 ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color="#3B82F6" />
+          <ActivityIndicator size="large" color={themeColors.tint} />
         </View>
       ) : groupedTransactions.length === 0 ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 }}>
-          <MaterialIcons name="receipt-long" size={64} color="#6B7280" />
+          <MaterialIcons
+            name="receipt-long"
+            size={64}
+            color={isLight ? themeColors.icon : '#6B7280'}
+          />
           <Text
             style={{
-              color: '#9CA3AF',
+              color: themeColors.textSecondary,
               fontSize: 16,
               marginTop: 16,
               textAlign: 'center',
@@ -405,7 +470,7 @@ export default function TransactionHistoryScreen() {
           
           {loading && transactions.length > 0 && (
             <View style={{ padding: 16, alignItems: 'center' }}>
-              <ActivityIndicator size="small" color="#3B82F6" />
+              <ActivityIndicator size="small" color={themeColors.tint} />
             </View>
           )}
         </ScrollView>

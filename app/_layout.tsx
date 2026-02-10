@@ -1,4 +1,5 @@
 import InitialLayout from '@/components/InitialLayout';
+import { ThemeProvider } from '@/contexts/theme-context';
 import { ClerkLoaded, ClerkProvider } from '@clerk/clerk-expo';
 import { tokenCache } from '@clerk/clerk-expo/token-cache';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -16,9 +17,11 @@ export default function RootLayout() {
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache}>
       <ClerkLoaded>
         <SafeAreaProvider>
-          <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }} edges={['left', 'right']}>
-            <InitialLayout />
-          </SafeAreaView>
+          <ThemeProvider>
+            <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }} edges={['left', 'right']}>
+              <InitialLayout />
+            </SafeAreaView>
+          </ThemeProvider>
         </SafeAreaProvider>
       </ClerkLoaded>
     </ClerkProvider>

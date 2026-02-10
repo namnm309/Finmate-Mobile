@@ -1,3 +1,5 @@
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useUser } from '@clerk/clerk-expo';
 import { MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
@@ -20,7 +22,6 @@ import { useMoneySourceService } from '@/lib/services/moneySourceService';
 import { useReportService } from '@/lib/services/reportService';
 import { OverviewReportDto } from '@/lib/types/report';
 import { SpendingIncomeOverviewCard } from '@/components/SpendingIncomeOverviewCard';
-import { useTransactionHub } from '@/lib/realtime/useTransactionHub';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -39,6 +40,32 @@ type TimePeriod = 'today' | 'week' | 'month' | 'quarter' | 'year';
 export default function HomeScreen() {
   const { user } = useUser();
   const router = useRouter();
+  const resolvedTheme = useColorScheme();
+  const themeColors = Colors[resolvedTheme];
+  const isLight = resolvedTheme === 'light';
+  const lightOutlinedCircle = isLight
+    ? {
+        backgroundColor: themeColors.card,
+        borderWidth: 1,
+        borderColor: themeColors.border,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.06,
+        shadowRadius: 3,
+        elevation: 2,
+      }
+    : { backgroundColor: themeColors.card };
+  const lightCardSurface = isLight
+    ? {
+        borderWidth: 1,
+        borderColor: themeColors.border,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+        elevation: 3,
+      }
+    : null;
   const [balanceVisible, setBalanceVisible] = useState(true);
   const [aiInput, setAiInput] = useState('');
   const [totalBalance, setTotalBalance] = useState<number>(0);
@@ -140,14 +167,6 @@ export default function HomeScreen() {
     }
   }, [getOverview, getDateRange]);
 
-  // Lắng nghe thay đổi giao dịch để refresh overview realtime
-  const handleTransactionsUpdated = useCallback(() => {
-    // Force refresh overview với kỳ hiện tại, bỏ qua throttle
-    fetchOverviewData(selectedPeriodRef.current, true);
-  }, [fetchOverviewData]);
-
-  useTransactionHub(handleTransactionsUpdated);
-
   // Fetch balance - chỉ gọi 1 lần khi mount để tránh gọi API liên tục (giật số tiền)
   useEffect(() => {
     setBalanceLoading(true);
@@ -233,7 +252,7 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -254,8 +273,8 @@ export default function HomeScreen() {
               </View>
             </View>
             <View style={styles.userInfo}>
-              <Text style={styles.greetingText}>Xin chào!</Text>
-              <Text style={styles.userNameText}>{getUserName()}</Text>
+              <Text style={[styles.greetingText, { color: themeColors.textSecondary }]}>Xin chào!</Text>
+              <Text style={[styles.userNameText, { color: themeColors.text }]}>{getUserName()}</Text>
             </View>
           </View>
           
@@ -263,18 +282,18 @@ export default function HomeScreen() {
           <View style={styles.statusBarIcons}>
             <TouchableOpacity style={styles.statusIconButton}>
               <LinearGradient
-                colors={['#9810FA', '#155DFC']}
+                colors={[themeColors.tint, themeColors.success2]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.statusIconGradient}>
                 <MaterialIcons name="grid-view" size={16} color="#FFFFFF" />
               </LinearGradient>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.statusIconButton, styles.statusIconDark]}>
-              <MaterialIcons name="chat-bubble-outline" size={16} color="#99A1AF" />
+            <TouchableOpacity style={[styles.statusIconButton, lightOutlinedCircle]}>
+              <MaterialIcons name="chat-bubble-outline" size={16} color={themeColors.icon} />
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.statusIconButton, styles.statusIconDark]}>
-              <MaterialIcons name="notifications-none" size={16} color="#99A1AF" />
+            <TouchableOpacity style={[styles.statusIconButton, lightOutlinedCircle]}>
+              <MaterialIcons name="notifications-none" size={16} color={themeColors.icon} />
               <View style={styles.notificationDot} />
             </TouchableOpacity>
           </View>
@@ -282,9 +301,9 @@ export default function HomeScreen() {
 
         {/* Total Balance Section */}
         <View style={styles.balanceSection}>
-          <Text style={styles.balanceLabel}>Tổng số dư</Text>
+          <Text style={[styles.balanceLabel, { color: themeColors.textSecondary }]}>Tổng số dư</Text>
           <View style={styles.balanceRow}>
-            <Text style={styles.balanceAmount}>
+            <Text style={[styles.balanceAmount, { color: themeColors.text }]}>
               {balanceVisible
                 ? balanceLoading && totalBalance === 0
                   ? '...'
@@ -297,7 +316,7 @@ export default function HomeScreen() {
               <MaterialIcons
                 name={balanceVisible ? 'visibility' : 'visibility-off'}
                 size={20}
-                color="#99A1AF"
+                color={themeColors.icon}
               />
             </TouchableOpacity>
           </View>
@@ -419,16 +438,24 @@ export default function HomeScreen() {
           formatCurrency={formatCurrency}
         />
 
-        {/* Spending Limit Card */}
-        <View style={[styles.card, styles.darkCard]}>
+          {/* Spending Limit Card */}
+          <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }, lightCardSurface]}>
           <View style={styles.limitHeader}>
-            <Text style={styles.limitTitle}>Hạn mức chi</Text>
+            <Text style={[styles.limitTitle, { color: themeColors.text }]}>Hạn mức chi</Text>
             <View style={styles.limitActions}>
-              <TouchableOpacity style={styles.limitButton}>
-                <MaterialIcons name="settings" size={16} color="#99A1AF" />
+                <TouchableOpacity
+                  style={[
+                    styles.limitButton,
+                    isLight && {
+                      backgroundColor: themeColors.card,
+                      borderWidth: 1,
+                      borderColor: themeColors.border,
+                    },
+                  ]}>
+                <MaterialIcons name="settings" size={16} color={themeColors.icon} />
               </TouchableOpacity>
               <TouchableOpacity>
-                <Text style={styles.limitLink}>Xem tất cả →</Text>
+                <Text style={[styles.limitLink, { color: themeColors.tint }]}>Xem tất cả →</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -442,14 +469,18 @@ export default function HomeScreen() {
               <Text style={styles.limitEmoji}>🎯</Text>
             </LinearGradient>
             <View style={styles.limitInfo}>
-              <Text style={styles.limitLabel}>Chi mỗi month</Text>
-              <Text style={styles.limitDate}>01/10 - 31/10</Text>
-              <Text style={styles.limitAmount}>{formatCurrency(spendingLimit)}</Text>
+              <Text style={[styles.limitLabel, { color: themeColors.textSecondary }]}>Chi mỗi month</Text>
+              <Text style={[styles.limitDate, { color: themeColors.textSecondary }]}>01/10 - 31/10</Text>
+              <Text style={[styles.limitAmount, { color: themeColors.text }]}>{formatCurrency(spendingLimit)}</Text>
             </View>
           </View>
 
           <View style={styles.progressContainer}>
-            <View style={styles.progressBar}>
+            <View
+              style={[
+                styles.progressBar,
+                isLight && { backgroundColor: themeColors.border },
+              ]}>
               <LinearGradient
                 colors={['#FF8904', '#FB2C36']}
                 start={{ x: 0, y: 0 }}
@@ -459,8 +490,16 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <View style={styles.todayBox}>
-            <Text style={styles.todayText}>Hôm nay</Text>
+          <View
+            style={[
+              styles.todayBox,
+              isLight && {
+                backgroundColor: themeColors.card,
+                borderWidth: 1,
+                borderColor: themeColors.border,
+              },
+            ]}>
+            <Text style={[styles.todayText, { color: themeColors.textSecondary }]}>Hôm nay</Text>
           </View>
         </View>
 
@@ -487,12 +526,12 @@ export default function HomeScreen() {
             activeOpacity={1}
             onPress={(e) => e.stopPropagation()}
             style={{
-              backgroundColor: '#1F2937',
+              backgroundColor: themeColors.card,
               marginHorizontal: 20,
               borderRadius: 12,
               paddingVertical: 8,
               borderWidth: 1,
-              borderColor: '#3B82F6',
+              borderColor: themeColors.border,
             }}>
             {periodOptions.map((option, index) => (
               <TouchableOpacity
@@ -501,14 +540,14 @@ export default function HomeScreen() {
                   paddingVertical: 16,
                   paddingHorizontal: 20,
                   borderBottomWidth: index < periodOptions.length - 1 ? 1 : 0,
-                  borderBottomColor: '#374151',
-                  backgroundColor: selectedPeriod === option.value ? '#1E3A8A' : 'transparent',
+                  borderBottomColor: themeColors.border,
+                  backgroundColor: selectedPeriod === option.value ? (resolvedTheme === 'dark' ? '#1E3A8A' : 'rgba(22, 163, 74, 0.15)') : 'transparent',
                 }}
                 onPress={() => handlePeriodChange(option.value)}
                 activeOpacity={0.7}>
                 <Text
                   style={{
-                    color: selectedPeriod === option.value ? '#3B82F6' : '#FFFFFF',
+                    color: selectedPeriod === option.value ? themeColors.tint : themeColors.text,
                     fontSize: 16,
                     fontWeight: selectedPeriod === option.value ? '600' : '400',
                   }}>

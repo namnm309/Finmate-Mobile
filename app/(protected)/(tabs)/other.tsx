@@ -1,4 +1,6 @@
+import { Colors } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { styles } from '@/styles/index.styles';
 import { useUser } from '@clerk/clerk-expo';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -40,6 +42,12 @@ const accountMenuItems = [
     title: 'Thông báo',
     icon: 'notifications',
     color: '#FBBF24',
+  },
+  {
+    id: 4,
+    title: 'Giao diện',
+    icon: 'dark-mode',
+    color: '#16a34a',
   },
 ];
 
@@ -120,6 +128,34 @@ export default function OtherScreen() {
   const { user } = useUser();
   const { signOut, getToken } = useAuth();
   const router = useRouter();
+  const resolvedTheme = useColorScheme();
+  const themeColors = Colors[resolvedTheme];
+  const isLight = resolvedTheme === 'light';
+  const groupCardStyle = isLight
+    ? {
+        backgroundColor: themeColors.card,
+        borderWidth: 1,
+        borderColor: themeColors.border,
+        borderRadius: 14,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+        elevation: 3,
+        overflow: 'hidden' as const,
+      }
+    : {
+        backgroundColor: themeColors.card,
+        borderRadius: 14,
+        overflow: 'hidden' as const,
+      };
+  const rowBaseStyle = {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    gap: 16,
+  };
 
   const getUserInitial = () => {
     if (user?.firstName) return user.firstName[0].toUpperCase();
@@ -193,6 +229,9 @@ export default function OtherScreen() {
       case 3: // Thông báo
         // TODO: Navigate to notification settings
         break;
+      case 4: // Giao diện
+        router.push('/(protected)/(other-pages)/theme-settings');
+        break;
       default:
         break;
     }
@@ -243,7 +282,7 @@ export default function OtherScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -251,13 +290,13 @@ export default function OtherScreen() {
         
         {/* Header */}
         <View style={styles.otherHeader}>
-          <Text style={styles.otherTitle}>Khác</Text>
+          <Text style={[styles.otherTitle, { color: themeColors.text }]}>Khác</Text>
         </View>
 
         {/* User Info Card */}
         <TouchableOpacity style={styles.otherUserCard} activeOpacity={0.8}>
           <LinearGradient
-            colors={['#9810FA', '#155DFC']}
+            colors={[themeColors.tint, themeColors.success2]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.otherUserCardGradient}>
@@ -265,7 +304,7 @@ export default function OtherScreen() {
               <View style={styles.avatarContainer}>
                 <View style={styles.avatarBorder}>
                   <LinearGradient
-                    colors={['#51A2FF', '#AD46FF']}
+                    colors={['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.15)']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.avatarGradient}>
@@ -282,94 +321,87 @@ export default function OtherScreen() {
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* Stats Cards */}
-        <View style={styles.otherStatsRow}>
-          <View style={styles.otherStatCard}>
-            <Text style={[styles.otherStatValue, { color: '#51A2FF' }]}>
-              {stats.transactions}
-            </Text>
-            <Text style={styles.otherStatLabel}>Giao dịch</Text>
-          </View>
-          <View style={styles.otherStatCard}>
-            <Text style={[styles.otherStatValue, { color: '#9810FA' }]}>
-              {stats.categories}
-            </Text>
-            <Text style={styles.otherStatLabel}>Danh mục</Text>
-          </View>
-          <View style={styles.otherStatCard}>
-            <Text style={[styles.otherStatValue, { color: '#00D492' }]}>
-              {stats.goals}%
-            </Text>
-            <Text style={styles.otherStatLabel}>Mục tiêu</Text>
-          </View>
-        </View>
-
         {/* Account Section */}
         <View style={styles.otherSection}>
-          <Text style={styles.otherSectionTitle}>Tài khoản</Text>
-          {accountMenuItems.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.otherMenuItem}
-              activeOpacity={0.7}
-              onPress={() => handleAccountMenuItemPress(item.id)}>
-              <View style={[styles.otherMenuItemIcon, { backgroundColor: item.color }]}>
-                <MaterialIcons name={item.icon as any} size={20} color="#FFFFFF" />
-              </View>
-              <View style={styles.otherMenuItemContent}>
-                <Text style={styles.otherMenuItemText}>{item.title}</Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={24} color="#99A1AF" />
-            </TouchableOpacity>
-          ))}
+          <Text style={[styles.otherSectionTitle, { color: themeColors.textSecondary, fontWeight: '400', fontSize: 12.9 } ]}>Tài khoản</Text>
+          <View style={groupCardStyle}>
+            {accountMenuItems.map((item, idx) => {
+              const isLast = idx === accountMenuItems.length - 1;
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[rowBaseStyle, !isLast && { borderBottomWidth: 1, borderBottomColor: themeColors.border }]}
+                  activeOpacity={0.7}
+                  onPress={() => handleAccountMenuItemPress(item.id)}>
+                  <View style={[styles.otherMenuItemIcon, { backgroundColor: item.color }]}>
+                    <MaterialIcons name={item.icon as any} size={20} color="#FFFFFF" />
+                  </View>
+                  <View style={styles.otherMenuItemContent}>
+                    <Text style={[styles.otherMenuItemText, { color: themeColors.text }]}>{item.title}</Text>
+                  </View>
+                  <MaterialIcons name="chevron-right" size={24} color={themeColors.muted} />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
 
         {/* Utility Section */}
         <View style={styles.otherSection}>
-          <Text style={styles.otherSectionTitle}>Tiện ích</Text>
-          {utilityMenuItems.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.otherMenuItem}
-              activeOpacity={0.7}
-              onPress={() => handleMenuItemPress(item.id)}>
-              <View style={[styles.otherMenuItemIcon, { backgroundColor: item.color }]}>
-                <MaterialIcons name={item.icon as any} size={20} color="#FFFFFF" />
-              </View>
-              <View style={styles.otherMenuItemContent}>
-                <Text style={styles.otherMenuItemText}>{item.title}</Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={24} color="#99A1AF" />
-            </TouchableOpacity>
-          ))}
+          <Text style={[styles.otherSectionTitle, { color: themeColors.textSecondary, fontWeight: '400', fontSize: 12.8 } ]}>Tiện ích</Text>
+          <View style={groupCardStyle}>
+            {utilityMenuItems.map((item, idx) => {
+              const isLast = idx === utilityMenuItems.length - 1;
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[rowBaseStyle, !isLast && { borderBottomWidth: 1, borderBottomColor: themeColors.border }]}
+                  activeOpacity={0.7}
+                  onPress={() => handleMenuItemPress(item.id)}>
+                  <View style={[styles.otherMenuItemIcon, { backgroundColor: item.color }]}>
+                    <MaterialIcons name={item.icon as any} size={20} color="#FFFFFF" />
+                  </View>
+                  <View style={styles.otherMenuItemContent}>
+                    <Text style={[styles.otherMenuItemText, { color: themeColors.text }]}>{item.title}</Text>
+                  </View>
+                  <MaterialIcons name="chevron-right" size={24} color={themeColors.muted} />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
 
         {/* Support Section */}
         <View style={styles.otherSection}>
-          <Text style={styles.otherSectionTitle}>Hỗ trợ</Text>
-          {supportMenuItems.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.otherMenuItem}
-              activeOpacity={0.7}
-              onPress={() => handleSupportMenuItemPress(item.id)}>
-              <View style={[styles.otherMenuItemIcon, { backgroundColor: item.color }]}>
-                <MaterialIcons name={item.icon as any} size={20} color="#FFFFFF" />
-              </View>
-              <View style={styles.otherMenuItemContent}>
-                <Text style={styles.otherMenuItemText}>{item.title}</Text>
-                {item.subtext && (
-                  <Text style={styles.otherMenuItemSubtext}>{item.subtext}</Text>
-                )}
-              </View>
-              <MaterialIcons name="chevron-right" size={24} color="#99A1AF" />
-            </TouchableOpacity>
-          ))}
+          <Text style={[styles.otherSectionTitle, { color: themeColors.textSecondary, fontWeight: '400', fontSize: 12.9 } ]}>Hỗ trợ</Text>
+          <View style={groupCardStyle}>
+            {supportMenuItems.map((item, idx) => {
+              const isLast = idx === supportMenuItems.length - 1;
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[rowBaseStyle, !isLast && { borderBottomWidth: 1, borderBottomColor: themeColors.border }]}
+                  activeOpacity={0.7}
+                  onPress={() => handleSupportMenuItemPress(item.id)}>
+                  <View style={[styles.otherMenuItemIcon, { backgroundColor: item.color }]}>
+                    <MaterialIcons name={item.icon as any} size={20} color="#FFFFFF" />
+                  </View>
+                  <View style={styles.otherMenuItemContent}>
+                    <Text style={[styles.otherMenuItemText, { color: themeColors.text }]}>{item.title}</Text>
+                    {item.subtext && (
+                      <Text style={[styles.otherMenuItemSubtext, { color: themeColors.muted }]}>{item.subtext}</Text>
+                    )}
+                  </View>
+                  <MaterialIcons name="chevron-right" size={24} color={themeColors.muted} />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
 
         {/* Logout Button */}
         <TouchableOpacity
-          style={styles.otherLogoutButton}
+          style={[styles.otherLogoutButton, { backgroundColor: themeColors.card }]}
           onPress={handleLogout}
           activeOpacity={0.7}>
           <View style={styles.otherLogoutButtonContent}>

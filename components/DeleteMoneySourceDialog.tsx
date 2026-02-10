@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 interface DeleteMoneySourceDialogProps {
   visible: boolean;
@@ -19,6 +21,9 @@ export function DeleteMoneySourceDialog({
   onConfirm,
   onCancel,
 }: DeleteMoneySourceDialogProps) {
+  const resolvedTheme = useColorScheme();
+  const themeColors = Colors[resolvedTheme];
+
   return (
     <Modal
       visible={visible}
@@ -32,23 +37,23 @@ export function DeleteMoneySourceDialog({
         <TouchableOpacity
           activeOpacity={1}
           onPress={(e) => e.stopPropagation()}
-          style={styles.dialog}>
+          style={[styles.dialog, { backgroundColor: themeColors.card }]}>
           <View style={styles.iconContainer}>
             <MaterialIcons name="error-outline" size={48} color="#FFFFFF" />
           </View>
-          <Text style={styles.title}>Xóa tài khoản</Text>
-          <Text style={styles.message}>
+          <Text style={[styles.title, { color: themeColors.text }]}>Xóa tài khoản</Text>
+          <Text style={[styles.message, { color: themeColors.textSecondary }]}>
             Nếu bạn xóa tài khoản này, tất cả các ghi chép liên quan cũng sẽ bị xóa. Dữ liệu bị xóa sẽ không thể khôi phục lại được. Bạn có thực sự muốn xóa không?
           </Text>
           <View style={styles.buttonsRow}>
             <TouchableOpacity
-              style={styles.cancelButton}
+              style={[styles.cancelButton, { backgroundColor: themeColors.border }]}
               onPress={onCancel}
               activeOpacity={0.8}>
-              <Text style={styles.cancelButtonText}>Không</Text>
+              <Text style={[styles.cancelButtonText, { color: themeColors.text }]}>Không</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.confirmButton}
+              style={[styles.confirmButton, { backgroundColor: themeColors.tint }]}
               onPress={onConfirm}
               activeOpacity={0.8}>
               <Text style={styles.confirmButtonText}>Có</Text>

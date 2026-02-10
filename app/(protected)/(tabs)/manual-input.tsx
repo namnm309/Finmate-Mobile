@@ -17,6 +17,8 @@ import {
   View,
   ActivityIndicator,
 } from 'react-native';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTransactionTypeService } from '@/lib/services/transactionTypeService';
 import { useCategoryService } from '@/lib/services/categoryService';
 import { useMoneySourceService } from '@/lib/services/moneySourceService';
@@ -28,7 +30,9 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function ManualInputScreen() {
   const router = useRouter();
-  
+  const resolvedTheme = useColorScheme();
+  const themeColors = Colors[resolvedTheme];
+
   // Services
   const { getTransactionTypes } = useTransactionTypeService();
   const { getCategories } = useCategoryService();
@@ -250,20 +254,20 @@ export default function ManualInputScreen() {
   // Loading state
   if (loadingData) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
             activeOpacity={0.7}>
-            <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
+            <MaterialIcons name="arrow-back" size={24} color={themeColors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Nhập giao dịch</Text>
+          <Text style={[styles.headerTitle, { color: themeColors.text }]}>Nhập giao dịch</Text>
           <View style={styles.backButton} />
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color="#51A2FF" />
-          <Text style={{ color: '#99A1AF', marginTop: 12 }}>Đang tải...</Text>
+          <ActivityIndicator size="large" color={themeColors.tint} />
+          <Text style={{ color: themeColors.textSecondary, marginTop: 12 }}>Đang tải...</Text>
         </View>
       </SafeAreaView>
     );
@@ -272,15 +276,15 @@ export default function ManualInputScreen() {
   // Error state
   if (error) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
             activeOpacity={0.7}>
-            <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
+            <MaterialIcons name="arrow-back" size={24} color={themeColors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Nhập giao dịch</Text>
+          <Text style={[styles.headerTitle, { color: themeColors.text }]}>Nhập giao dịch</Text>
           <View style={styles.backButton} />
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 }}>
@@ -289,7 +293,7 @@ export default function ManualInputScreen() {
           <TouchableOpacity
             style={{
               marginTop: 16,
-              backgroundColor: '#51A2FF',
+              backgroundColor: themeColors.tint,
               paddingHorizontal: 24,
               paddingVertical: 12,
               borderRadius: 8,
@@ -305,14 +309,14 @@ export default function ManualInputScreen() {
   const currentTypeColor = selectedTransactionType?.color || '#F87171';
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
           activeOpacity={0.7}>
-          <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
+          <MaterialIcons name="arrow-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -356,9 +360,9 @@ export default function ManualInputScreen() {
         {/* Amount Input */}
         <View style={styles.amountContainer}>
           <TextInput
-            style={styles.amountInput}
+            style={[styles.amountInput, { color: themeColors.text }]}
             placeholder="Số tiền"
-            placeholderTextColor="#6a7282"
+            placeholderTextColor={themeColors.textSecondary}
             value={amount}
             onChangeText={handleAmountChange}
             keyboardType="decimal-pad"

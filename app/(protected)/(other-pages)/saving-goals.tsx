@@ -9,6 +9,8 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { styles } from '@/styles/index.styles';
 
 interface SavingGoal {
@@ -41,6 +43,8 @@ const mockGoal: SavingGoal = {
 
 export default function SavingGoalsScreen() {
   const router = useRouter();
+  const resolvedTheme = useColorScheme();
+  const themeColors = Colors[resolvedTheme];
   const [goal, setGoal] = useState<SavingGoal>(mockGoal);
   const totalGoals = 1;
   const activeGoals = 1;
@@ -61,7 +65,7 @@ export default function SavingGoalsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 }]}
@@ -70,14 +74,14 @@ export default function SavingGoalsScreen() {
         {/* Header */}
         <View style={styles.savingGoalsHeader}>
           <TouchableOpacity onPress={handleBack} style={styles.savingGoalsBackButton}>
-            <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
+            <MaterialIcons name="arrow-back" size={24} color={themeColors.text} />
           </TouchableOpacity>
           <View style={styles.savingGoalsHeaderCenter}>
             <View style={styles.savingGoalsHeaderIcon}>
-              <MaterialIcons name="track-changes" size={24} color="#FFFFFF" />
+              <MaterialIcons name="track-changes" size={24} color={themeColors.text} />
             </View>
-            <Text style={styles.savingGoalsTitle}>Mục tiêu tiết kiệm</Text>
-            <Text style={styles.savingGoalsSubtitle}>Theo dõi & đạt được mục tiêu</Text>
+            <Text style={[styles.savingGoalsTitle, { color: themeColors.text }]}>Mục tiêu tiết kiệm</Text>
+            <Text style={[styles.savingGoalsSubtitle, { color: themeColors.textSecondary }]}>Theo dõi & đạt được mục tiêu</Text>
           </View>
           <TouchableOpacity style={styles.savingGoalsAddButton}>
             <MaterialIcons name="add" size={24} color="#FFFFFF" />

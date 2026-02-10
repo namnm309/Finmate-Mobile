@@ -1,11 +1,16 @@
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { StyleSheet, View, Text, SafeAreaView } from 'react-native';
 
 export default function AddScreen() {
+  const resolvedTheme = useColorScheme();
+  const themeColors = Colors[resolvedTheme];
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
       <View style={styles.content}>
-        <Text style={styles.title}>Thêm giao dịch</Text>
-        <Text style={styles.subtitle}>Trang này đang được phát triển</Text>
+        <Text style={[styles.title, { color: themeColors.text }]}>Thêm giao dịch</Text>
+        <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>Trang này đang được phát triển</Text>
       </View>
     </SafeAreaView>
   );
@@ -14,7 +19,6 @@ export default function AddScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f1729',
   },
   content: {
     flex: 1,
@@ -25,11 +29,9 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '600',
-    color: '#FFFFFF',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#99a1af',
   },
 });

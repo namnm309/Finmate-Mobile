@@ -9,6 +9,8 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { styles } from '@/styles/index.styles';
 
 type PostCategory = 'tips' | 'experience' | 'qa' | 'challenge';
@@ -94,6 +96,8 @@ const categoryConfig: Record<PostCategory, { label: string; color: string }> = {
 
 export default function CommunityScreen() {
   const router = useRouter();
+  const resolvedTheme = useColorScheme();
+  const themeColors = Colors[resolvedTheme];
   const [activeFilter, setActiveFilter] = useState<FilterType>('featured');
   const [posts, setPosts] = useState<Post[]>(mockPosts);
 
@@ -108,7 +112,7 @@ export default function CommunityScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 }]}
@@ -117,11 +121,11 @@ export default function CommunityScreen() {
         {/* Header */}
         <View style={styles.communityHeader}>
           <TouchableOpacity onPress={handleBack} style={styles.communityBackButton}>
-            <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
+            <MaterialIcons name="arrow-back" size={24} color={themeColors.text} />
           </TouchableOpacity>
           <View style={styles.communityHeaderCenter}>
-            <Text style={styles.communityTitle}>Cộng đồng</Text>
-            <Text style={styles.communitySubtitle}>Chia sẻ tips tiết kiệm</Text>
+            <Text style={[styles.communityTitle, { color: themeColors.text }]}>Cộng đồng</Text>
+            <Text style={[styles.communitySubtitle, { color: themeColors.textSecondary }]}>Chia sẻ tips tiết kiệm</Text>
           </View>
           <TouchableOpacity style={styles.communityPostButton}>
             <MaterialIcons name="add-box" size={20} color="#FFFFFF" />

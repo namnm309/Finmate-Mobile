@@ -1,3 +1,5 @@
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -16,6 +18,8 @@ import {
 
 export default function AIAssistantScreen() {
   const router = useRouter();
+  const resolvedTheme = useColorScheme();
+  const themeColors = Colors[resolvedTheme];
   const [message, setMessage] = useState('');
 
   const handleSend = () => {
@@ -27,7 +31,7 @@ export default function AIAssistantScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -57,12 +61,12 @@ export default function AIAssistantScreen() {
 
         {/* Chat Area */}
         <ScrollView
-          style={styles.chatArea}
+          style={[styles.chatArea, { backgroundColor: themeColors.background }]}
           contentContainerStyle={styles.chatContent}
           showsVerticalScrollIndicator={false}>
           <View style={styles.messageContainer}>
-            <View style={styles.messageBubble}>
-              <Text style={styles.messageText}>
+            <View style={[styles.messageBubble, { backgroundColor: themeColors.card }]}>
+              <Text style={[styles.messageText, { color: themeColors.text }]}>
                 Xin chào! Tôi là AI Assistant của FinMate. Bạn có thể nói hoặc gõ về các khoản chi tiêu của mình, tôi sẽ giúp bạn tự động ghi chép. Ví dụ: “Hôm nay tui đi chợ hết 100k”
               </Text>
             </View>
@@ -70,7 +74,7 @@ export default function AIAssistantScreen() {
         </ScrollView>
 
         {/* Input Bar */}
-        <View style={styles.inputBar}>
+        <View style={[styles.inputBar, { backgroundColor: themeColors.card, borderTopColor: themeColors.border }]}>
           <TouchableOpacity
             style={styles.microButton}
             activeOpacity={0.7}>
@@ -84,9 +88,9 @@ export default function AIAssistantScreen() {
           </TouchableOpacity>
 
           <TextInput
-            style={styles.textInput}
+            style={[styles.textInput, { backgroundColor: themeColors.background, color: themeColors.text }]}
             placeholder="Nhập tin nhắn..."
-            placeholderTextColor="#6a7282"
+            placeholderTextColor={themeColors.textSecondary}
             value={message}
             onChangeText={setMessage}
             multiline

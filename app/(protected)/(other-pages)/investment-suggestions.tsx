@@ -9,6 +9,8 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { styles } from '@/styles/index.styles';
 
 type RiskLevel = 'low' | 'medium' | 'high' | 'very-high';
@@ -98,6 +100,8 @@ const riskConfig: Record<RiskLevel, { label: string; color: string }> = {
 
 export default function InvestmentSuggestionsScreen() {
   const router = useRouter();
+  const resolvedTheme = useColorScheme();
+  const themeColors = Colors[resolvedTheme];
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
 
   const handleBack = () => {
@@ -120,7 +124,7 @@ export default function InvestmentSuggestionsScreen() {
   const channels = getFilteredChannels();
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 }]}
@@ -129,11 +133,11 @@ export default function InvestmentSuggestionsScreen() {
         {/* Header */}
         <View style={styles.investmentHeader}>
           <TouchableOpacity onPress={handleBack} style={styles.investmentBackButton}>
-            <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
+            <MaterialIcons name="arrow-back" size={24} color={themeColors.text} />
           </TouchableOpacity>
           <View style={styles.investmentHeaderCenter}>
-            <Text style={styles.investmentTitle}>Gợi ý kiếm tiền</Text>
-            <Text style={styles.investmentSubtitle}>Các kênh đầu tư phổ biến</Text>
+            <Text style={[styles.investmentTitle, { color: themeColors.text }]}>Gợi ý kiếm tiền</Text>
+            <Text style={[styles.investmentSubtitle, { color: themeColors.textSecondary }]}>Các kênh đầu tư phổ biến</Text>
           </View>
           <View style={{ width: 24 }} />
         </View>
