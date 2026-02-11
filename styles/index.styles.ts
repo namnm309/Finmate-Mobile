@@ -424,6 +424,27 @@ export const styles = StyleSheet.create({
     borderRadius: 60,
     backgroundColor: '#2A2A3E',
   },
+  emptyStateContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+  },
+  emptyStateContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateIcon: {
+    marginBottom: 12,
+    opacity: 0.5,
+  },
+  emptyStateText: {
+    fontSize: 13,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
   legend: {
     flex: 1,
     marginLeft: 16,

@@ -1,5 +1,12 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { MaterialIcons } from '@expo/vector-icons';
 
 import { PieChart } from '@/components/PieChart';
@@ -7,6 +14,8 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { OverviewReportDto } from '@/lib/types/report';
 import { styles } from '@/styles/index.styles';
+
+const BAR_CHART_HEIGHT = 96;
 
 interface SpendingIncomeOverviewCardProps {
   overviewData: OverviewReportDto | null;
@@ -79,6 +88,73 @@ export const SpendingIncomeOverviewCard: React.FC<SpendingIncomeOverviewCardProp
   const totalIncome = overviewData?.totalIncome ?? 0;
   const totalExpense = overviewData?.totalExpense ?? 0;
   const difference = overviewData?.difference ?? 0;
+  const hasData = totalIncome > 0 || totalExpense > 0;
+  const hasCategories = decoratedCategories.length > 0;
+
+  // Pixel heights for bar animation (0 when no data)
+  const { incomePixel, expensePixel } = useMemo(() => {
+    if (!hasData) return { incomePixel: 0, expensePixel: 0 };
+    const incomePct = parseFloat(incomeHeight) || 0;
+    const expensePct = parseFloat(expenseHeight) || 0;
+    return {
+      incomePixel: (BAR_CHART_HEIGHT * incomePct) / 100,
+      expensePixel: (BAR_CHART_HEIGHT * expensePct) / 100,
+    };
+  }, [hasData, incomeHeight, expenseHeight]);
+
+  // Bar animation: from bottom up
+  const barIncomeProgress = useSharedValue(0);
+  const barExpenseProgress = useSharedValue(0);
+  const incomeTargetHeight = useSharedValue(0);
+  const expenseTargetHeight = useSharedValue(0);
+
+  useEffect(() => {
+    incomeTargetHeight.value = incomePixel;
+    expenseTargetHeight.value = expensePixel;
+    if (hasData) {
+      barIncomeProgress.value = 0;
+      barExpenseProgress.value = 0;
+      barIncomeProgress.value = withSpring(1, { damping: 14, stiffness: 120 });
+      barExpenseProgress.value = withDelay(
+        100,
+        withSpring(1, { damping: 14, stiffness: 120 })
+      );
+    } else {
+      barIncomeProgress.value = withTiming(0);
+      barExpenseProgress.value = withTiming(0);
+    }
+  }, [hasData, incomePixel, expensePixel]);
+
+  const animatedIncomeBarStyle = useAnimatedStyle(() => ({
+    height: incomeTargetHeight.value * barIncomeProgress.value,
+  }));
+
+  const animatedExpenseBarStyle = useAnimatedStyle(() => ({
+    height: expenseTargetHeight.value * barExpenseProgress.value,
+  }));
+
+  // Donut animation: scale + rotate when categories appear
+  const pieScale = useSharedValue(0);
+  const pieRotation = useSharedValue(0);
+
+  useEffect(() => {
+    if (hasCategories) {
+      pieScale.value = 0;
+      pieRotation.value = 0;
+      pieScale.value = withSpring(1, { damping: 12, stiffness: 100 });
+      pieRotation.value = withTiming(2 * Math.PI, { duration: 450 });
+    } else {
+      pieScale.value = withTiming(0);
+      pieRotation.value = withTiming(0);
+    }
+  }, [hasCategories]);
+
+  const animatedPieStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: pieScale.value },
+      { rotate: `${pieRotation.value}rad` },
+    ],
+  }));
 
   return (
     <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }, lightCardSurface]}>
@@ -121,53 +197,85 @@ export const SpendingIncomeOverviewCard: React.FC<SpendingIncomeOverviewCardProp
             </View>
           </View>
 
-          {/* Bar Chart */}
-          <View style={styles.chartContainer}>
-            <View style={styles.barChart}>
-              <View style={[styles.bar, styles.incomeBar, { height: incomeHeight }]} />
-              <View style={[styles.bar, styles.expenseBar, { height: expenseHeight }]} />
-            </View>
-          </View>
-
-          {/* Pie Chart + Legend */}
-          <View style={styles.pieChartSection}>
-            <View style={styles.pieChartPlaceholder}>
-              {decoratedCategories.length > 0 ? (
-                <PieChart
-                  data={decoratedCategories.map((cat) => ({
-                    percentage: cat.percentage,
-                    color: cat.displayColor,
-                  }))}
-                  size={130}
-                  strokeWidth={26}
-                  innerRadiusRatio={0.55}
+          {/* Bar Chart - ẩn khi chưa có data */}
+          {hasData && (
+            <View style={styles.chartContainer}>
+              <View style={styles.barChart}>
+                <Animated.View
+                  style={[
+                    styles.bar,
+                    styles.incomeBar,
+                    animatedIncomeBarStyle,
+                  ]}
                 />
-              ) : (
-                <View style={styles.pieChartCircle} />
-              )}
+                <Animated.View
+                  style={[
+                    styles.bar,
+                    styles.expenseBar,
+                    animatedExpenseBarStyle,
+                  ]}
+                />
+              </View>
             </View>
-            <View style={styles.legend}>
-              {decoratedCategories.length > 0 ? (
-                decoratedCategories.map((category, index) => (
-                  <View key={category.categoryId || index} style={styles.legendItem}>
-                    <View
-                      style={[
-                        styles.legendDot,
-                        { backgroundColor: category.displayColor },
-                      ]}
+          )}
+
+          {/* Pie Chart + Legend / Empty state */}
+          <View style={styles.pieChartSection}>
+            {hasCategories ? (
+              <>
+                <View style={styles.pieChartPlaceholder}>
+                  <Animated.View style={animatedPieStyle}>
+                    <PieChart
+                      data={decoratedCategories.map((cat) => ({
+                        percentage: cat.percentage,
+                        color: cat.displayColor,
+                      }))}
+                      size={130}
+                      strokeWidth={26}
+                      innerRadiusRatio={0.55}
                     />
-                    <Text numberOfLines={1} style={[styles.legendName, { color: themeColors.text }]}>
-                      {category.categoryName}
-                    </Text>
-                    <Text style={[styles.legendPercentage, { color: themeColors.textSecondary }]}>
-                      {category.percentage.toFixed(2).replace('.', ',')}%
-                    </Text>
+                  </Animated.View>
+                </View>
+                <View style={styles.legend}>
+                  {decoratedCategories.map((category, index) => (
+                    <View key={category.categoryId || index} style={styles.legendItem}>
+                      <View
+                        style={[
+                          styles.legendDot,
+                          { backgroundColor: category.displayColor },
+                        ]}
+                      />
+                      <Text numberOfLines={1} style={[styles.legendName, { color: themeColors.text }]}>
+                        {category.categoryName}
+                      </Text>
+                      <Text style={[styles.legendPercentage, { color: themeColors.textSecondary }]}>
+                        {category.percentage.toFixed(2).replace('.', ',')}%
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </>
+            ) : (
+              <View style={[styles.emptyStateContainer, { flex: 1 }]}>
+                <View style={styles.emptyStateContent}>
+                  <View style={styles.emptyStateIcon}>
+                    <MaterialIcons
+                      name="pie-chart"
+                      size={44}
+                      color={themeColors.textSecondary}
+                    />
                   </View>
-                ))
-              ) : (
-                <Text style={{ color: themeColors.textSecondary, fontSize: 12 }}>Chưa có dữ liệu</Text>
-              )}
-            </View>
+                  <Text
+                    style={[
+                      styles.emptyStateText,
+                      { color: themeColors.textSecondary },
+                    ]}
+                  >
+                    Chưa có giao dịch trong kỳ này
+                  </Text>
+                </View>
+              </View>
+            )}
           </View>
         </>
 

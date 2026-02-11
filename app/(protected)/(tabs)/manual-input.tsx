@@ -28,10 +28,455 @@ import { MoneySourceDto } from '@/lib/types/moneySource';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
+interface CategoryPickerProps {
+  categories: CategoryDto[];
+  selectedCategory: CategoryDto | null;
+  onChange: (category: CategoryDto) => void;
+  themeColors: (typeof Colors)['light'];
+  isDark: boolean;
+}
+
+function CategoryPicker({
+  categories,
+  selectedCategory,
+  onChange,
+  themeColors,
+  isDark,
+}: CategoryPickerProps) {
+  const [showModal, setShowModal] = useState(false);
+  const [searchText, setSearchText] = useState('');
+
+  const normalizedSearch = searchText.trim().toLowerCase();
+  const filteredCategories =
+    normalizedSearch.length === 0
+      ? categories
+      : categories.filter((category) =>
+          category.name.toLowerCase().includes(normalizedSearch)
+        );
+
+  const frequentCategories = filteredCategories.slice(0, 7);
+  const row1Categories = frequentCategories.slice(0, 4);
+  const row2Categories = frequentCategories.slice(4, 7);
+  const otherCategories = filteredCategories.slice(7);
+
+  const handleSelectCategory = (category: CategoryDto, closeModal?: boolean) => {
+    onChange(category);
+    if (closeModal) {
+      setShowModal(false);
+    }
+  };
+
+  return (
+    <>
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <TouchableOpacity
+            style={[styles.categoryButton, { backgroundColor: themeColors.card }]}
+            activeOpacity={0.7}
+            onPress={() => setShowModal(true)}>
+            {selectedCategory ? (
+              <>
+                <View style={styles.categoryIconContainer}>
+                  <MaterialIcons
+                    name={(selectedCategory.icon || 'category') as any}
+                    size={20}
+                    color={themeColors.tint}
+                  />
+                </View>
+                <Text style={[styles.categoryButtonText, { color: themeColors.text }]}>
+                  {selectedCategory.name}
+                </Text>
+              </>
+            ) : (
+              <>
+                <MaterialIcons name="add" size={20} color={themeColors.tint} />
+                <Text style={[styles.categoryButtonText, { color: themeColors.tint }]}>
+                  Chọn hạng mục
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.filterButton}
+            activeOpacity={0.7}
+            onPress={() => setShowModal(true)}>
+            <Text style={[styles.filterText, { color: themeColors.textSecondary }]}>
+              Tất cả
+            </Text>
+            <MaterialIcons name="arrow-drop-down" size={20} color={themeColors.muted} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Frequent Categories */}
+        <View
+          style={[
+            styles.frequentSection,
+            { backgroundColor: themeColors.card },
+          ]}>
+          <View style={styles.frequentHeader}>
+            <Text style={[styles.frequentTitle, { color: themeColors.text }]}>
+              Hay dùng
+            </Text>
+            <TouchableOpacity activeOpacity={0.7}>
+              <MaterialIcons
+                name="keyboard-arrow-up"
+                size={24}
+                color={themeColors.muted}
+              />
+            </TouchableOpacity>
+          </View>
+
+          {filteredCategories.length === 0 ? (
+            <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+              <Text
+                style={{
+                  color: themeColors.textSecondary,
+                  fontSize: 14,
+                }}>
+                Chưa có hạng mục nào
+              </Text>
+            </View>
+          ) : (
+            <>
+              {/* Row 1: First 4 categories */}
+              <View style={styles.categoryRow}>
+                {row1Categories.map((category) => (
+                  <TouchableOpacity
+                    key={category.id}
+                    style={[
+                      styles.categoryItem,
+                      { backgroundColor: themeColors.card },
+                      selectedCategory?.id === category.id && {
+                        borderColor: themeColors.tint,
+                        borderWidth: 1,
+                      },
+                    ]}
+                    onPress={() => handleSelectCategory(category)}
+                    activeOpacity={0.7}>
+                    <View style={styles.categoryIconContainer}>
+                      <MaterialIcons
+                        name={(category.icon || 'category') as any}
+                        size={20}
+                        color={
+                          selectedCategory?.id === category.id
+                            ? themeColors.tint
+                            : themeColors.muted
+                        }
+                      />
+                    </View>
+                    <Text
+                      style={[
+                        styles.categoryItemText,
+                        { color: themeColors.textSecondary },
+                        selectedCategory?.id === category.id && {
+                          color: themeColors.tint,
+                          fontWeight: '600',
+                        },
+                      ]}
+                      numberOfLines={1}>
+                      {category.name}
+                    </Text>
+                    {selectedCategory?.id === category.id && (
+                      <View style={styles.starIcon}>
+                        <MaterialIcons name="star" size={12} color="#FBBF24" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
+                {/* Fill empty slots in row 1 */}
+                {row1Categories.length < 4 &&
+                  Array(4 - row1Categories.length)
+                    .fill(0)
+                    .map((_, i) => (
+                      <View
+                        key={`empty1-${i}`}
+                        style={[styles.categoryItem, { opacity: 0 }]}
+                      />
+                    ))}
+              </View>
+
+              {/* Row 2: Next 3 categories + "Khác" button */}
+              <View style={styles.categoryRow}>
+                {row2Categories.map((category) => (
+                  <TouchableOpacity
+                    key={category.id}
+                    style={[
+                      styles.categoryItem,
+                      { backgroundColor: themeColors.card },
+                      selectedCategory?.id === category.id && {
+                        borderColor: themeColors.tint,
+                        borderWidth: 1,
+                      },
+                    ]}
+                    onPress={() => handleSelectCategory(category)}
+                    activeOpacity={0.7}>
+                    <View style={styles.categoryIconContainer}>
+                      <MaterialIcons
+                        name={(category.icon || 'category') as any}
+                        size={20}
+                        color={
+                          selectedCategory?.id === category.id
+                            ? themeColors.tint
+                            : themeColors.muted
+                        }
+                      />
+                    </View>
+                    <Text
+                      style={[
+                        styles.categoryItemText,
+                        { color: themeColors.textSecondary },
+                        selectedCategory?.id === category.id && {
+                          color: themeColors.tint,
+                          fontWeight: '600',
+                        },
+                      ]}
+                      numberOfLines={1}>
+                      {category.name}
+                    </Text>
+                    {selectedCategory?.id === category.id && (
+                      <View style={styles.starIcon}>
+                        <MaterialIcons name="star" size={12} color="#FBBF24" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
+
+                {/* "Khác" button - luôn mở màn chọn hạng mục đầy đủ */}
+                {(otherCategories.length > 0 || row2Categories.length < 3) && (
+                  <TouchableOpacity
+                    style={[
+                      styles.categoryItem,
+                      { backgroundColor: themeColors.card },
+                    ]}
+                    onPress={() => setShowModal(true)}
+                    activeOpacity={0.7}>
+                    <View style={styles.categoryIconContainer}>
+                      <MaterialIcons
+                        name="more-horiz"
+                        size={20}
+                        color={themeColors.muted}
+                      />
+                    </View>
+                    <Text
+                      style={[
+                        styles.categoryItemText,
+                        { color: themeColors.textSecondary },
+                      ]}>
+                      Khác
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* Fill empty slots in row 2 */}
+                {row2Categories.length < 3 &&
+                  otherCategories.length === 0 &&
+                  Array(3 - row2Categories.length)
+                    .fill(0)
+                    .map((_, i) => (
+                      <View
+                        key={`empty2-${i}`}
+                        style={[styles.categoryItem, { opacity: 0 }]}
+                      />
+                    ))}
+              </View>
+            </>
+          )}
+        </View>
+      </View>
+
+      {/* Full category picker modal */}
+      <Modal
+        visible={showModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowModal(false)}>
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={() => setShowModal(false)}>
+          <View style={styles.modalContainer}>
+            <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+              <View
+                style={[
+                  styles.modalContent,
+                  { backgroundColor: themeColors.card },
+                ]}>
+                <View
+                  style={[
+                    styles.modalHeader,
+                    { borderBottomColor: themeColors.border },
+                  ]}>
+                  <Text style={[styles.modalTitle, { color: themeColors.text }]}>
+                    Chọn hạng mục
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setShowModal(false)}
+                    activeOpacity={0.7}>
+                    <MaterialIcons
+                      name="close"
+                      size={24}
+                      color={themeColors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Search box */}
+                <View
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingBottom: 8,
+                  }}>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      borderRadius: 10,
+                      paddingHorizontal: 12,
+                      paddingVertical: Platform.OS === 'ios' ? 10 : 6,
+                      backgroundColor: isDark ? '#1f2937' : '#f3f4f6',
+                    }}>
+                    <MaterialIcons
+                      name="search"
+                      size={20}
+                      color={themeColors.textSecondary}
+                    />
+                    <TextInput
+                      style={{
+                        flex: 1,
+                        marginLeft: 8,
+                        color: themeColors.text,
+                        paddingVertical: 0,
+                      }}
+                      placeholder="Tìm kiếm theo tên hạng mục"
+                      placeholderTextColor={themeColors.textSecondary}
+                      value={searchText}
+                      onChangeText={setSearchText}
+                    />
+                  </View>
+                </View>
+
+                <ScrollView
+                  style={styles.modalScrollView}
+                  contentContainerStyle={styles.modalScrollContent}
+                  showsVerticalScrollIndicator={false}>
+                  {/* Frequent section in modal */}
+                  {frequentCategories.length > 0 && (
+                    <View style={{ marginBottom: 16 }}>
+                      <Text
+                        style={[
+                          styles.frequentTitle,
+                          { color: themeColors.text, marginBottom: 8 },
+                        ]}>
+                        Hay dùng
+                      </Text>
+                      <View style={styles.modalCategoryGrid}>
+                        {frequentCategories.map((category) => (
+                          <TouchableOpacity
+                            key={category.id}
+                            style={[
+                              styles.modalCategoryItem,
+                              { backgroundColor: themeColors.card },
+                              selectedCategory?.id === category.id && {
+                                borderColor: themeColors.tint,
+                                borderWidth: 2,
+                              },
+                            ]}
+                            onPress={() => handleSelectCategory(category, true)}
+                            activeOpacity={0.7}>
+                            <View style={styles.modalCategoryIconContainer}>
+                              <MaterialIcons
+                                name={(category.icon || 'category') as any}
+                                size={24}
+                                color={
+                                  selectedCategory?.id === category.id
+                                    ? themeColors.tint
+                                    : '#99a1af'
+                                }
+                              />
+                            </View>
+                            <Text
+                              style={[
+                                styles.modalCategoryText,
+                                { color: themeColors.textSecondary },
+                                selectedCategory?.id === category.id && {
+                                  color: themeColors.tint,
+                                  fontWeight: '600',
+                                },
+                              ]}
+                              numberOfLines={1}>
+                              {category.name}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* All categories section */}
+                  <View>
+                    <Text
+                      style={[
+                        styles.frequentTitle,
+                        { color: themeColors.text, marginBottom: 8 },
+                      ]}>
+                      Tất cả hạng mục
+                    </Text>
+                    <View style={styles.modalCategoryGrid}>
+                      {filteredCategories.map((category) => (
+                        <TouchableOpacity
+                          key={`all-${category.id}`}
+                          style={[
+                            styles.modalCategoryItem,
+                            { backgroundColor: themeColors.card },
+                            selectedCategory?.id === category.id && {
+                              borderColor: themeColors.tint,
+                              borderWidth: 2,
+                            },
+                          ]}
+                          onPress={() => handleSelectCategory(category, true)}
+                          activeOpacity={0.7}>
+                          <View style={styles.modalCategoryIconContainer}>
+                            <MaterialIcons
+                              name={(category.icon || 'category') as any}
+                              size={24}
+                              color={
+                                selectedCategory?.id === category.id
+                                  ? themeColors.tint
+                                  : '#99a1af'
+                              }
+                            />
+                          </View>
+                          <Text
+                            style={[
+                              styles.modalCategoryText,
+                              { color: themeColors.textSecondary },
+                              selectedCategory?.id === category.id && {
+                                color: themeColors.tint,
+                                fontWeight: '600',
+                              },
+                            ]}
+                            numberOfLines={1}>
+                            {category.name}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                </ScrollView>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </>
+  );
+}
+
 export default function ManualInputScreen() {
   const router = useRouter();
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
+  const isDark = resolvedTheme === 'dark';
 
   // Services
   const { getTransactionTypes } = useTransactionTypeService();
@@ -63,7 +508,6 @@ export default function ManualInputScreen() {
   const [isBorrowing, setIsBorrowing] = useState(false);
   const [isFee, setIsFee] = useState(false);
   const [excludeFromReport, setExcludeFromReport] = useState(false);
-  const [showOtherCategoriesModal, setShowOtherCategoriesModal] = useState(false);
   const [showTransactionTypeModal, setShowTransactionTypeModal] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
 
@@ -245,17 +689,11 @@ export default function ManualInputScreen() {
     }
   };
 
-  // Get display categories (first 7 + "Khác")
-  const frequentCategories = categories.slice(0, 7);
-  const row1Categories = frequentCategories.slice(0, 4);
-  const row2Categories = frequentCategories.slice(4, 7);
-  const otherCategories = categories.slice(7);
-
   // Loading state
   if (loadingData) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
-        <View style={styles.header}>
+        <View style={[styles.header, { borderBottomColor: themeColors.border }]}>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
@@ -277,7 +715,7 @@ export default function ManualInputScreen() {
   if (error) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
-        <View style={styles.header}>
+        <View style={[styles.header, { borderBottomColor: themeColors.border }]}>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
@@ -299,7 +737,13 @@ export default function ManualInputScreen() {
               borderRadius: 8,
             }}
             onPress={() => fetchData()}>
-            <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Thử lại</Text>
+            <Text
+              style={{
+                color: isDark ? themeColors.background : '#FFFFFF',
+                fontWeight: '600',
+              }}>
+              Thử lại
+            </Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -311,7 +755,7 @@ export default function ManualInputScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { borderBottomColor: themeColors.border }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
@@ -346,9 +790,16 @@ export default function ManualInputScreen() {
           disabled={saving}
           activeOpacity={0.7}>
           {saving ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
+            <ActivityIndicator
+              size="small"
+              color={isDark ? themeColors.background : '#FFFFFF'}
+            />
           ) : (
-            <MaterialIcons name="check" size={24} color="#FFFFFF" />
+            <MaterialIcons
+              name="check"
+              size={24}
+              color={isDark ? themeColors.background : '#FFFFFF'}
+            />
           )}
         </TouchableOpacity>
       </View>
@@ -372,165 +823,54 @@ export default function ManualInputScreen() {
         </View>
 
         {/* Category Selection */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <TouchableOpacity style={styles.categoryButton} activeOpacity={0.7}>
-              <MaterialIcons name="add" size={20} color="#51A2FF" />
-              <Text style={styles.categoryButtonText}>Chọn hạng mục</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.filterButton} activeOpacity={0.7}>
-              <Text style={styles.filterText}>Tất cả</Text>
-              <MaterialIcons name="arrow-drop-down" size={20} color="#99a1af" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Frequent Categories */}
-          <View style={styles.frequentSection}>
-            <View style={styles.frequentHeader}>
-              <Text style={styles.frequentTitle}>Hay dùng</Text>
-              <TouchableOpacity activeOpacity={0.7}>
-                <MaterialIcons name="keyboard-arrow-up" size={24} color="#99a1af" />
-              </TouchableOpacity>
-            </View>
-
-            {categories.length === 0 ? (
-              <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-                <Text style={{ color: '#99a1af', fontSize: 14 }}>Chưa có hạng mục nào</Text>
-              </View>
-            ) : (
-              <>
-                {/* Row 1: First 4 categories */}
-                <View style={styles.categoryRow}>
-                  {row1Categories.map((category) => (
-                    <TouchableOpacity
-                      key={category.id}
-                      style={[
-                        styles.categoryItem,
-                        selectedCategory?.id === category.id && styles.categoryItemSelected,
-                      ]}
-                      onPress={() => setSelectedCategory(category)}
-                      activeOpacity={0.7}>
-                      <View style={styles.categoryIconContainer}>
-                        <MaterialIcons
-                          name={(category.icon || 'category') as any}
-                          size={20}
-                          color={selectedCategory?.id === category.id ? '#51A2FF' : '#99a1af'}
-                        />
-                      </View>
-                      <Text
-                        style={[
-                          styles.categoryItemText,
-                          selectedCategory?.id === category.id && styles.categoryItemTextSelected,
-                        ]}
-                        numberOfLines={1}>
-                        {category.name}
-                      </Text>
-                      {selectedCategory?.id === category.id && (
-                        <View style={styles.starIcon}>
-                          <MaterialIcons name="star" size={12} color="#FBBF24" />
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                  {/* Fill empty slots in row 1 */}
-                  {row1Categories.length < 4 && Array(4 - row1Categories.length).fill(0).map((_, i) => (
-                    <View key={`empty1-${i}`} style={[styles.categoryItem, { opacity: 0 }]} />
-                  ))}
-                </View>
-
-                {/* Row 2: Next 3 categories + "Khác" button */}
-                <View style={styles.categoryRow}>
-                  {row2Categories.map((category) => (
-                    <TouchableOpacity
-                      key={category.id}
-                      style={[
-                        styles.categoryItem,
-                        selectedCategory?.id === category.id && styles.categoryItemSelected,
-                      ]}
-                      onPress={() => setSelectedCategory(category)}
-                      activeOpacity={0.7}>
-                      <View style={styles.categoryIconContainer}>
-                        <MaterialIcons
-                          name={(category.icon || 'category') as any}
-                          size={20}
-                          color={selectedCategory?.id === category.id ? '#51A2FF' : '#99a1af'}
-                        />
-                      </View>
-                      <Text
-                        style={[
-                          styles.categoryItemText,
-                          selectedCategory?.id === category.id && styles.categoryItemTextSelected,
-                        ]}
-                        numberOfLines={1}>
-                        {category.name}
-                      </Text>
-                      {selectedCategory?.id === category.id && (
-                        <View style={styles.starIcon}>
-                          <MaterialIcons name="star" size={12} color="#FBBF24" />
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                  
-                  {/* "Khác" button - only show if there are more categories */}
-                  {(otherCategories.length > 0 || row2Categories.length < 3) && (
-                    <TouchableOpacity
-                      style={styles.categoryItem}
-                      onPress={() => setShowOtherCategoriesModal(true)}
-                      activeOpacity={0.7}>
-                      <View style={styles.categoryIconContainer}>
-                        <MaterialIcons name="more-horiz" size={20} color="#99a1af" />
-                      </View>
-                      <Text style={styles.categoryItemText}>Khác</Text>
-                    </TouchableOpacity>
-                  )}
-
-                  {/* Fill empty slots in row 2 */}
-                  {row2Categories.length < 3 && otherCategories.length === 0 && Array(3 - row2Categories.length).fill(0).map((_, i) => (
-                    <View key={`empty2-${i}`} style={[styles.categoryItem, { opacity: 0 }]} />
-                  ))}
-                </View>
-              </>
-            )}
-          </View>
-        </View>
+        <CategoryPicker
+          categories={categories}
+          selectedCategory={selectedCategory}
+          onChange={setSelectedCategory}
+          themeColors={themeColors}
+          isDark={isDark}
+        />
 
         {/* Account Selection */}
-        <TouchableOpacity 
-          style={styles.row} 
+        <TouchableOpacity
+          style={[styles.row, { backgroundColor: themeColors.card }]}
           activeOpacity={0.7}
           onPress={() => setShowAccountModal(true)}>
-          <MaterialIcons name="account-balance" size={20} color="#51A2FF" />
-          <Text style={styles.rowText}>
+          <MaterialIcons name="account-balance" size={20} color={themeColors.tint} />
+          <Text style={[styles.rowText, { color: themeColors.text }]}>
             {selectedMoneySource?.name || 'Chọn tài khoản'}
           </Text>
-          <MaterialIcons name="arrow-drop-down" size={20} color="#99a1af" />
+          <MaterialIcons name="arrow-drop-down" size={20} color={themeColors.muted} />
         </TouchableOpacity>
 
         {/* Date and Time Selection */}
         <View style={styles.dateTimeRow}>
           <TouchableOpacity
-            style={styles.dateTimeItem}
+            style={[styles.dateTimeItem, { backgroundColor: themeColors.card }]}
             onPress={() => setShowDatePicker(true)}
             activeOpacity={0.7}>
-            <MaterialIcons name="calendar-today" size={20} color="#51A2FF" />
-            <Text style={styles.dateTimeText}>{formatDate(date)}</Text>
+            <MaterialIcons name="calendar-today" size={20} color={themeColors.tint} />
+            <Text style={[styles.dateTimeText, { color: themeColors.text }]}>
+              {formatDate(date)}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.dateTimeItem}
+            style={[styles.dateTimeItem, { backgroundColor: themeColors.card }]}
             onPress={() => setShowTimePicker(true)}
             activeOpacity={0.7}>
-            <Text style={styles.dateTimeText}>{formatTime(time)}</Text>
+            <Text style={[styles.dateTimeText, { color: themeColors.text }]}>
+              {formatTime(time)}
+            </Text>
           </TouchableOpacity>
         </View>
 
         {/* Description */}
-        <View style={styles.row}>
-          <MaterialIcons name="list" size={20} color="#51A2FF" />
+        <View style={[styles.row, { backgroundColor: themeColors.card }]}>
+          <MaterialIcons name="list" size={20} color={themeColors.tint} />
           <TextInput
-            style={styles.descriptionInput}
+            style={[styles.descriptionInput, { color: themeColors.text }]}
             placeholder="Diễn giải"
-            placeholderTextColor="#6a7282"
+            placeholderTextColor={themeColors.muted}
             value={description}
             onChangeText={setDescription}
           />
@@ -539,62 +879,117 @@ export default function ManualInputScreen() {
         {/* Additional Details */}
         {showDetails && (
           <>
-            <TouchableOpacity style={styles.row} activeOpacity={0.7}>
-              <MaterialIcons name="luggage" size={20} color="#51A2FF" />
-              <Text style={styles.rowText}>Chuyến đi/Sự kiện</Text>
-              <MaterialIcons name="arrow-drop-down" size={20} color="#99a1af" />
+            <TouchableOpacity
+              style={[styles.row, { backgroundColor: themeColors.card }]}
+              activeOpacity={0.7}>
+              <MaterialIcons name="luggage" size={20} color={themeColors.tint} />
+              <Text style={[styles.rowText, { color: themeColors.text }]}>
+                Chuyến đi/Sự kiện
+              </Text>
+              <MaterialIcons name="arrow-drop-down" size={20} color={themeColors.muted} />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.row} activeOpacity={0.7}>
-              <MaterialIcons name="person" size={20} color="#51A2FF" />
-              <Text style={styles.rowText}>Chỉ cho ai</Text>
-              <MaterialIcons name="arrow-drop-down" size={20} color="#99a1af" />
+            <TouchableOpacity
+              style={[styles.row, { backgroundColor: themeColors.card }]}
+              activeOpacity={0.7}>
+              <MaterialIcons name="person" size={20} color={themeColors.tint} />
+              <Text style={[styles.rowText, { color: themeColors.text }]}>
+                Chỉ cho ai
+              </Text>
+              <MaterialIcons name="arrow-drop-down" size={20} color={themeColors.muted} />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.row} activeOpacity={0.7}>
-              <MaterialIcons name="location-on" size={20} color="#51A2FF" />
-              <Text style={styles.rowText}>Địa điểm</Text>
-              <MaterialIcons name="arrow-drop-down" size={20} color="#99a1af" />
+            <TouchableOpacity
+              style={[styles.row, { backgroundColor: themeColors.card }]}
+              activeOpacity={0.7}>
+              <MaterialIcons name="location-on" size={20} color={themeColors.tint} />
+              <Text style={[styles.rowText, { color: themeColors.text }]}>
+                Địa điểm
+              </Text>
+              <MaterialIcons name="arrow-drop-down" size={20} color={themeColors.muted} />
             </TouchableOpacity>
 
             {/* Toggles */}
-            <View style={styles.toggleRow}>
-              <Text style={styles.toggleLabel}>Đi vay để trả khoản này</Text>
+            <View
+              style={[
+                styles.toggleRow,
+                { backgroundColor: themeColors.card },
+              ]}>
+              <Text style={[styles.toggleLabel, { color: themeColors.text }]}>
+                Đi vay để trả khoản này
+              </Text>
               <Switch
                 value={isBorrowing}
                 onValueChange={setIsBorrowing}
-                trackColor={{ false: '#374151', true: '#51A2FF' }}
-                thumbColor="#FFFFFF"
+                trackColor={{
+                  false: themeColors.border,
+                  true: themeColors.tint,
+                }}
+                thumbColor={themeColors.card}
               />
             </View>
 
-            <View style={styles.toggleRow}>
-              <Text style={styles.toggleLabel}>Phí</Text>
+            <View
+              style={[
+                styles.toggleRow,
+                { backgroundColor: themeColors.card },
+              ]}>
+              <Text style={[styles.toggleLabel, { color: themeColors.text }]}>
+                Phí
+              </Text>
               <Switch
                 value={isFee}
                 onValueChange={setIsFee}
-                trackColor={{ false: '#374151', true: '#51A2FF' }}
-                thumbColor="#FFFFFF"
+                trackColor={{
+                  false: themeColors.border,
+                  true: themeColors.tint,
+                }}
+                thumbColor={themeColors.card}
               />
             </View>
 
-            <View style={styles.toggleRow}>
-              <Text style={styles.toggleLabel}>Không tính vào báo cáo</Text>
+            <View
+              style={[
+                styles.toggleRow,
+                { backgroundColor: themeColors.card },
+              ]}>
+              <Text style={[styles.toggleLabel, { color: themeColors.text }]}>
+                Không tính vào báo cáo
+              </Text>
               <Switch
                 value={excludeFromReport}
                 onValueChange={setExcludeFromReport}
-                trackColor={{ false: '#374151', true: '#51A2FF' }}
-                thumbColor="#FFFFFF"
+                trackColor={{
+                  false: themeColors.border,
+                  true: themeColors.tint,
+                }}
+                thumbColor={themeColors.card}
               />
             </View>
 
             {/* Attach Files */}
             <View style={styles.attachContainer}>
-              <TouchableOpacity style={styles.attachButton} activeOpacity={0.7}>
-                <MaterialIcons name="photo-library" size={24} color="#51A2FF" />
+              <TouchableOpacity
+                style={[
+                  styles.attachButton,
+                  {
+                    backgroundColor: themeColors.card,
+                    borderColor: themeColors.tint,
+                  },
+                ]}
+                activeOpacity={0.7}>
+                <MaterialIcons name="photo-library" size={24} color={themeColors.tint} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.attachButton} activeOpacity={0.7}>
-                <MaterialIcons name="camera-alt" size={24} color="#51A2FF" />
+              <TouchableOpacity
+                style={[
+                  styles.attachButton,
+                  {
+                    backgroundColor: themeColors.card,
+                    borderColor: themeColors.tint,
+                  },
+                ]}
+                activeOpacity={0.7}>
+                <MaterialIcons name="camera-alt" size={24} color={themeColors.tint} />
               </TouchableOpacity>
             </View>
           </>
@@ -605,21 +1000,38 @@ export default function ManualInputScreen() {
           style={styles.hideDetailsButton}
           onPress={() => setShowDetails(!showDetails)}
           activeOpacity={0.7}>
-          <Text style={styles.hideDetailsText}>
+          <Text
+            style={[
+              styles.hideDetailsText,
+              { color: themeColors.textSecondary },
+            ]}>
             {showDetails ? 'Ẩn chi tiết' : 'Hiện chi tiết'}
           </Text>
         </TouchableOpacity>
 
         {/* Save Button */}
-        <TouchableOpacity 
-          style={[styles.saveButtonLarge, saving && { opacity: 0.6 }]} 
-          onPress={handleSave} 
+        <TouchableOpacity
+          style={[
+            styles.saveButtonLarge,
+            { backgroundColor: themeColors.tint },
+            saving && { opacity: 0.6 },
+          ]}
+          onPress={handleSave}
           disabled={saving}
           activeOpacity={0.8}>
           {saving ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
+            <ActivityIndicator
+              size="small"
+              color={isDark ? themeColors.background : '#FFFFFF'}
+            />
           ) : (
-            <Text style={styles.saveButtonText}>Lưu lại</Text>
+            <Text
+              style={[
+                styles.saveButtonText,
+                { color: isDark ? themeColors.background : '#FFFFFF' },
+              ]}>
+              Lưu lại
+            </Text>
           )}
         </TouchableOpacity>
       </ScrollView>
@@ -636,13 +1048,27 @@ export default function ManualInputScreen() {
           onPress={() => setShowDatePicker(false)}>
           <View style={styles.pickerContainer}>
             <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
-              <View style={styles.pickerContent}>
-                <View style={styles.pickerHeader}>
-                  <Text style={styles.pickerTitle}>Chọn ngày</Text>
+              <View
+                style={[
+                  styles.pickerContent,
+                  { backgroundColor: themeColors.card },
+                ]}>
+                <View
+                  style={[
+                    styles.pickerHeader,
+                    { borderBottomColor: themeColors.border },
+                  ]}>
+                  <Text style={[styles.pickerTitle, { color: themeColors.text }]}>
+                    Chọn ngày
+                  </Text>
                   <TouchableOpacity
                     onPress={() => setShowDatePicker(false)}
                     activeOpacity={0.7}>
-                    <MaterialIcons name="close" size={24} color="#FFFFFF" />
+                    <MaterialIcons
+                      name="close"
+                      size={24}
+                      color={themeColors.textSecondary}
+                    />
                   </TouchableOpacity>
                 </View>
                 <DateTimePicker
@@ -671,13 +1097,27 @@ export default function ManualInputScreen() {
           onPress={() => setShowTimePicker(false)}>
           <View style={styles.pickerContainer}>
             <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
-              <View style={styles.pickerContent}>
-                <View style={styles.pickerHeader}>
-                  <Text style={styles.pickerTitle}>Chọn giờ</Text>
+              <View
+                style={[
+                  styles.pickerContent,
+                  { backgroundColor: themeColors.card },
+                ]}>
+                <View
+                  style={[
+                    styles.pickerHeader,
+                    { borderBottomColor: themeColors.border },
+                  ]}>
+                  <Text style={[styles.pickerTitle, { color: themeColors.text }]}>
+                    Chọn giờ
+                  </Text>
                   <TouchableOpacity
                     onPress={() => setShowTimePicker(false)}
                     activeOpacity={0.7}>
-                    <MaterialIcons name="close" size={24} color="#FFFFFF" />
+                    <MaterialIcons
+                      name="close"
+                      size={24}
+                      color={themeColors.textSecondary}
+                    />
                   </TouchableOpacity>
                 </View>
                 <DateTimePicker
@@ -706,13 +1146,27 @@ export default function ManualInputScreen() {
           onPress={() => setShowTransactionTypeModal(false)}>
           <View style={styles.modalContainer}>
             <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
-              <View style={styles.transactionTypeModalContent}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Chọn loại giao dịch</Text>
+              <View
+                style={[
+                  styles.transactionTypeModalContent,
+                  { backgroundColor: themeColors.card },
+                ]}>
+                <View
+                  style={[
+                    styles.modalHeader,
+                    { borderBottomColor: themeColors.border },
+                  ]}>
+                  <Text style={[styles.modalTitle, { color: themeColors.text }]}>
+                    Chọn loại giao dịch
+                  </Text>
                   <TouchableOpacity
                     onPress={() => setShowTransactionTypeModal(false)}
                     activeOpacity={0.7}>
-                    <MaterialIcons name="close" size={24} color="#FFFFFF" />
+                    <MaterialIcons
+                      name="close"
+                      size={24}
+                      color={themeColors.textSecondary}
+                    />
                   </TouchableOpacity>
                 </View>
                 <View style={styles.transactionTypeList}>
@@ -721,7 +1175,11 @@ export default function ManualInputScreen() {
                       key={type.id}
                       style={[
                         styles.transactionTypeItem,
-                        selectedTransactionType?.id === type.id && styles.transactionTypeItemSelected,
+                        { backgroundColor: themeColors.card },
+                        selectedTransactionType?.id === type.id && {
+                          borderColor: type.color,
+                          borderWidth: 1,
+                        },
                       ]}
                       onPress={() => handleTransactionTypeChange(type)}
                       activeOpacity={0.7}>
@@ -734,6 +1192,7 @@ export default function ManualInputScreen() {
                       <Text
                         style={[
                           styles.transactionTypeItemText,
+                          { color: themeColors.text },
                           selectedTransactionType?.id === type.id && {
                             color: type.color,
                             fontWeight: '600',
@@ -765,34 +1224,57 @@ export default function ManualInputScreen() {
           onPress={() => setShowAccountModal(false)}>
           <View style={styles.modalContainer}>
             <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
-              <View style={styles.transactionTypeModalContent}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Chọn tài khoản</Text>
+              <View
+                style={[
+                  styles.transactionTypeModalContent,
+                  { backgroundColor: themeColors.card },
+                ]}>
+                <View
+                  style={[
+                    styles.modalHeader,
+                    { borderBottomColor: themeColors.border },
+                  ]}>
+                  <Text style={[styles.modalTitle, { color: themeColors.text }]}>
+                    Chọn tài khoản
+                  </Text>
                   <TouchableOpacity
                     onPress={() => setShowAccountModal(false)}
                     activeOpacity={0.7}>
-                    <MaterialIcons name="close" size={24} color="#FFFFFF" />
+                    <MaterialIcons
+                      name="close"
+                      size={24}
+                      color={themeColors.textSecondary}
+                    />
                   </TouchableOpacity>
                 </View>
                 <ScrollView style={{ maxHeight: 400 }}>
                   <View style={styles.transactionTypeList}>
                     {moneySources.length === 0 ? (
                       <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-                        <Text style={{ color: '#99a1af' }}>Chưa có tài khoản nào</Text>
+                        <Text
+                          style={{
+                            color: themeColors.textSecondary,
+                          }}>
+                          Chưa có tài khoản nào
+                        </Text>
                       </View>
                     ) : (
                       moneySources.map((source) => (
-                        <TouchableOpacity
-                          key={source.id}
-                          style={[
-                            styles.transactionTypeItem,
-                            selectedMoneySource?.id === source.id && styles.transactionTypeItemSelected,
-                          ]}
-                          onPress={() => {
-                            setSelectedMoneySource(source);
-                            setShowAccountModal(false);
-                          }}
-                          activeOpacity={0.7}>
+                          <TouchableOpacity
+                            key={source.id}
+                            style={[
+                              styles.transactionTypeItem,
+                              { backgroundColor: themeColors.card },
+                              selectedMoneySource?.id === source.id && {
+                                borderColor: themeColors.tint,
+                                borderWidth: 1,
+                              },
+                            ]}
+                            onPress={() => {
+                              setSelectedMoneySource(source);
+                              setShowAccountModal(false);
+                            }}
+                            activeOpacity={0.7}>
                           <View
                             style={[
                               styles.accountIconSmall,
@@ -808,19 +1290,28 @@ export default function ManualInputScreen() {
                             <Text
                               style={[
                                 styles.transactionTypeItemText,
+                                { color: themeColors.text },
                                 selectedMoneySource?.id === source.id && {
-                                  color: '#51A2FF',
+                                  color: themeColors.tint,
                                   fontWeight: '600',
                                 },
                               ]}>
                               {source.name}
                             </Text>
-                            <Text style={{ color: '#99a1af', fontSize: 12 }}>
+                            <Text
+                              style={{
+                                color: themeColors.textSecondary,
+                                fontSize: 12,
+                              }}>
                               {new Intl.NumberFormat('vi-VN').format(source.balance)} ₫
                             </Text>
                           </View>
                           {selectedMoneySource?.id === source.id && (
-                            <MaterialIcons name="check" size={20} color="#51A2FF" />
+                            <MaterialIcons
+                              name="check"
+                              size={20}
+                              color={themeColors.tint}
+                            />
                           )}
                         </TouchableOpacity>
                       ))
@@ -834,6 +1325,7 @@ export default function ManualInputScreen() {
       </Modal>
 
       {/* Other Categories Modal */}
+      {/*
       <Modal
         visible={showOtherCategoriesModal}
         transparent={true}
@@ -845,13 +1337,27 @@ export default function ManualInputScreen() {
           onPress={() => setShowOtherCategoriesModal(false)}>
           <View style={styles.modalContainer}>
             <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
-              <View style={styles.modalContent}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Chọn hạng mục</Text>
+              <View
+                style={[
+                  styles.modalContent,
+                  { backgroundColor: themeColors.card },
+                ]}>
+                <View
+                  style={[
+                    styles.modalHeader,
+                    { borderBottomColor: themeColors.border },
+                  ]}>
+                  <Text style={[styles.modalTitle, { color: themeColors.text }]}>
+                    Chọn hạng mục
+                  </Text>
                   <TouchableOpacity
                     onPress={() => setShowOtherCategoriesModal(false)}
                     activeOpacity={0.7}>
-                    <MaterialIcons name="close" size={24} color="#FFFFFF" />
+                    <MaterialIcons
+                      name="close"
+                      size={24}
+                      color={themeColors.textSecondary}
+                    />
                   </TouchableOpacity>
                 </View>
                 <ScrollView
@@ -864,7 +1370,11 @@ export default function ManualInputScreen() {
                         key={category.id}
                         style={[
                           styles.modalCategoryItem,
-                          selectedCategory?.id === category.id && styles.modalCategoryItemSelected,
+                          { backgroundColor: themeColors.card },
+                          selectedCategory?.id === category.id && {
+                            borderColor: themeColors.tint,
+                            borderWidth: 2,
+                          },
                         ]}
                         onPress={() => {
                           setSelectedCategory(category);
@@ -881,7 +1391,11 @@ export default function ManualInputScreen() {
                         <Text
                           style={[
                             styles.modalCategoryText,
-                            selectedCategory?.id === category.id && styles.modalCategoryTextSelected,
+                            { color: themeColors.textSecondary },
+                            selectedCategory?.id === category.id && {
+                              color: themeColors.tint,
+                              fontWeight: '600',
+                            },
                           ]}
                           numberOfLines={1}>
                           {category.name}
@@ -895,6 +1409,7 @@ export default function ManualInputScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+      */}
     </SafeAreaView>
   );
 }
@@ -902,7 +1417,6 @@ export default function ManualInputScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f1729',
   },
   header: {
     flexDirection: 'row',
@@ -911,10 +1425,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1e2939',
   },
   headerTitle: {
-    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '600',
   },
@@ -927,15 +1439,12 @@ const styles = StyleSheet.create({
   transactionTypeButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1e2939',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#F87171',
   },
   transactionTypeText: {
-    color: '#F87171',
     fontSize: 16,
     fontWeight: '600',
     marginRight: 4,
@@ -944,7 +1453,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 8,
-    backgroundColor: '#51A2FF',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -964,13 +1472,11 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 48,
     fontWeight: 'bold',
-    color: '#FFFFFF',
     paddingVertical: 8,
   },
   currencySymbol: {
     fontSize: 24,
     fontWeight: '600',
-    color: '#F87171',
     marginLeft: 8,
   },
   section: {
@@ -985,13 +1491,11 @@ const styles = StyleSheet.create({
   categoryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1e2939',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
   },
   categoryButtonText: {
-    color: '#51A2FF',
     fontSize: 16,
     fontWeight: '500',
     marginLeft: 8,
@@ -1001,12 +1505,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   filterText: {
-    color: '#99a1af',
     fontSize: 14,
     marginRight: 4,
   },
   frequentSection: {
-    backgroundColor: '#1e2939',
     borderRadius: 12,
     padding: 16,
   },
@@ -1017,7 +1519,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   frequentTitle: {
-    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -1028,7 +1529,6 @@ const styles = StyleSheet.create({
   },
   categoryItem: {
     flex: 1,
-    backgroundColor: '#151a25',
     borderRadius: 8,
     padding: 10,
     alignItems: 'center',
@@ -1036,20 +1536,16 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   categoryItemSelected: {
-    backgroundColor: '#1e3a5f',
     borderWidth: 1,
-    borderColor: '#51A2FF',
   },
   categoryIconContainer: {
     marginBottom: 6,
   },
   categoryItemText: {
-    color: '#99a1af',
     fontSize: 12,
     textAlign: 'center',
   },
   categoryItemTextSelected: {
-    color: '#51A2FF',
     fontWeight: '600',
   },
   starIcon: {
@@ -1060,7 +1556,6 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1e2939',
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderRadius: 12,
@@ -1068,7 +1563,6 @@ const styles = StyleSheet.create({
   },
   rowText: {
     flex: 1,
-    color: '#FFFFFF',
     fontSize: 16,
     marginLeft: 12,
   },
@@ -1081,20 +1575,17 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1e2939',
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderRadius: 12,
   },
   dateTimeText: {
     flex: 1,
-    color: '#FFFFFF',
     fontSize: 16,
     marginLeft: 12,
   },
   descriptionInput: {
     flex: 1,
-    color: '#FFFFFF',
     fontSize: 16,
     marginLeft: 12,
   },
@@ -1102,14 +1593,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#1e2939',
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderRadius: 12,
     marginBottom: 12,
   },
   toggleLabel: {
-    color: '#FFFFFF',
     fontSize: 16,
   },
   attachContainer: {
@@ -1120,23 +1609,19 @@ const styles = StyleSheet.create({
   attachButton: {
     width: 60,
     height: 60,
-    backgroundColor: '#1e2939',
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#51A2FF',
   },
   hideDetailsButton: {
     paddingVertical: 16,
     alignItems: 'center',
   },
   hideDetailsText: {
-    color: '#99a1af',
     fontSize: 14,
   },
   saveButtonLarge: {
-    backgroundColor: '#51A2FF',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -1160,7 +1645,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#1e2939',
     borderRadius: 24,
     paddingTop: 20,
     paddingBottom: Platform.OS === 'ios' ? 24 : 20,
@@ -1176,13 +1660,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a3441',
     marginBottom: 8,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF',
   },
   modalScrollView: {
     maxHeight: 500,
@@ -1199,27 +1681,22 @@ const styles = StyleSheet.create({
   },
   modalCategoryItem: {
     width: (SCREEN_WIDTH - 64) / 4,
-    backgroundColor: '#151a25',
     borderRadius: 10,
     padding: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalCategoryItemSelected: {
-    backgroundColor: '#1e3a5f',
     borderWidth: 2,
-    borderColor: '#51A2FF',
   },
   modalCategoryIconContainer: {
     marginBottom: 6,
   },
   modalCategoryText: {
-    color: '#99a1af',
     fontSize: 11,
     textAlign: 'center',
   },
   modalCategoryTextSelected: {
-    color: '#51A2FF',
     fontWeight: '600',
   },
   pickerBackdrop: {
@@ -1235,7 +1712,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pickerContent: {
-    backgroundColor: '#1e2939',
     borderRadius: 20,
     paddingTop: 16,
     paddingBottom: Platform.OS === 'ios' ? 20 : 16,
@@ -1249,20 +1725,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a3441',
     marginBottom: 16,
   },
   pickerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF',
   },
   dateTimePicker: {
     alignSelf: 'center',
     width: Platform.OS === 'ios' ? '100%' : 'auto',
   },
   transactionTypeModalContent: {
-    backgroundColor: '#1e2939',
     borderRadius: 20,
     paddingTop: 16,
     paddingBottom: Platform.OS === 'ios' ? 20 : 16,
@@ -1280,12 +1753,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 12,
     marginBottom: 8,
-    backgroundColor: '#151a25',
   },
   transactionTypeItemSelected: {
-    backgroundColor: '#1e3a5f',
     borderWidth: 1,
-    borderColor: '#51A2FF',
   },
   transactionTypeColorIndicator: {
     width: 4,
@@ -1295,7 +1765,6 @@ const styles = StyleSheet.create({
   },
   transactionTypeItemText: {
     flex: 1,
-    color: '#FFFFFF',
     fontSize: 16,
   },
   accountIconSmall: {
