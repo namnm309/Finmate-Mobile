@@ -45,6 +45,7 @@ function CategoryPicker({
 }: CategoryPickerProps) {
   const [showModal, setShowModal] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [frequentExpanded, setFrequentExpanded] = useState(true);
 
   const normalizedSearch = searchText.trim().toLowerCase();
   const filteredCategories =
@@ -117,16 +118,19 @@ function CategoryPicker({
             <Text style={[styles.frequentTitle, { color: themeColors.text }]}>
               Hay dùng
             </Text>
-            <TouchableOpacity activeOpacity={0.7}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setFrequentExpanded((prev) => !prev)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
               <MaterialIcons
-                name="keyboard-arrow-up"
+                name={frequentExpanded ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
                 size={24}
                 color={themeColors.muted}
               />
             </TouchableOpacity>
           </View>
 
-          {filteredCategories.length === 0 ? (
+          {!frequentExpanded ? null : filteredCategories.length === 0 ? (
             <View style={{ paddingVertical: 20, alignItems: 'center' }}>
               <Text
                 style={{

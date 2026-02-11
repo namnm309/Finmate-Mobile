@@ -34,6 +34,8 @@ export default function AccountScreen() {
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
   const isLight = resolvedTheme === 'light';
+  // Nút Thêm tài khoản: sáng = xanh lá, tối = xanh dương đậm
+  const addButtonColor = isLight ? themeColors.tint : '#2563eb';
   const lightOutlinedIcon = isLight
     ? {
         backgroundColor: themeColors.card,
@@ -344,7 +346,7 @@ export default function AccountScreen() {
                 Chưa có tài khoản nào.{'\n'}Hãy thêm tài khoản để bắt đầu quản lý tài chính.
               </Text>
               <TouchableOpacity
-                style={localStyles.addAccountButton}
+                style={[localStyles.addAccountButton, { backgroundColor: addButtonColor }]}
                 onPress={handleAddMoneySource}
                 activeOpacity={0.8}>
                 <MaterialIcons name="add" size={20} color="#FFFFFF" />
@@ -402,7 +404,7 @@ export default function AccountScreen() {
 
       {/* Floating Action Button */}
       <TouchableOpacity
-        style={localStyles.fab}
+        style={[localStyles.fab, { backgroundColor: addButtonColor }]}
         onPress={handleAddMoneySource}
         activeOpacity={0.8}>
         <MaterialIcons name="add" size={28} color="#FFFFFF" />
@@ -503,7 +505,6 @@ const localStyles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#51A2FF',
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 8,
@@ -515,7 +516,6 @@ const localStyles = StyleSheet.create({
   addAccountButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#51A2FF',
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 8,

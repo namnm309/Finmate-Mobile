@@ -36,6 +36,10 @@ export default function AddMoneySourceScreen() {
   const router = useRouter();
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
+  const isDark = resolvedTheme === 'dark';
+  const headerBgColor = isDark ? themeColors.card : themeColors.tint;
+  const headerFgColor = '#FFFFFF';
+  const primaryButtonTextColor = isDark ? themeColors.background : '#FFFFFF';
   const { 
     getAccountTypes, 
     getCurrencies, 
@@ -217,7 +221,7 @@ export default function AddMoneySourceScreen() {
   if (loadingData) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: headerBgColor, borderBottomColor: themeColors.border }]}>
           <TouchableOpacity
             style={styles.headerButton}
             onPress={() =>
@@ -227,14 +231,14 @@ export default function AddMoneySourceScreen() {
               } as any)
             }
             activeOpacity={0.7}>
-            <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
+            <MaterialIcons name="arrow-back" size={24} color={headerFgColor} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Thêm tài khoản</Text>
+          <Text style={[styles.headerTitle, { color: headerFgColor }]}>Thêm tài khoản</Text>
           <View style={styles.headerButton} />
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#51A2FF" />
-          <Text style={styles.loadingText}>Đang tải...</Text>
+          <ActivityIndicator size="large" color={themeColors.tint} />
+          <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>Đang tải...</Text>
         </View>
       </SafeAreaView>
     );
@@ -244,26 +248,26 @@ export default function AddMoneySourceScreen() {
   if (error) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: headerBgColor, borderBottomColor: themeColors.border }]}>
           <TouchableOpacity
             style={styles.headerButton}
             onPress={() => router.back()}
             activeOpacity={0.7}>
-            <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
+            <MaterialIcons name="arrow-back" size={24} color={headerFgColor} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Thêm tài khoản</Text>
+          <Text style={[styles.headerTitle, { color: headerFgColor }]}>Thêm tài khoản</Text>
           <View style={styles.headerButton} />
         </View>
         <View style={styles.errorContainer}>
           <MaterialIcons name="error-outline" size={48} color="#F87171" />
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={[styles.errorText, { color: '#F87171' }]}>{error}</Text>
           {(error.includes('does not exist') || error.includes('relation') || error.includes('API Error: 500')) && (
-            <Text style={[styles.errorText, { marginTop: 8, fontSize: 13, opacity: 0.9 }]}>
+            <Text style={[styles.errorText, { color: '#F87171', marginTop: 8, fontSize: 13, opacity: 0.9 }]}>
               Có thể database server chưa sẵn sàng. Thử lại sau hoặc liên hệ hỗ trợ.
             </Text>
           )}
-          <TouchableOpacity style={styles.retryButton} onPress={() => { setError(null); fetchData(); }}>
-            <Text style={styles.retryButtonText}>Thử lại</Text>
+          <TouchableOpacity style={[styles.retryButton, { backgroundColor: themeColors.tint }]} onPress={() => { setError(null); fetchData(); }}>
+            <Text style={[styles.retryButtonText, { color: primaryButtonTextColor }]}>Thử lại</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -273,7 +277,7 @@ export default function AddMoneySourceScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: headerBgColor, borderBottomColor: themeColors.border }]}>
         <TouchableOpacity
           style={styles.headerButton}
           onPress={() =>
@@ -283,18 +287,18 @@ export default function AddMoneySourceScreen() {
             } as any)
           }
           activeOpacity={0.7}>
-          <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
+          <MaterialIcons name="arrow-back" size={24} color={headerFgColor} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Thêm tài khoản</Text>
+        <Text style={[styles.headerTitle, { color: headerFgColor }]}>Thêm tài khoản</Text>
         <TouchableOpacity
           style={[styles.headerButton, saving && { opacity: 0.6 }]}
           onPress={handleSave}
           disabled={saving}
           activeOpacity={0.7}>
           {saving ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
+            <ActivityIndicator size="small" color={headerFgColor} />
           ) : (
-            <MaterialIcons name="check" size={24} color="#FFFFFF" />
+            <MaterialIcons name="check" size={24} color={headerFgColor} />
           )}
         </TouchableOpacity>
       </View>
@@ -305,111 +309,111 @@ export default function AddMoneySourceScreen() {
         showsVerticalScrollIndicator={false}>
         
         {/* Balance Input */}
-        <View style={styles.balanceCard}>
-          <Text style={styles.balanceLabel}>Số dư ban đầu</Text>
+        <View style={[styles.balanceCard, { backgroundColor: themeColors.card }]}>
+          <Text style={[styles.balanceLabel, { color: themeColors.textSecondary }]}>Số dư ban đầu</Text>
           <View style={styles.balanceInputContainer}>
             <TextInput
-              style={styles.balanceInput}
+              style={[styles.balanceInput, { color: themeColors.tint }]}
               value={balance}
               onChangeText={handleBalanceChange}
               keyboardType="numeric"
               placeholder="0"
-              placeholderTextColor="#6B7280"
+              placeholderTextColor={themeColors.textSecondary}
             />
-            <Text style={styles.balanceSymbol}>
+            <Text style={[styles.balanceSymbol, { color: themeColors.tint }]}>
               {selectedCurrency?.symbol || '₫'}
             </Text>
           </View>
         </View>
 
         {/* Form Fields */}
-        <View style={styles.formCard}>
+        <View style={[styles.formCard, { backgroundColor: themeColors.card }]}>
           {/* Icon + Name Input */}
           <TouchableOpacity 
-            style={styles.formRow}
+            style={[styles.formRow, { borderBottomColor: themeColors.border }]}
             onPress={() => setShowIconModal(true)}
             activeOpacity={0.7}>
-            <View style={[styles.iconPreview, { backgroundColor: selectedAccountType?.color || '#51A2FF' }]}>
+            <View style={[styles.iconPreview, { backgroundColor: selectedAccountType?.color || themeColors.tint }]}>
               <MaterialIcons name={selectedIcon as any} size={24} color="#FFFFFF" />
             </View>
             <TextInput
-              style={styles.nameInput}
+              style={[styles.nameInput, { color: themeColors.text }]}
               value={name}
               onChangeText={setName}
               placeholder="Tên tài khoản"
-              placeholderTextColor="#6B7280"
+              placeholderTextColor={themeColors.textSecondary}
             />
           </TouchableOpacity>
 
           {/* Account Type Selector */}
           <TouchableOpacity 
-            style={styles.formRow}
+            style={[styles.formRow, { borderBottomColor: themeColors.border }]}
             onPress={() => setShowAccountTypeModal(true)}
             activeOpacity={0.7}>
-            <View style={[styles.iconPreview, { backgroundColor: selectedAccountType?.color || '#51A2FF' }]}>
+            <View style={[styles.iconPreview, { backgroundColor: selectedAccountType?.color || themeColors.tint }]}>
               <MaterialIcons name={(selectedAccountType?.icon || 'account-balance-wallet') as any} size={24} color="#FFFFFF" />
             </View>
-            <Text style={styles.formRowText}>
+            <Text style={[styles.formRowText, { color: themeColors.text }]}>
               {selectedAccountType?.name || 'Chọn loại tài khoản'}
             </Text>
-            <MaterialIcons name="chevron-right" size={24} color="#9CA3AF" />
+            <MaterialIcons name="chevron-right" size={24} color={themeColors.icon} />
           </TouchableOpacity>
 
           {/* Currency Selector */}
           <TouchableOpacity 
-            style={styles.formRow}
+            style={[styles.formRow, { borderBottomColor: themeColors.border }]}
             onPress={() => setShowCurrencyModal(true)}
             activeOpacity={0.7}>
-            <View style={styles.currencyIcon}>
-              <Text style={styles.currencyIconText}>
+            <View style={[styles.currencyIcon, { backgroundColor: themeColors.border }]}>
+              <Text style={[styles.currencyIconText, { color: themeColors.text }]}>
                 {selectedCurrency?.symbol || '₫'}
               </Text>
             </View>
-            <Text style={styles.formRowText}>
+            <Text style={[styles.formRowText, { color: themeColors.text }]}>
               {selectedCurrency?.code || 'VND'}
             </Text>
-            <MaterialIcons name="chevron-right" size={24} color="#9CA3AF" />
+            <MaterialIcons name="chevron-right" size={24} color={themeColors.icon} />
           </TouchableOpacity>
 
           {/* Description */}
-          <View style={styles.formRow}>
-            <MaterialIcons name="notes" size={24} color="#9CA3AF" />
+          <View style={[styles.formRow, { borderBottomWidth: 0 }]}>
+            <MaterialIcons name="notes" size={24} color={themeColors.icon} />
             <TextInput
-              style={styles.descriptionInput}
+              style={[styles.descriptionInput, { color: themeColors.text }]}
               value={description}
               onChangeText={setDescription}
               placeholder="Diễn giải"
-              placeholderTextColor="#6B7280"
+              placeholderTextColor={themeColors.textSecondary}
             />
           </View>
         </View>
 
         {/* Exclude from Report Toggle */}
-        <View style={styles.toggleCard}>
+        <View style={[styles.toggleCard, { backgroundColor: themeColors.card }]}>
           <View style={styles.toggleRow}>
-            <Text style={styles.toggleLabel}>Không tính vào báo cáo</Text>
+            <Text style={[styles.toggleLabel, { color: themeColors.text }]}>Không tính vào báo cáo</Text>
             <Switch
               value={excludeFromReport}
               onValueChange={setExcludeFromReport}
-              trackColor={{ false: '#374151', true: '#51A2FF' }}
+              trackColor={{ false: themeColors.border, true: themeColors.tint }}
               thumbColor="#FFFFFF"
             />
           </View>
-          <Text style={styles.toggleDescription}>
+          <Text style={[styles.toggleDescription, { color: themeColors.textSecondary }]}>
             Ghi chép trên tài khoản này sẽ không được thống kê vào TẤT CẢ báo cáo (trừ báo cáo theo dõi vay nợ)
           </Text>
         </View>
 
         {/* Save Button */}
         <TouchableOpacity 
-          style={[styles.saveButton, saving && { opacity: 0.6 }]} 
+          style={[styles.saveButton, { backgroundColor: themeColors.tint }, saving && { opacity: 0.6 }]} 
           onPress={handleSave}
           disabled={saving}
           activeOpacity={0.8}>
           {saving ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
+            <ActivityIndicator size="small" color={primaryButtonTextColor} />
           ) : (
-            <Text style={styles.saveButtonText}>Lưu lại</Text>
+            <Text style={[styles.saveButtonText, { color: primaryButtonTextColor }]}>Lưu lại</Text>
           )}
         </TouchableOpacity>
       </ScrollView>
@@ -421,14 +425,14 @@ export default function AddMoneySourceScreen() {
         animationType="slide"
         onRequestClose={() => setShowAccountTypeModal(false)}>
         <SafeAreaView style={[styles.modalContainer, { backgroundColor: themeColors.background }]}>
-          <View style={styles.modalHeader}>
+          <View style={[styles.modalHeader, { backgroundColor: headerBgColor, borderBottomColor: themeColors.border }]}>
             <TouchableOpacity
               style={styles.modalHeaderButton}
               onPress={() => setShowAccountTypeModal(false)}
               activeOpacity={0.7}>
-              <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
+              <MaterialIcons name="arrow-back" size={24} color={headerFgColor} />
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Chọn loại tài khoản</Text>
+            <Text style={[styles.modalTitle, { color: headerFgColor }]}>Chọn loại tài khoản</Text>
             <View style={styles.modalHeaderButton} />
           </View>
           <ScrollView style={styles.modalContent}>
@@ -437,16 +441,17 @@ export default function AddMoneySourceScreen() {
                 key={type.id}
                 style={[
                   styles.accountTypeItem,
-                  selectedAccountType?.id === type.id && styles.accountTypeItemSelected,
+                  { borderBottomColor: themeColors.border },
+                  selectedAccountType?.id === type.id && [styles.accountTypeItemSelected, { backgroundColor: themeColors.card }],
                 ]}
                 onPress={() => handleAccountTypeSelect(type)}
                 activeOpacity={0.7}>
-                <View style={[styles.accountTypeIcon, { backgroundColor: type.color || '#51A2FF' }]}>
+                <View style={[styles.accountTypeIcon, { backgroundColor: type.color || themeColors.tint }]}>
                   <MaterialIcons name={(type.icon || 'account-balance-wallet') as any} size={24} color="#FFFFFF" />
                 </View>
-                <Text style={styles.accountTypeName}>{type.name}</Text>
+                <Text style={[styles.accountTypeName, { color: themeColors.text }]}>{type.name}</Text>
                 {selectedAccountType?.id === type.id && (
-                  <MaterialIcons name="check" size={24} color="#51A2FF" />
+                  <MaterialIcons name="check" size={24} color={themeColors.tint} />
                 )}
               </TouchableOpacity>
             ))}
@@ -461,26 +466,26 @@ export default function AddMoneySourceScreen() {
         animationType="slide"
         onRequestClose={() => setShowCurrencyModal(false)}>
         <SafeAreaView style={[styles.modalContainer, { backgroundColor: themeColors.background }]}>
-          <View style={styles.modalHeader}>
+          <View style={[styles.modalHeader, { backgroundColor: headerBgColor, borderBottomColor: themeColors.border }]}>
             <TouchableOpacity
               style={styles.modalHeaderButton}
               onPress={() => setShowCurrencyModal(false)}
               activeOpacity={0.7}>
-              <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
+              <MaterialIcons name="arrow-back" size={24} color={headerFgColor} />
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Loại tiền tệ</Text>
+            <Text style={[styles.modalTitle, { color: headerFgColor }]}>Loại tiền tệ</Text>
             <View style={styles.modalHeaderButton} />
           </View>
           
           {/* Search Bar */}
-          <View style={styles.searchContainer}>
-            <MaterialIcons name="search" size={20} color="#9CA3AF" />
+          <View style={[styles.searchContainer, { backgroundColor: themeColors.card }]}>
+            <MaterialIcons name="search" size={20} color={themeColors.icon} />
             <TextInput
-              style={styles.searchInput}
+              style={[styles.searchInput, { color: themeColors.text }]}
               value={currencySearch}
               onChangeText={setCurrencySearch}
               placeholder="Tìm theo loại tiền tệ"
-              placeholderTextColor="#6B7280"
+              placeholderTextColor={themeColors.textSecondary}
             />
           </View>
 
@@ -490,7 +495,8 @@ export default function AddMoneySourceScreen() {
                 key={currency.id}
                 style={[
                   styles.currencyItem,
-                  selectedCurrency?.id === currency.id && styles.currencyItemSelected,
+                  { borderBottomColor: themeColors.border },
+                  selectedCurrency?.id === currency.id && [styles.currencyItemSelected, { backgroundColor: themeColors.card }],
                 ]}
                 onPress={() => {
                   setSelectedCurrency(currency);
@@ -500,12 +506,12 @@ export default function AddMoneySourceScreen() {
                 activeOpacity={0.7}>
                 <Text style={styles.currencyFlag}>{getCountryFlag(currency.countryCode)}</Text>
                 <View style={styles.currencyInfo}>
-                  <Text style={styles.currencyName}>{currency.name}</Text>
-                  <Text style={styles.currencyCode}>{currency.code}</Text>
+                  <Text style={[styles.currencyName, { color: themeColors.text }]}>{currency.name}</Text>
+                  <Text style={[styles.currencyCode, { color: themeColors.textSecondary }]}>{currency.code}</Text>
                 </View>
-                <Text style={styles.currencySymbol}>{currency.symbol}</Text>
+                <Text style={[styles.currencySymbol, { color: themeColors.textSecondary }]}>{currency.symbol}</Text>
                 {selectedCurrency?.id === currency.id && (
-                  <MaterialIcons name="check" size={24} color="#51A2FF" style={{ marginLeft: 8 }} />
+                  <MaterialIcons name="check" size={24} color={themeColors.tint} style={{ marginLeft: 8 }} />
                 )}
               </TouchableOpacity>
             ))}
@@ -520,14 +526,14 @@ export default function AddMoneySourceScreen() {
         animationType="slide"
         onRequestClose={() => setShowIconModal(false)}>
         <SafeAreaView style={[styles.modalContainer, { backgroundColor: themeColors.background }]}>
-          <View style={styles.modalHeader}>
+          <View style={[styles.modalHeader, { backgroundColor: headerBgColor, borderBottomColor: themeColors.border }]}>
             <TouchableOpacity
               style={styles.modalHeaderButton}
               onPress={() => setShowIconModal(false)}
               activeOpacity={0.7}>
-              <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
+              <MaterialIcons name="arrow-back" size={24} color={headerFgColor} />
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Chọn biểu tượng</Text>
+            <Text style={[styles.modalTitle, { color: headerFgColor }]}>Chọn biểu tượng</Text>
             <View style={styles.modalHeaderButton} />
           </View>
           <ScrollView style={styles.modalContent}>
@@ -537,7 +543,7 @@ export default function AddMoneySourceScreen() {
                   key={icon.name}
                   style={[
                     styles.iconItem,
-                    selectedIcon === icon.name && styles.iconItemSelected,
+                    selectedIcon === icon.name && [styles.iconItemSelected, { backgroundColor: themeColors.card }],
                   ]}
                   onPress={() => {
                     setSelectedIcon(icon.name);
@@ -547,11 +553,12 @@ export default function AddMoneySourceScreen() {
                   <MaterialIcons 
                     name={icon.name as any} 
                     size={28} 
-                    color={selectedIcon === icon.name ? '#51A2FF' : '#9CA3AF'} 
+                    color={selectedIcon === icon.name ? themeColors.tint : themeColors.icon} 
                   />
                   <Text style={[
                     styles.iconLabel,
-                    selectedIcon === icon.name && styles.iconLabelSelected
+                    { color: themeColors.textSecondary },
+                    selectedIcon === icon.name && [styles.iconLabelSelected, { color: themeColors.tint }],
                   ]} numberOfLines={1}>
                     {icon.label}
                   </Text>
@@ -568,7 +575,6 @@ export default function AddMoneySourceScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F1729',
   },
   header: {
     flexDirection: 'row',
@@ -577,7 +583,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E2939',
   },
   headerButton: {
     width: 40,
@@ -586,7 +591,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '600',
   },
@@ -596,7 +600,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: '#9CA3AF',
     marginTop: 12,
   },
   errorContainer: {
@@ -606,19 +609,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   errorText: {
-    color: '#F87171',
     marginTop: 12,
     textAlign: 'center',
   },
   retryButton: {
     marginTop: 16,
-    backgroundColor: '#51A2FF',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
   },
   retryButtonText: {
-    color: '#FFFFFF',
     fontWeight: '600',
   },
   scrollView: {
@@ -629,14 +629,12 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   balanceCard: {
-    backgroundColor: '#1E2939',
     borderRadius: 16,
     padding: 20,
     alignItems: 'center',
     marginBottom: 16,
   },
   balanceLabel: {
-    color: '#9CA3AF',
     fontSize: 14,
     marginBottom: 8,
   },
@@ -645,20 +643,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   balanceInput: {
-    color: '#51A2FF',
     fontSize: 36,
     fontWeight: 'bold',
     textAlign: 'center',
     minWidth: 100,
   },
   balanceSymbol: {
-    color: '#51A2FF',
     fontSize: 24,
     fontWeight: '600',
     marginLeft: 8,
   },
   formCard: {
-    backgroundColor: '#1E2939',
     borderRadius: 16,
     marginBottom: 16,
     overflow: 'hidden',
@@ -669,7 +664,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#374151',
   },
   iconPreview: {
     width: 40,
@@ -681,36 +675,30 @@ const styles = StyleSheet.create({
   },
   nameInput: {
     flex: 1,
-    color: '#FFFFFF',
     fontSize: 16,
   },
   formRowText: {
     flex: 1,
-    color: '#FFFFFF',
     fontSize: 16,
   },
   currencyIcon: {
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: '#374151',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   currencyIconText: {
-    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '600',
   },
   descriptionInput: {
     flex: 1,
-    color: '#FFFFFF',
     fontSize: 16,
     marginLeft: 12,
   },
   toggleCard: {
-    backgroundColor: '#1E2939',
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
@@ -722,30 +710,25 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   toggleLabel: {
-    color: '#FFFFFF',
     fontSize: 16,
   },
   toggleDescription: {
-    color: '#9CA3AF',
     fontSize: 14,
     lineHeight: 20,
   },
   saveButton: {
-    backgroundColor: '#51A2FF',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 8,
   },
   saveButtonText: {
-    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '600',
   },
   // Modal styles
   modalContainer: {
     flex: 1,
-    backgroundColor: '#0F1729',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -754,7 +737,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E2939',
   },
   modalHeaderButton: {
     width: 40,
@@ -763,7 +745,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalTitle: {
-    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '600',
   },
@@ -773,7 +754,6 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1E2939',
     margin: 16,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -781,7 +761,6 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: '#FFFFFF',
     fontSize: 16,
     marginLeft: 12,
   },
@@ -791,11 +770,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E2939',
   },
-  accountTypeItemSelected: {
-    backgroundColor: '#1E2939',
-  },
+  accountTypeItemSelected: {},
   accountTypeIcon: {
     width: 40,
     height: 40,
@@ -806,7 +782,6 @@ const styles = StyleSheet.create({
   },
   accountTypeName: {
     flex: 1,
-    color: '#FFFFFF',
     fontSize: 16,
   },
   currencyItem: {
@@ -815,11 +790,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E2939',
   },
-  currencyItemSelected: {
-    backgroundColor: '#1E2939',
-  },
+  currencyItemSelected: {},
   currencyFlag: {
     fontSize: 28,
     marginRight: 12,
@@ -828,16 +800,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   currencyName: {
-    color: '#FFFFFF',
     fontSize: 16,
     marginBottom: 2,
   },
   currencyCode: {
-    color: '#9CA3AF',
     fontSize: 14,
   },
   currencySymbol: {
-    color: '#9CA3AF',
     fontSize: 18,
     fontWeight: '500',
     marginRight: 8,
@@ -853,16 +822,12 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   iconItemSelected: {
-    backgroundColor: '#1E2939',
     borderRadius: 12,
   },
   iconLabel: {
-    color: '#9CA3AF',
     fontSize: 11,
     marginTop: 6,
     textAlign: 'center',
   },
-  iconLabelSelected: {
-    color: '#51A2FF',
-  },
+  iconLabelSelected: {},
 });
