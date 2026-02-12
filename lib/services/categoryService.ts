@@ -1,15 +1,17 @@
-import { useApiClient, API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, useApiClient } from '@/lib/api';
 import { CategoryDto } from '@/lib/types/transaction';
 
 export interface CreateCategoryRequest {
   transactionTypeId: string;
   name: string;
   icon?: string;
+  parentCategoryId?: string | null;
 }
 
 export interface UpdateCategoryRequest {
   name?: string;
   icon?: string;
+  parentCategoryId?: string | null;
 }
 
 export const useCategoryService = () => {

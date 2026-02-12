@@ -23,6 +23,7 @@ export function DeleteMoneySourceDialog({
 }: DeleteMoneySourceDialogProps) {
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
+  const textOnTint = resolvedTheme === 'dark' ? themeColors.background : '#FFFFFF';
 
   return (
     <Modal
@@ -56,7 +57,7 @@ export function DeleteMoneySourceDialog({
               style={[styles.confirmButton, { backgroundColor: themeColors.tint }]}
               onPress={onConfirm}
               activeOpacity={0.8}>
-              <Text style={styles.confirmButtonText}>Có</Text>
+              <Text style={[styles.confirmButtonText, { color: textOnTint }]}>Có</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>

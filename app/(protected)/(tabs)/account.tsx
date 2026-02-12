@@ -34,6 +34,7 @@ export default function AccountScreen() {
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
   const isLight = resolvedTheme === 'light';
+  const textOnTint = resolvedTheme === 'dark' ? themeColors.background : '#ffffff';
   // Nút Thêm tài khoản: sáng = xanh lá, tối = xanh dương đậm
   const addButtonColor = isLight ? themeColors.tint : '#2563eb';
   const lightOutlinedIcon = isLight
@@ -236,7 +237,7 @@ export default function AccountScreen() {
                 borderRadius: 8,
               }}
               onPress={() => fetchData()}>
-              <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Thử lại</Text>
+              <Text style={{ color: textOnTint, fontWeight: '600' }}>Thử lại</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

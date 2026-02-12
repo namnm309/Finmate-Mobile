@@ -13,6 +13,7 @@ export interface CategoryDto {
   userId: string;
   transactionTypeId: string;
   transactionTypeName: string;
+  parentCategoryId?: string | null;
   name: string;
   icon: string;
   isActive: boolean;

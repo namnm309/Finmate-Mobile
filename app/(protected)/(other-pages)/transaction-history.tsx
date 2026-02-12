@@ -74,6 +74,7 @@ export default function TransactionHistoryScreen() {
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
   const isLight = resolvedTheme === 'light';
+  const textOnTint = resolvedTheme === 'dark' ? themeColors.background : '#ffffff';
   const { getTransactions } = useTransactionService();
   
   const [transactions, setTransactions] = useState<TransactionDto[]>([]);
@@ -324,7 +325,7 @@ export default function TransactionHistoryScreen() {
               backgroundColor: themeColors.tint,
             },
           ]}>
-          <MaterialIcons name="close" size={20} color="#FFFFFF" />
+          <MaterialIcons name="close" size={20} color={textOnTint} />
         </TouchableOpacity>
       </View>
 
@@ -420,10 +421,10 @@ export default function TransactionHistoryScreen() {
               backgroundColor: themeColors.tint,
             },
           ]}>
-          <MaterialIcons name="filter-list" size={16} color="#FFFFFF" />
+          <MaterialIcons name="filter-list" size={16} color={textOnTint} />
           <Text
             style={{
-              color: '#FFFFFF',
+              color: textOnTint,
               fontSize: 14,
               marginLeft: 4,
             }}>

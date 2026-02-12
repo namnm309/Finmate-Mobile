@@ -1,30 +1,31 @@
-import { MaterialIcons } from '@expo/vector-icons';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { useRouter } from 'expo-router';
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  Alert,
-  Dimensions,
-  Modal,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-  ActivityIndicator,
-} from 'react-native';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useTransactionTypeService } from '@/lib/services/transactionTypeService';
 import { useCategoryService } from '@/lib/services/categoryService';
 import { useMoneySourceService } from '@/lib/services/moneySourceService';
 import { useTransactionService } from '@/lib/services/transactionService';
-import { TransactionTypeDto, CategoryDto } from '@/lib/types/transaction';
+import { useTransactionTypeService } from '@/lib/services/transactionTypeService';
 import { MoneySourceDto } from '@/lib/types/moneySource';
+import { CategoryDto, TransactionTypeDto } from '@/lib/types/transaction';
+import { useCategorySelection } from '@/contexts/category-selection-context';
+import { MaterialIcons } from '@expo/vector-icons';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    Modal,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -34,6 +35,7 @@ interface CategoryPickerProps {
   onChange: (category: CategoryDto) => void;
   themeColors: (typeof Colors)['light'];
   isDark: boolean;
+  transactionTypeId?: string;
 }
 
 function CategoryPicker({
@@ -42,7 +44,9 @@ function CategoryPicker({
   onChange,
   themeColors,
   isDark,
+  transactionTypeId,
 }: CategoryPickerProps) {
+  const router = useRouter();
   const [showModal, setShowModal] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [frequentExpanded, setFrequentExpanded] = useState(true);
@@ -74,7 +78,12 @@ function CategoryPicker({
           <TouchableOpacity
             style={[styles.categoryButton, { backgroundColor: themeColors.card }]}
             activeOpacity={0.7}
-            onPress={() => setShowModal(true)}>
+            onPress={() =>
+              router.push({
+                pathname: '/(protected)/(other-pages)/select-category',
+                params: transactionTypeId ? { transactionTypeId } : {},
+              })
+            }>
             {selectedCategory ? (
               <>
                 <View style={styles.categoryIconContainer}>
@@ -100,7 +109,12 @@ function CategoryPicker({
           <TouchableOpacity
             style={styles.filterButton}
             activeOpacity={0.7}
-            onPress={() => setShowModal(true)}>
+            onPress={() =>
+              router.push({
+                pathname: '/(protected)/(other-pages)/select-category',
+                params: transactionTypeId ? { transactionTypeId } : {},
+              })
+            }>
             <Text style={[styles.filterText, { color: themeColors.textSecondary }]}>
               Tất cả
             </Text>
@@ -482,6 +496,9 @@ export default function ManualInputScreen() {
   const themeColors = Colors[resolvedTheme];
   const isDark = resolvedTheme === 'dark';
 
+  const { pendingSelectedCategory, clearPendingSelectedCategory } =
+    useCategorySelection();
+
   // Services
   const { getTransactionTypes } = useTransactionTypeService();
   const { getCategories } = useCategoryService();
@@ -514,6 +531,14 @@ export default function ManualInputScreen() {
   const [excludeFromReport, setExcludeFromReport] = useState(false);
   const [showTransactionTypeModal, setShowTransactionTypeModal] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
+
+  // Nhận hạng mục được chọn từ màn Chọn hạng mục
+  useEffect(() => {
+    if (pendingSelectedCategory) {
+      setSelectedCategory(pendingSelectedCategory);
+      clearPendingSelectedCategory();
+    }
+  }, [pendingSelectedCategory, clearPendingSelectedCategory]);
 
   // Fetch initial data
   const fetchData = useCallback(async () => {
@@ -833,6 +858,7 @@ export default function ManualInputScreen() {
           onChange={setSelectedCategory}
           themeColors={themeColors}
           isDark={isDark}
+          transactionTypeId={selectedTransactionType?.id}
         />
 
         {/* Account Selection */}
@@ -1470,13 +1496,17 @@ const styles = StyleSheet.create({
   amountContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 32,
     marginBottom: 24,
   },
   amountInput: {
     flex: 1,
     fontSize: 48,
     fontWeight: 'bold',
-    paddingVertical: 8,
+    paddingVertical: 12,
+    lineHeight: 56,
+    minHeight: 72,
+    ...(Platform.OS === 'android' && { includeFontPadding: false }),
   },
   currencySymbol: {
     fontSize: 24,
@@ -1592,6 +1622,8 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     marginLeft: 12,
+    paddingVertical: 0,
+    ...(Platform.OS === 'android' && { textAlignVertical: 'center' }),
   },
   toggleRow: {
     flexDirection: 'row',

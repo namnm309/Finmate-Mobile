@@ -87,6 +87,7 @@ export default function AccountSettingsScreen() {
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
   const isLight = resolvedTheme === 'light';
+  const textOnTint = resolvedTheme === 'dark' ? themeColors.background : '#ffffff';
   const { getUserProfile, updateUserProfile, deleteUserData, deleteUserAccount } = useUserService();
   
   // State management
@@ -404,7 +405,7 @@ export default function AccountSettingsScreen() {
               paddingVertical: 10,
               borderRadius: 8,
             }}>
-            <Text style={{ color: '#FFFFFF' }}>Thử lại</Text>
+            <Text style={{ color: textOnTint }}>Thử lại</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -692,9 +693,9 @@ export default function AccountSettingsScreen() {
                   borderRadius: 8,
                 }}>
                 {updating ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={textOnTint} />
                 ) : (
-                  <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>Lưu</Text>
+                  <Text style={{ color: textOnTint, fontSize: 16, fontWeight: '600' }}>Lưu</Text>
                 )}
               </TouchableOpacity>
             </View>

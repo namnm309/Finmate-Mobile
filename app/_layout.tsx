@@ -1,5 +1,6 @@
 import InitialLayout from '@/components/InitialLayout';
 import { ThemeProvider } from '@/contexts/theme-context';
+import { CategorySelectionProvider } from '@/contexts/category-selection-context';
 import { ClerkLoaded, ClerkProvider } from '@clerk/clerk-expo';
 import { tokenCache } from '@clerk/clerk-expo/token-cache';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -19,7 +20,9 @@ export default function RootLayout() {
         <SafeAreaProvider>
           <ThemeProvider>
             <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }} edges={['left', 'right']}>
-              <InitialLayout />
+              <CategorySelectionProvider>
+                <InitialLayout />
+              </CategorySelectionProvider>
             </SafeAreaView>
           </ThemeProvider>
         </SafeAreaProvider>
