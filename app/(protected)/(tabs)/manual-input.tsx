@@ -721,7 +721,7 @@ export default function ManualInputScreen() {
   // Loading state
   if (loadingData) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
         <View style={[styles.header, { borderBottomColor: themeColors.border }]}>
           <TouchableOpacity
             style={styles.backButton}
@@ -743,7 +743,7 @@ export default function ManualInputScreen() {
   // Error state
   if (error) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
         <View style={[styles.header, { borderBottomColor: themeColors.border }]}>
           <TouchableOpacity
             style={styles.backButton}
@@ -782,7 +782,7 @@ export default function ManualInputScreen() {
   const currentTypeColor = selectedTransactionType?.color || '#F87171';
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: themeColors.border }]}>
         <TouchableOpacity

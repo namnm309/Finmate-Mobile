@@ -10,8 +10,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { InputMethodModal } from '@/components/input-method-modal';
 
 const ADD_BUTTON_COLORS = {
-  light: ['#009966', '#00a63e'] as const,
-  dark: ['#99a1af', '#d1d5dc'] as const,
+  light: ['#16a34a', '#22c55e'] as const,
+  dark: ['#16a34a', '#22c55e'] as const,
 };
 
 function AddTabButton({ onPress, isDark }: { onPress: () => void; isDark: boolean }) {

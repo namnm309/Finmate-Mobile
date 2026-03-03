@@ -6,14 +6,11 @@
 import { Platform } from 'react-native';
 
 /**
- * Light mode (khu vực app) theo Figma:
- * - background: #f9fafb
- * - text: #101828
- * - secondary: #4a5565
- * - muted/icon/tab default: #6a7282
- * - accent green: #009966 (Figma shorthand: #096)
+ * Đồng bộ với trang Login:
+ * - background: #dcfce7 (mint pastel)
+ * - accent: #16a34a, #22c55e (green gradient)
  */
-const tintColorLight = '#009966';
+const tintColorLight = '#16a34a';
 const tintColorDark = '#fff';
 
 export const Colors = {
@@ -21,11 +18,11 @@ export const Colors = {
     text: '#101828',
     textSecondary: '#4a5565',
     muted: '#6a7282',
-    background: '#f9fafb',
+    background: '#dcfce7',
     card: '#ffffff',
     border: '#e5e7eb',
-    successBorder: '#00bc7d',
-    success2: '#00a63e',
+    successBorder: '#22c55e',
+    success2: '#22c55e',
     tint: tintColorLight,
     icon: '#6a7282',
     tabIconDefault: '#6a7282',
@@ -38,8 +35,8 @@ export const Colors = {
     background: '#0F1729',
     card: '#1A2332',
     border: '#2d3748',
-    successBorder: '#00bc7d',
-    success2: '#00a63e',
+    successBorder: '#22c55e',
+    success2: '#22c55e',
     tint: tintColorDark,
     icon: '#9BA1A6',
     tabIconDefault: '#9BA1A6',

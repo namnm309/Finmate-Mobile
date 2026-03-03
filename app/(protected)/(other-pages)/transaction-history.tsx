@@ -282,7 +282,7 @@ export default function TransactionHistoryScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
       {/* Header */}
       <View
         style={[

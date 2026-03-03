@@ -189,7 +189,7 @@ export default function AccountScreen() {
   // Loading state
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
@@ -217,7 +217,7 @@ export default function AccountScreen() {
   // Error state
   if (error) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
@@ -249,7 +249,7 @@ export default function AccountScreen() {
   const accountCategories = data?.groups ?? [];
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}

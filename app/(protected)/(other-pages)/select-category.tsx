@@ -217,7 +217,7 @@ export default function SelectCategoryScreen() {
 
   return (
     <SafeAreaView
-      style={{ flex: 1, backgroundColor: themeColors.background }}
+      style={{ flex: 1, backgroundColor: 'transparent' }}
     >
       {/* Header */}
       <View

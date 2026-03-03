@@ -31,14 +31,14 @@ export default function AIAssistantScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
         {/* Header */}
         <LinearGradient
-          colors={['#AD46FF', '#51A2FF']}
+          colors={['#16a34a', '#22c55e']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.header}>
@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#AD46FF',
+    backgroundColor: '#16a34a',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#AD46FF',
+    backgroundColor: '#16a34a',
     justifyContent: 'center',
     alignItems: 'center',
   },

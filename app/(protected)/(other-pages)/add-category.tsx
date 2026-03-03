@@ -431,7 +431,7 @@ export default function AddOrEditCategoryScreen() {
   if (loading) {
     return (
       <SafeAreaView
-        style={{ flex: 1, backgroundColor: themeColors.background }}
+        style={{ flex: 1, backgroundColor: 'transparent' }}
       >
         <View
           style={{
@@ -448,7 +448,7 @@ export default function AddOrEditCategoryScreen() {
 
   return (
     <SafeAreaView
-      style={{ flex: 1, backgroundColor: themeColors.background }}
+      style={{ flex: 1, backgroundColor: 'transparent' }}
     >
       {/* Header */}
       <View

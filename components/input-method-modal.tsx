@@ -59,7 +59,7 @@ export function InputMethodModal({ visible, onClose }: InputMethodModalProps) {
                   onPress={handleSelectAI}
                   activeOpacity={0.8}>
                   <LinearGradient
-                    colors={['#AD46FF', '#51A2FF']}
+                    colors={['#16a34a', '#22c55e']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.aiGradient}>

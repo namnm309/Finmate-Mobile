@@ -364,7 +364,7 @@ export default function AccountSettingsScreen() {
   // Loading state
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color={themeColors.tint} />
           <Text
@@ -382,7 +382,7 @@ export default function AccountSettingsScreen() {
   // Error state
   if (error && !userData) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
           <Text style={{ color: '#EF4444', marginBottom: 16, textAlign: 'center' }}>{error}</Text>
           <TouchableOpacity
@@ -413,7 +413,7 @@ export default function AccountSettingsScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 }]}

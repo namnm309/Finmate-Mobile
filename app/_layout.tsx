@@ -3,6 +3,7 @@ import { ThemeProvider } from '@/contexts/theme-context';
 import { CategorySelectionProvider } from '@/contexts/category-selection-context';
 import { ClerkLoaded, ClerkProvider } from '@clerk/clerk-expo';
 import { tokenCache } from '@clerk/clerk-expo/token-cache';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { CLERK_PUBLISHABLE_KEY } from '@/lib/clerk';
@@ -15,18 +16,20 @@ if (!CLERK_PUBLISHABLE_KEY) {
 
 export default function RootLayout() {
   return (
-    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache}>
-      <ClerkLoaded>
-        <SafeAreaProvider>
-          <ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache}>
+        <ClerkLoaded>
+          <SafeAreaProvider>
+            <ThemeProvider>
             <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }} edges={['left', 'right']}>
               <CategorySelectionProvider>
                 <InitialLayout />
               </CategorySelectionProvider>
             </SafeAreaView>
-          </ThemeProvider>
-        </SafeAreaProvider>
-      </ClerkLoaded>
-    </ClerkProvider>
+            </ThemeProvider>
+          </SafeAreaProvider>
+        </ClerkLoaded>
+      </ClerkProvider>
+    </GestureHandlerRootView>
   );
 }

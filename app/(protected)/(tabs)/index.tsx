@@ -2,6 +2,7 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useUser } from '@clerk/clerk-expo';
 import { MaterialIcons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -22,8 +23,10 @@ import { useMoneySourceService } from '@/lib/services/moneySourceService';
 import { useReportService } from '@/lib/services/reportService';
 import { OverviewReportDto } from '@/lib/types/report';
 import { SpendingIncomeOverviewCard } from '@/components/SpendingIncomeOverviewCard';
+import { AIChatbotModal } from '@/components/ai-chatbot-modal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const logoFinmate = require('@/assets/images/logo finmate.png');
 
 // Format số tiền VNĐ
 const formatCurrency = (amount: number): string => {
@@ -67,6 +70,7 @@ export default function HomeScreen() {
       }
     : null;
   const [balanceVisible, setBalanceVisible] = useState(true);
+  const [aiChatbotVisible, setAiChatbotVisible] = useState(false);
   const [aiInput, setAiInput] = useState('');
   const [totalBalance, setTotalBalance] = useState<number>(0);
   const [balanceLoading, setBalanceLoading] = useState<boolean>(true);
@@ -252,11 +256,16 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
+        {/* Header với logo FinMate - đồng bộ với trang login */}
+        <View style={[styles.appHeader, { marginBottom: 12 }]}>
+          <Image source={logoFinmate} style={styles.appLogo} contentFit="contain" />
+          <Text style={[styles.appTitle, { color: themeColors.tint }]}>FinMate</Text>
+        </View>
         {/* Top Status Bar with User Info */}
         <View style={styles.statusBar}>
           {/* User Info Section - Left */}
@@ -264,7 +273,7 @@ export default function HomeScreen() {
             <View style={styles.avatarContainer}>
               <View style={styles.avatarBorder}>
                 <LinearGradient
-                  colors={['#51A2FF', '#AD46FF']}
+                  colors={['#16a34a', '#22c55e']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.avatarGradient}>
@@ -280,13 +289,16 @@ export default function HomeScreen() {
           
           {/* Status Bar Icons - Right */}
           <View style={styles.statusBarIcons}>
-            <TouchableOpacity style={styles.statusIconButton}>
+            <TouchableOpacity
+              style={styles.statusIconButton}
+              onPress={() => setAiChatbotVisible(true)}
+              activeOpacity={0.8}>
               <LinearGradient
                 colors={[themeColors.tint, themeColors.success2]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.statusIconGradient}>
-                <MaterialIcons name="grid-view" size={16} color="#FFFFFF" />
+                <MaterialIcons name="auto-awesome" size={18} color="#FFFFFF" />
               </LinearGradient>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.statusIconButton, lightOutlinedCircle]}>
@@ -325,13 +337,13 @@ export default function HomeScreen() {
         {/* AI Assistant Card */}
         <View style={styles.card}>
           <LinearGradient
-            colors={['#9810FA', '#155DFC', '#0092B8']}
+            colors={['#16a34a', '#22c55e']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.aiCardGradient}>
             <View style={styles.aiCardHeader}>
               <View style={styles.aiIconContainer}>
-                <MaterialIcons name="grid-view" size={20} color="#FFFFFF" />
+                <MaterialIcons name="auto-awesome" size={22} color="#FFFFFF" />
               </View>
               <View style={styles.aiHeaderText}>
                 <Text style={styles.aiTitle}>AI Assistant</Text>
@@ -558,6 +570,10 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+      <AIChatbotModal
+        visible={aiChatbotVisible}
+        onClose={() => setAiChatbotVisible(false)}
+      />
     </SafeAreaView>
   );
 }

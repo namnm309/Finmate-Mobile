@@ -220,7 +220,7 @@ export default function AddMoneySourceScreen() {
   // Loading state
   if (loadingData) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
         <View style={[styles.header, { backgroundColor: headerBgColor, borderBottomColor: themeColors.border }]}>
           <TouchableOpacity
             style={styles.headerButton}
@@ -247,7 +247,7 @@ export default function AddMoneySourceScreen() {
   // Error state
   if (error) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
         <View style={[styles.header, { backgroundColor: headerBgColor, borderBottomColor: themeColors.border }]}>
           <TouchableOpacity
             style={styles.headerButton}
@@ -275,7 +275,7 @@ export default function AddMoneySourceScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: headerBgColor, borderBottomColor: themeColors.border }]}>
         <TouchableOpacity

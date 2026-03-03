@@ -13,6 +13,20 @@ export const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 100, // Đảm bảo có thể scroll xem hết nội dung, tránh bị che bởi navigation bar
   },
+  appHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 8,
+  },
+  appLogo: {
+    width: 36,
+    height: 36,
+    marginRight: 10,
+  },
+  appTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+  },
   statusBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -69,7 +83,7 @@ export const styles = StyleSheet.create({
     height: 48,
     borderRadius: 24,
     borderWidth: 2,
-    borderColor: '#00D492',
+    borderColor: '#22c55e',
     justifyContent: 'center',
     alignItems: 'center',
   },

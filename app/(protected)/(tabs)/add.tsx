@@ -7,7 +7,7 @@ export default function AddScreen() {
   const themeColors = Colors[resolvedTheme];
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
       <View style={styles.content}>
         <Text style={[styles.title, { color: themeColors.text }]}>Thêm giao dịch</Text>
         <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>Trang này đang được phát triển</Text>
