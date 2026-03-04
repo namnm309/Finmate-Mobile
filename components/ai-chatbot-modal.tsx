@@ -167,23 +167,26 @@ export function AIChatbotModal({ visible, onClose, initialMessage, autoSend }: A
     if (result.canceled || !result.assets[0]) return;
     const asset = result.assets[0];
 
-    // Resize & compress ảnh để giảm kích thước gửi lên (~800px, quality 0.5)
-    // Giúp tránh lỗi request quá lớn khi gửi đến AI
+    // Resize & compress ảnh để giảm kích thước gửi lên
+    // Hỗ trợ PNG và JPEG
+    const uriLower = (asset.uri ?? '').toLowerCase();
+    const isPng = uriLower.endsWith('.png') || (asset.fileName ?? '').toLowerCase().endsWith('.png');
+    const outputFormat = isPng ? ImageManipulator.SaveFormat.PNG : ImageManipulator.SaveFormat.JPEG;
+    const imageFormat: 'png' | 'jpeg' = isPng ? 'png' : 'jpeg';
+
     let base64: string | undefined | null = null;
     try {
       const manipulated = await ImageManipulator.manipulateAsync(
         asset.uri,
         [{ resize: { width: 1024 } }],
-        { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+        { compress: 0.5, format: outputFormat, base64: true }
       );
       base64 = manipulated.base64;
     } catch (_e) {
-      // Fallback: thử đọc base64 gốc từ asset
       base64 = asset.base64;
     }
 
     if (!base64 || base64.length < 5000) {
-      // Fallback cuối: đọc file trực tiếp
       try {
         if (asset.uri) {
           base64 = await FileSystem.readAsStringAsync(asset.uri, {
@@ -207,7 +210,7 @@ export function AIChatbotModal({ visible, onClose, initialMessage, autoSend }: A
       content: 'Đây là ảnh hóa đơn của tôi. Hãy đọc ảnh và cho biết ngay: số tiền thanh toán và ngày. Có thể là hóa đơn điện tử hoặc hóa đơn giấy.',
     };
     setMessages((prev) => [...prev, userMsg]);
-    await sendChat(userMsg, { imageBase64: base64 });
+    await sendChat(userMsg, { imageBase64: base64, imageFormat });
   };
 
   const handleScanReceipt = () => {

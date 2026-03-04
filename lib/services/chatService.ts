@@ -9,6 +9,8 @@ export interface ChatMessage {
 export interface SendMessageOptions {
   /** Ảnh hóa đơn base64 — backend cần chuyển thành vision message trước khi gọi MegaLLM */
   imageBase64?: string;
+  /** Định dạng ảnh: "png" | "jpeg" (mặc định "jpeg") */
+  imageFormat?: 'png' | 'jpeg';
   /** System prompt tùy chỉnh */
   systemPrompt?: string;
   /** Model MegaLLM (gpt-4o cho vision, gpt-4o-mini cho text...) */
@@ -60,7 +62,10 @@ export function useChatService() {
 
     const body: Record<string, unknown> = { messages };
     if (options?.systemPrompt) body.systemPrompt = options.systemPrompt;
-    if (options?.imageBase64) body.imageBase64 = options.imageBase64;
+    if (options?.imageBase64) {
+      body.imageBase64 = options.imageBase64;
+      if (options?.imageFormat) body.imageFormat = options.imageFormat;
+    }
     if (options?.model != null) body.model = options.model;
     if (options?.temperature != null) body.temperature = options.temperature;
     if (options?.maxTokens != null) body.max_tokens = options.maxTokens;
