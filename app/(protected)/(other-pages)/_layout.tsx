@@ -1,3 +1,4 @@
+import { AIModalProvider } from '@/contexts/ai-modal-context';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Stack } from 'expo-router';
@@ -10,6 +11,7 @@ export default function OtherPagesLayout() {
   const themeColors = Colors[resolvedTheme];
 
   return (
+    <AIModalProvider>
     <View style={{ flex: 1, backgroundColor: themeColors.background }}>
       <CaroPatternBackground />
       <Stack
@@ -29,5 +31,6 @@ export default function OtherPagesLayout() {
       />
       <BottomNavigationBar />
     </View>
+    </AIModalProvider>
   );
 }

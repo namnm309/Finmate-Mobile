@@ -1,13 +1,15 @@
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { StyleSheet, View, Text, SafeAreaView } from 'react-native';
+import { Dimensions, StyleSheet, View, Text, SafeAreaView } from 'react-native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function AddScreen() {
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: 'transparent', flex: 1, width: SCREEN_WIDTH, minWidth: SCREEN_WIDTH }]}>
       <View style={styles.content}>
         <Text style={[styles.title, { color: themeColors.text }]}>Thêm giao dịch</Text>
         <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>Trang này đang được phát triển</Text>

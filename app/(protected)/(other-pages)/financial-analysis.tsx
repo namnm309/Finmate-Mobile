@@ -1,3 +1,4 @@
+import { useAIModal } from '@/contexts/ai-modal-context';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { styles } from '@/styles/index.styles';
@@ -81,6 +82,7 @@ export default function FinancialAnalysisScreen() {
   const themeColors = Colors[resolvedTheme];
   const isLight = resolvedTheme === 'light';
   const [activeTab, setActiveTab] = useState<InsightTab>('smart');
+  const { openAIModal } = useAIModal();
 
   // Mock data
   const healthScore = 72;
@@ -239,6 +241,11 @@ export default function FinancialAnalysisScreen() {
       confidence: 90
     }
   ];
+
+  const handleLearnMore = (rec: AIRecommendation) => {
+    const prompt = `Hãy giải thích chi tiết về "${rec.title}". Mô tả: ${rec.description}. Hành động đề xuất: ${rec.action}.`;
+    openAIModal(prompt, true);
+  };
 
   const handleBack = () => {
     router.replace({
@@ -665,8 +672,14 @@ export default function FinancialAnalysisScreen() {
                   {recommendation.action}
                 </Text>
               </View>
-              <TouchableOpacity 
-                style={[styles.financialAnalysisRecommendationButton, { backgroundColor: recommendation.buttonColor }]}>
+              <TouchableOpacity
+                style={[styles.financialAnalysisRecommendationButton, { backgroundColor: recommendation.buttonColor }]}
+                onPress={() => {
+                  if (recommendation.buttonText === 'Tìm hiểu thêm') {
+                    handleLearnMore(recommendation);
+                  }
+                }}
+                activeOpacity={0.8}>
                 <Text style={styles.financialAnalysisRecommendationButtonText}>{recommendation.buttonText}</Text>
               </TouchableOpacity>
             </View>

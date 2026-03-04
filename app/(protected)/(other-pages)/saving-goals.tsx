@@ -46,6 +46,7 @@ export default function SavingGoalsScreen() {
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
   const [goal, setGoal] = useState<SavingGoal>(mockGoal);
+  const [selectedQuickAdd, setSelectedQuickAdd] = useState<number | null>(null);
   const totalGoals = 1;
   const activeGoals = 1;
 
@@ -54,6 +55,7 @@ export default function SavingGoalsScreen() {
   };
 
   const handleQuickAdd = (amount: number) => {
+    setSelectedQuickAdd(amount);
     setGoal({
       ...goal,
       currentAmount: Math.min(goal.currentAmount + amount, goal.targetAmount),
@@ -157,27 +159,32 @@ export default function SavingGoalsScreen() {
 
           {/* Quick Add Buttons */}
           <View style={styles.savingGoalQuickAddButtons}>
-            <TouchableOpacity
-              style={styles.savingGoalQuickAddButton}
-              onPress={() => handleQuickAdd(100000)}>
-              <Text style={styles.savingGoalQuickAddButtonText}>+ 100k</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.savingGoalQuickAddButton}
-              onPress={() => handleQuickAdd(500000)}>
-              <Text style={styles.savingGoalQuickAddButtonText}>+ 500k</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.savingGoalQuickAddButton}
-              onPress={() => handleQuickAdd(1000000)}>
-              <LinearGradient
-                colors={['#9810FA', '#155DFC']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.savingGoalQuickAddButtonGradient}>
-                <Text style={styles.savingGoalQuickAddButtonTextGradient}>+ 1tr</Text>
-              </LinearGradient>
-            </TouchableOpacity>
+            {([
+              { amount: 100000, label: '+ 100k' },
+              { amount: 500000, label: '+ 500k' },
+              { amount: 1000000, label: '+ 1tr' },
+            ] as const).map(({ amount, label }) => {
+              const isSelected = selectedQuickAdd === amount;
+              return (
+                <TouchableOpacity
+                  key={amount}
+                  style={styles.savingGoalQuickAddButton}
+                  onPress={() => handleQuickAdd(amount)}
+                  activeOpacity={0.8}>
+                  {isSelected ? (
+                    <LinearGradient
+                      colors={['#9810FA', '#155DFC']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.savingGoalQuickAddButtonGradient}>
+                      <Text style={styles.savingGoalQuickAddButtonTextGradient}>{label}</Text>
+                    </LinearGradient>
+                  ) : (
+                    <Text style={styles.savingGoalQuickAddButtonText}>{label}</Text>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 

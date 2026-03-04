@@ -30,9 +30,13 @@ Trả lời rõ ràng, thân thiện bằng tiếng Việt.`;
 interface AIChatbotModalProps {
   visible: boolean;
   onClose: () => void;
+  /** Tin nhắn sẵn có khi mở (từ AI Assistant card, voice input...) */
+  initialMessage?: string;
+  /** Nếu true: tự động gửi initialMessage ngay khi mở (dùng cho "Tìm hiểu thêm") */
+  autoSend?: boolean;
 }
 
-export function AIChatbotModal({ visible, onClose }: AIChatbotModalProps) {
+export function AIChatbotModal({ visible, onClose, initialMessage, autoSend }: AIChatbotModalProps) {
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
   const { sendMessage } = useChatService();
@@ -46,12 +50,27 @@ export function AIChatbotModal({ visible, onClose }: AIChatbotModalProps) {
   ]);
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const autoSentRef = useRef(false);
 
   useEffect(() => {
     if (visible && messages.length > 0) {
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
     }
   }, [visible, messages]);
+
+  useEffect(() => {
+    if (visible && initialMessage?.trim()) {
+      setMessage(initialMessage);
+      if (autoSend && !autoSentRef.current) {
+        autoSentRef.current = true;
+        const userMsg: ChatMessage = { role: 'user', content: initialMessage.trim() };
+        setMessages((prev) => [...prev, userMsg]);
+        setMessage('');
+        sendChat(userMsg);
+      }
+    }
+    if (!visible) autoSentRef.current = false;
+  }, [visible, initialMessage, autoSend]);
 
   const sendChat = async (userMsg: ChatMessage, options?: { imageBase64?: string }) => {
     setLoading(true);
@@ -274,13 +293,13 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   keyboardView: {
-    maxHeight: '92%',
+    height: '66.67%',
   },
   modalContent: {
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     overflow: 'hidden',
-    minHeight: 420,
+    flex: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15,
@@ -366,7 +385,6 @@ const styles = StyleSheet.create({
   },
   chatArea: {
     flex: 1,
-    maxHeight: 360,
   },
   chatContent: {
     padding: 20,

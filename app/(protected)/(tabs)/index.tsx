@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
+  Alert,
   Dimensions,
   SafeAreaView,
   ScrollView,
@@ -24,6 +25,7 @@ import { useReportService } from '@/lib/services/reportService';
 import { OverviewReportDto } from '@/lib/types/report';
 import { SpendingIncomeOverviewCard } from '@/components/SpendingIncomeOverviewCard';
 import { AIChatbotModal } from '@/components/ai-chatbot-modal';
+import { useVoiceInput } from '@/lib/hooks/useVoiceInput';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const logoFinmate = require('@/assets/images/logo finmate.png');
@@ -72,6 +74,13 @@ export default function HomeScreen() {
   const [balanceVisible, setBalanceVisible] = useState(true);
   const [aiChatbotVisible, setAiChatbotVisible] = useState(false);
   const [aiInput, setAiInput] = useState('');
+  const [aiInitialMessage, setAiInitialMessage] = useState('');
+  const { isListening, error: voiceError, toggleListening } = useVoiceInput((text) => {
+    setAiInput((prev) => (prev ? `${prev} ${text}` : text));
+  });
+  useEffect(() => {
+    if (voiceError) Alert.alert('Giọng nói', voiceError);
+  }, [voiceError]);
   const [totalBalance, setTotalBalance] = useState<number>(0);
   const [balanceLoading, setBalanceLoading] = useState<boolean>(true);
   const { getGroupedMoneySources } = useMoneySourceService();
@@ -256,7 +265,7 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent', flex: 1, width: SCREEN_WIDTH, minWidth: SCREEN_WIDTH }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -351,8 +360,11 @@ export default function HomeScreen() {
               </View>
             </View>
             <View style={styles.aiInputContainer}>
-              <TouchableOpacity style={styles.aiInputButton}>
-                <MaterialIcons name="mic" size={16} color="#FFFFFF" />
+              <TouchableOpacity
+                style={[styles.aiInputButton, isListening && { backgroundColor: 'rgba(255,255,255,0.4)' }]}
+                onPress={toggleListening}
+                activeOpacity={0.8}>
+                <MaterialIcons name={isListening ? 'stop' : 'mic'} size={16} color="#FFFFFF" />
               </TouchableOpacity>
               <TextInput
                 style={styles.aiInput}
@@ -362,7 +374,17 @@ export default function HomeScreen() {
                 onChangeText={setAiInput}
                 multiline={false}
               />
-              <TouchableOpacity style={[styles.aiInputButton, styles.aiSendButton]}>
+              <TouchableOpacity
+                style={[styles.aiInputButton, styles.aiSendButton]}
+                onPress={() => {
+                  const text = aiInput.trim();
+                  if (text) {
+                    setAiInitialMessage(text);
+                    setAiChatbotVisible(true);
+                    setAiInput('');
+                  }
+                }}
+                activeOpacity={0.8}>
                 <MaterialIcons name="send" size={16} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
@@ -572,7 +594,11 @@ export default function HomeScreen() {
       </Modal>
       <AIChatbotModal
         visible={aiChatbotVisible}
-        onClose={() => setAiChatbotVisible(false)}
+        onClose={() => {
+          setAiChatbotVisible(false);
+          setAiInitialMessage('');
+        }}
+        initialMessage={aiInitialMessage}
       />
     </SafeAreaView>
   );
