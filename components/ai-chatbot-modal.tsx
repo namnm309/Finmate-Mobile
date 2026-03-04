@@ -2,11 +2,14 @@ import { Colors } from '@/constants/theme';
 import { useChatService, ChatMessage } from '@/lib/services/chatService';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { MaterialIcons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState, useRef, useEffect } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -20,7 +23,26 @@ import {
 
 const SYSTEM_PROMPT = `Bạn là trợ lý AI tài chính của FinMate. Bạn giúp người dùng:
 1. Ghi chép chi tiêu, phân tích tài chính, đưa lời khuyên tiết kiệm
-2. Quét hóa đơn: khi người dùng gửi ảnh hóa đơn, trích xuất tổng số tiền, ngày, danh sách món hàng
+2. QUÉT HÓA ĐƠN (QUAN TRỌNG NHẤT): Khi người dùng gửi ảnh hóa đơn, BẮT BUỘC phải đọc ảnh và trích xuất:
+
+   HOÁ ĐƠN ĐIỆN TỬ (từ app, email, ảnh màn hình):
+   - Tìm các trường: "Tổng tiền", "Thành tiền", "Tổng cộng", "Số tiền", "Thanh toán", "Grand Total", "Total Amount", "Phải thu"
+   - Lấy số tiền SAU CÙNG (sau giảm giá, sau thuế) — thường là số lớn nhất hoặc có gạch dưới
+   - Tìm ngày: "Ngày tạo", "Ngày mua", "Ngày xuất HĐ", "Date", "Invoice Date"
+
+   HOÁ ĐƠN GIẤY / BÁN LẺ (ảnh chụp hoá đơn in):
+   - Tìm các trường: "Phải thu (VND)", "Tổng giá trị", "Tổng cộng", "TỔNG CỘNG", "TOTAL"
+   - Lấy số tiền ở cuối hoá đơn (thường là dòng cuối cùng trước barcode)
+   - Tìm ngày: dòng đầu hoá đơn hoặc gần tên cửa hàng
+
+   LUÔN LUÔN:
+   - Trả lời NGAY số tiền và ngày, KHÔNG hỏi lại hay yêu cầu upload thêm
+   - Format bắt buộc:
+     💰 Số tiền: [X] VND
+     📅 Ngày: [DD/MM/YYYY hoặc ghi "không rõ"]
+     🧾 Nội dung: [tóm tắt ngắn — tên cửa hàng / loại hàng]
+   - Nếu có danh sách mặt hàng thì liệt kê thêm bên dưới
+
 3. Lập lộ trình tiêu dùng: ví dụ user muốn mua iPhone 17 Pro Max 52 triệu, lương 18tr/tháng, mua trong 5 tháng → tính mỗi ngày cần để dành bao nhiêu
 4. Giới thiệu app: FinMate là app quản lý tài chính cá nhân - theo dõi chi tiêu, tiết kiệm, báo cáo, gợi ý mục tiêu
 5. Tư vấn tiết kiệm & tài chính: trả lời mọi câu hỏi về tiết kiệm tiền (50/30/20, quỹ khẩn cấp, đầu tư cơ bản...), quản lý thu chi, nợ, tài chính cá nhân
@@ -105,27 +127,100 @@ export function AIChatbotModal({ visible, onClose, initialMessage, autoSend }: A
     await sendChat(userMsg);
   };
 
-  const handleScanReceipt = async () => {
+  const pickImageFromSource = async (source: 'camera' | 'library') => {
     if (loading) return;
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
+    if (source === 'camera') {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: '⚠️ Cần quyền truy cập camera để chụp hóa đơn.' },
+        ]);
+        return;
+      }
+    } else {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: '⚠️ Cần quyền truy cập thư viện ảnh để quét hóa đơn.' },
+        ]);
+        return;
+      }
+    }
+    const launcher = source === 'camera'
+      ? ImagePicker.launchCameraAsync
+      : ImagePicker.launchImageLibraryAsync;
+    const pickerOptions: ImagePicker.ImagePickerOptions = {
+      mediaTypes: ['images'],
+      allowsEditing: false,
+      quality: 0.9,
+      base64: true,
+      exif: false,
+    };
+    if (source === 'library') {
+      // allowsMultipleSelection=true bỏ qua allowsEditing → không có khung cắt
+      pickerOptions.allowsMultipleSelection = true;
+      pickerOptions.selectionLimit = 1;
+    }
+    const result = await launcher(pickerOptions);
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+
+    // Resize & compress ảnh để giảm kích thước gửi lên (~800px, quality 0.5)
+    // Giúp tránh lỗi request quá lớn khi gửi đến AI
+    let base64: string | undefined | null = null;
+    try {
+      const manipulated = await ImageManipulator.manipulateAsync(
+        asset.uri,
+        [{ resize: { width: 1024 } }],
+        { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+      base64 = manipulated.base64;
+    } catch (_e) {
+      // Fallback: thử đọc base64 gốc từ asset
+      base64 = asset.base64;
+    }
+
+    if (!base64 || base64.length < 5000) {
+      // Fallback cuối: đọc file trực tiếp
+      try {
+        if (asset.uri) {
+          base64 = await FileSystem.readAsStringAsync(asset.uri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+        }
+      } catch (_e) {
+        /* fallback failed */
+      }
+    }
+
+    if (!base64 || base64.length < 5000) {
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: '⚠️ Cần quyền truy cập thư viện ảnh để quét hóa đơn.' },
+        { role: 'assistant', content: '⚠️ Không đọc được ảnh (có thể ảnh đang tải từ iCloud). Hãy thử chụp ảnh trực tiếp bằng camera hoặc đợi ảnh tải xong rồi chọn lại.' },
       ]);
       return;
     }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      quality: 0.8,
-      base64: true,
-    });
-    if (result.canceled || !result.assets[0]?.base64) return;
-
-    const userMsg: ChatMessage = { role: 'user', content: 'Hãy quét hóa đơn này và cho tôi biết tổng chi tiêu hôm nay.' };
+    const userMsg: ChatMessage = {
+      role: 'user',
+      content: 'Đây là ảnh hóa đơn của tôi. Hãy đọc ảnh và cho biết ngay: số tiền thanh toán và ngày. Có thể là hóa đơn điện tử hoặc hóa đơn giấy.',
+    };
     setMessages((prev) => [...prev, userMsg]);
-    await sendChat(userMsg, { imageBase64: result.assets[0].base64 });
+    await sendChat(userMsg, { imageBase64: base64 });
+  };
+
+  const handleScanReceipt = () => {
+    if (loading) return;
+    Alert.alert(
+      'Quét hóa đơn',
+      'Chọn cách lấy ảnh hóa đơn. Chụp trực tiếp thường rõ hơn và tránh lỗi ảnh iCloud.',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        { text: 'Chụp ảnh', onPress: () => pickImageFromSource('camera') },
+        { text: 'Chọn từ thư viện', onPress: () => pickImageFromSource('library') },
+      ]
+    );
   };
 
   return (

@@ -100,8 +100,10 @@ export const useApiClient = () => {
         // Tạo error message chi tiết hơn
         let errorMessage = serverMessage || `API Error: ${response.status} ${response.statusText}`;
         
-        // Thêm thông tin chi tiết nếu có
-        if (errorData?.message && errorData.message !== serverMessage) {
+        // Thêm thông tin chi tiết nếu có (bao gồm lỗi thực từ MegaLLM)
+        if (errorData?.detail) {
+          errorMessage = `${errorMessage}\n\nChi tiết: ${errorData.detail}`;
+        } else if (errorData?.message && errorData.message !== serverMessage) {
           errorMessage = `${errorMessage}\n\nChi tiết: ${errorData.message}`;
         }
 

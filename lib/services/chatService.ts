@@ -7,11 +7,11 @@ export interface ChatMessage {
 }
 
 export interface SendMessageOptions {
-  /** Ảnh hóa đơn base64 (cho quét hóa đơn, vision) */
+  /** Ảnh hóa đơn base64 — backend cần chuyển thành vision message trước khi gọi MegaLLM */
   imageBase64?: string;
   /** System prompt tùy chỉnh */
   systemPrompt?: string;
-  /** Model MegaLLM (gpt-4, claude-3.5-sonnet, gpt-4o-mini...) - backend có thể override */
+  /** Model MegaLLM (gpt-4o cho vision, gpt-4o-mini cho text...) */
   model?: string;
   /** Nhiệt độ sinh văn bản (0–2), mặc định 0.7 */
   temperature?: number;
@@ -34,10 +34,16 @@ export interface ChatResponse {
  * Gửi tin nhắn tới Finmate-BE. Backend proxy tới MegaLLM (OpenAI-compatible).
  * Endpoint: POST {API_BASE_URL}/api/chat
  *
- * MegaLLM format: https://docs.megallm.io/api-reference/chat/create-chat-completion
- * - messages: array { role, content }
- * - model, temperature, max_tokens (optional)
- * - Vision: imageBase64 → backend chuyển thành content array với image_url
+ * BACKEND phải xử lý vision:
+ * Khi nhận được imageBase64, backend cần build message vision cho MegaLLM:
+ * {
+ *   role: "user",
+ *   content: [
+ *     { type: "text", text: <nội dung text> },
+ *     { type: "image_url", image_url: { url: "data:image/jpeg;base64,<imageBase64>", detail: "high" } }
+ *   ]
+ * }
+ * Và dùng model hỗ trợ vision (gpt-4o).
  */
 export function useChatService() {
   const { post } = useApiClient();
@@ -52,7 +58,6 @@ export function useChatService() {
 
     const url = `${API_BASE_URL}/api/chat`;
 
-    // Chuẩn bị body theo format MegaLLM/OpenAI (backend forward tới MegaLLM)
     const body: Record<string, unknown> = { messages };
     if (options?.systemPrompt) body.systemPrompt = options.systemPrompt;
     if (options?.imageBase64) body.imageBase64 = options.imageBase64;
@@ -62,7 +67,6 @@ export function useChatService() {
 
     const response = (await post(url, body)) as ChatResponse;
 
-    // Xử lý lỗi MegaLLM
     if (response.error) {
       const msg = response.error.message || response.error.code || 'Lỗi từ AI';
       if (response.error.code === 'invalid_api_key' || response.error.type === 'invalid_request_error') {
@@ -74,7 +78,6 @@ export function useChatService() {
       throw new Error(msg);
     }
 
-    // Hỗ trợ format flatten { content } và format OpenAI { choices }
     if (response.content) return response.content;
     const content = response.choices?.[0]?.message?.content;
     if (content != null) return content;
