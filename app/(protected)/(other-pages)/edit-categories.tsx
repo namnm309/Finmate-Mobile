@@ -273,10 +273,10 @@ export default function EditCategoriesScreen() {
               paddingHorizontal: 16,
               paddingVertical: 8,
               borderRadius: 8,
-              backgroundColor: themeColors.tint,
+              backgroundColor: themeColors.primaryButtonBg,
             }}
           >
-            <Text style={{ color: textOnTint, fontWeight: '600' }}>Thử lại</Text>
+            <Text style={{ color: themeColors.primaryButtonText, fontWeight: '600' }}>Thử lại</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -357,7 +357,7 @@ export default function EditCategoriesScreen() {
           borderRadius: 28,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: themeColors.tint,
+          backgroundColor: themeColors.primaryButtonBg,
           shadowColor: '#000',
           shadowOpacity: 0.3,
           shadowRadius: 4,
@@ -365,7 +365,7 @@ export default function EditCategoriesScreen() {
           elevation: 4,
         }}
       >
-        <MaterialIcons name="add" size={28} color={textOnTint} />
+        <MaterialIcons name="add" size={28} color={themeColors.primaryButtonText} />
       </TouchableOpacity>
     </SafeAreaView>
   );

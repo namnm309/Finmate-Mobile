@@ -41,7 +41,7 @@ export default function AddMoneySourceScreen() {
   const insets = useSafeAreaInsets();
   const headerBgColor = isDark ? themeColors.card : themeColors.tint;
   const headerFgColor = '#FFFFFF';
-  const primaryButtonTextColor = isDark ? themeColors.background : '#FFFFFF';
+  const primaryButtonTextColor = themeColors.primaryButtonText;
   const { 
     getAccountTypes, 
     getCurrencies, 
@@ -268,7 +268,7 @@ export default function AddMoneySourceScreen() {
               Có thể database server chưa sẵn sàng. Thử lại sau hoặc liên hệ hỗ trợ.
             </Text>
           )}
-          <TouchableOpacity style={[styles.retryButton, { backgroundColor: themeColors.tint }]} onPress={() => { setError(null); fetchData(); }}>
+          <TouchableOpacity style={[styles.retryButton, { backgroundColor: themeColors.primaryButtonBg }]} onPress={() => { setError(null); fetchData(); }}>
             <Text style={[styles.retryButtonText, { color: primaryButtonTextColor }]}>Thử lại</Text>
           </TouchableOpacity>
         </View>
@@ -413,7 +413,7 @@ export default function AddMoneySourceScreen() {
 
         {/* Save Button */}
         <TouchableOpacity 
-          style={[styles.saveButton, { backgroundColor: themeColors.tint }, saving && { opacity: 0.6 }]} 
+          style={[styles.saveButton, { backgroundColor: themeColors.primaryButtonBg }, saving && { opacity: 0.6 }]} 
           onPress={handleSave}
           disabled={saving}
           activeOpacity={0.8}>

@@ -54,10 +54,10 @@ export function DeleteMoneySourceDialog({
               <Text style={[styles.cancelButtonText, { color: themeColors.text }]}>Không</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.confirmButton, { backgroundColor: themeColors.tint }]}
+              style={[styles.confirmButton, { backgroundColor: themeColors.primaryButtonBg }]}
               onPress={onConfirm}
               activeOpacity={0.8}>
-              <Text style={[styles.confirmButtonText, { color: textOnTint }]}>Có</Text>
+              <Text style={[styles.confirmButtonText, { color: themeColors.primaryButtonText }]}>Có</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>

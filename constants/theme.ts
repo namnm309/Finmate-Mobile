@@ -13,6 +13,12 @@ import { Platform } from 'react-native';
 const tintColorLight = '#16a34a';
 const tintColorDark = '#fff';
 
+/** Màu nút primary: luôn có contrast tốt (nền đậm + chữ trắng) */
+export const PrimaryButtonColors = {
+  light: { bg: '#16a34a', text: '#FFFFFF' },
+  dark: { bg: '#2563eb', text: '#FFFFFF' },
+};
+
 export const Colors = {
   light: {
     text: '#101828',
@@ -24,6 +30,8 @@ export const Colors = {
     successBorder: '#22c55e',
     success2: '#22c55e',
     tint: tintColorLight,
+    primaryButtonBg: PrimaryButtonColors.light.bg,
+    primaryButtonText: PrimaryButtonColors.light.text,
     icon: '#6a7282',
     tabIconDefault: '#6a7282',
     tabIconSelected: tintColorLight,
@@ -38,6 +46,8 @@ export const Colors = {
     successBorder: '#22c55e',
     success2: '#22c55e',
     tint: tintColorDark,
+    primaryButtonBg: PrimaryButtonColors.dark.bg,
+    primaryButtonText: PrimaryButtonColors.dark.text,
     icon: '#9BA1A6',
     tabIconDefault: '#9BA1A6',
     tabIconSelected: tintColorDark,

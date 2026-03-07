@@ -347,10 +347,10 @@ export default function SelectCategoryScreen() {
               paddingHorizontal: 16,
               paddingVertical: 8,
               borderRadius: 8,
-              backgroundColor: themeColors.tint,
+              backgroundColor: themeColors.primaryButtonBg,
             }}
           >
-            <Text style={{ color: textOnTint, fontWeight: '600' }}>Thử lại</Text>
+            <Text style={{ color: themeColors.primaryButtonText, fontWeight: '600' }}>Thử lại</Text>
           </TouchableOpacity>
         </View>
       ) : (

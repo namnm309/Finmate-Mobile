@@ -322,10 +322,10 @@ export default function TransactionHistoryScreen() {
               justifyContent: 'center',
             },
             {
-              backgroundColor: themeColors.tint,
+              backgroundColor: themeColors.primaryButtonBg,
             },
           ]}>
-          <MaterialIcons name="close" size={20} color={textOnTint} />
+          <MaterialIcons name="close" size={20} color={themeColors.primaryButtonText} />
         </TouchableOpacity>
       </View>
 
@@ -418,13 +418,13 @@ export default function TransactionHistoryScreen() {
               borderRadius: 6,
             },
             {
-              backgroundColor: themeColors.tint,
+              backgroundColor: themeColors.primaryButtonBg,
             },
           ]}>
-          <MaterialIcons name="filter-list" size={16} color={textOnTint} />
+          <MaterialIcons name="filter-list" size={16} color={themeColors.primaryButtonText} />
           <Text
             style={{
-              color: textOnTint,
+              color: themeColors.primaryButtonText,
               fontSize: 14,
               marginLeft: 4,
             }}>

@@ -780,7 +780,7 @@ export default function ManualInputScreen() {
           <TouchableOpacity
             style={{
               marginTop: 16,
-              backgroundColor: themeColors.tint,
+              backgroundColor: themeColors.primaryButtonBg,
               paddingHorizontal: 24,
               paddingVertical: 12,
               borderRadius: 8,
@@ -788,7 +788,7 @@ export default function ManualInputScreen() {
             onPress={() => fetchData()}>
             <Text
               style={{
-                color: isDark ? themeColors.background : '#FFFFFF',
+                color: themeColors.primaryButtonText,
                 fontWeight: '600',
               }}>
               Thử lại
@@ -1068,7 +1068,7 @@ export default function ManualInputScreen() {
         <TouchableOpacity
           style={[
             styles.saveButtonLarge,
-            { backgroundColor: themeColors.tint },
+            { backgroundColor: themeColors.primaryButtonBg },
             saving && { opacity: 0.6 },
           ]}
           onPress={handleSave}
@@ -1077,13 +1077,13 @@ export default function ManualInputScreen() {
           {saving ? (
             <ActivityIndicator
               size="small"
-              color={isDark ? themeColors.background : '#FFFFFF'}
+              color={themeColors.primaryButtonText}
             />
           ) : (
             <Text
               style={[
                 styles.saveButtonText,
-                { color: isDark ? themeColors.background : '#FFFFFF' },
+                { color: themeColors.primaryButtonText },
               ]}>
               Lưu lại
             </Text>

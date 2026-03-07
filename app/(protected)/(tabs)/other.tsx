@@ -257,6 +257,10 @@ export default function OtherScreen() {
   };
 
   const handleSupportMenuItemPress = async (itemId: number) => {
+    if (itemId === 1) {
+      router.push('/(protected)/(other-pages)/help');
+      return;
+    }
     if (itemId === 5) {
       // Lấy token Swagger
       try {

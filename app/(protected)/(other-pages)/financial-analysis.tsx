@@ -385,10 +385,10 @@ export default function FinancialAnalysisScreen() {
                   activeTab === 'smart' && styles.financialAnalysisInsightTabActive,
                   isLight && {
                     backgroundColor:
-                      activeTab === 'smart' ? themeColors.tint : 'transparent',
+                      activeTab === 'smart' ? themeColors.primaryButtonBg : 'transparent',
                     borderWidth: 1,
                     borderColor:
-                      activeTab === 'smart' ? themeColors.tint : themeColors.border,
+                      activeTab === 'smart' ? themeColors.primaryButtonBg : themeColors.border,
                   },
                 ]}
                 onPress={() => setActiveTab('smart')}>
@@ -415,12 +415,12 @@ export default function FinancialAnalysisScreen() {
                   isLight && {
                     backgroundColor:
                       activeTab === 'recommendations'
-                        ? themeColors.tint
+                        ? themeColors.primaryButtonBg
                         : 'transparent',
                     borderWidth: 1,
                     borderColor:
                       activeTab === 'recommendations'
-                        ? themeColors.tint
+                        ? themeColors.primaryButtonBg
                         : themeColors.border,
                   },
                 ]}

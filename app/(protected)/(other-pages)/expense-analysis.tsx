@@ -389,10 +389,10 @@ export default function ExpenseAnalysisScreen() {
                 activePeriod === 'week' && styles.expenseAnalysisTabActive,
                 isLight && {
                   backgroundColor:
-                    activePeriod === 'week' ? themeColors.tint : 'transparent',
+                    activePeriod === 'week' ? themeColors.primaryButtonBg : 'transparent',
                   borderWidth: 1,
                   borderColor:
-                    activePeriod === 'week' ? themeColors.tint : themeColors.border,
+                    activePeriod === 'week' ? themeColors.primaryButtonBg : themeColors.border,
                 },
               ]}
               onPress={() => setActivePeriod('week')}>
@@ -416,10 +416,10 @@ export default function ExpenseAnalysisScreen() {
                 activePeriod === 'month' && styles.expenseAnalysisTabActive,
                 isLight && {
                   backgroundColor:
-                    activePeriod === 'month' ? themeColors.tint : 'transparent',
+                    activePeriod === 'month' ? themeColors.primaryButtonBg : 'transparent',
                   borderWidth: 1,
                   borderColor:
-                    activePeriod === 'month' ? themeColors.tint : themeColors.border,
+                    activePeriod === 'month' ? themeColors.primaryButtonBg : themeColors.border,
                 },
               ]}
               onPress={() => setActivePeriod('month')}>
@@ -443,10 +443,10 @@ export default function ExpenseAnalysisScreen() {
                 activePeriod === 'year' && styles.expenseAnalysisTabActive,
                 isLight && {
                   backgroundColor:
-                    activePeriod === 'year' ? themeColors.tint : 'transparent',
+                    activePeriod === 'year' ? themeColors.primaryButtonBg : 'transparent',
                   borderWidth: 1,
                   borderColor:
-                    activePeriod === 'year' ? themeColors.tint : themeColors.border,
+                    activePeriod === 'year' ? themeColors.primaryButtonBg : themeColors.border,
                 },
               ]}
               onPress={() => setActivePeriod('year')}>

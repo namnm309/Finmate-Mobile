@@ -13,20 +13,11 @@ import {
   TextInput,
   Modal,
   Platform,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import MapView, { Marker } from 'react-native-maps';
-import { Calendar, LocaleConfig } from 'react-native-calendars';
-
-LocaleConfig.locales.vi = {
-  monthNames: ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'],
-  monthNamesShort: ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12'],
-  dayNames: ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'],
-  dayNamesShort: ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'],
-  today: 'Hôm nay',
-};
-LocaleConfig.defaultLocale = 'vi';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { styles } from '@/styles/index.styles';
@@ -106,6 +97,10 @@ const toCalendarDateString = (date: Date): string => {
   return `${y}-${m}-${d}`;
 };
 
+// Năm hợp lệ cho ngày sinh (5–120 tuổi)
+const getMinBirthYear = (): number => new Date().getFullYear() - 120;
+const getMaxBirthYear = (): number => new Date().getFullYear() - 5;
+
 // Ngày sinh hợp lệ: 5–120 tuổi
 const getMinBirthDate = (): string => {
   const d = new Date();
@@ -129,6 +124,237 @@ const formatDateForHeader = (date: Date): { dayStr: string; yearStr: string } =>
   return { dayStr: `${dayOfWeek}, ${day} ${month}`, yearStr: String(year) };
 };
 
+const MONTH_NAMES = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
+const MONTH_SHORT = ['Thg1', 'Thg2', 'Thg3', 'Thg4', 'Thg5', 'Thg6', 'Thg7', 'Thg8', 'Thg9', 'Thg10', 'Thg11', 'Thg12'];
+const DAY_HEADERS = ['H', 'B', 'T', 'N', 'S', 'B', 'C']; // Hai, Ba, Tư, Năm, Sáu, Bảy, Chủ nhật
+
+function WindowsDatePicker({
+  selectedDate,
+  onSelectDate,
+  pickerView,
+  setPickerView,
+  pickerBaseDate,
+  setPickerBaseDate,
+  isLight,
+  themeColors,
+  minDate,
+  maxDate,
+}: {
+  selectedDate: Date | null;
+  onSelectDate: (d: Date) => void;
+  pickerView: 'day' | 'month' | 'year';
+  setPickerView: (v: 'day' | 'month' | 'year') => void;
+  pickerBaseDate: Date;
+  setPickerBaseDate: (d: Date) => void;
+  isLight: boolean;
+  themeColors: any;
+  minDate: string;
+  maxDate: string;
+}) {
+  const bg = isLight ? themeColors.card : '#1F2937';
+  const [minY, minM, minD] = minDate.split('-').map(Number);
+  const [maxY, maxM, maxD] = maxDate.split('-').map(Number);
+  const minDateObj = new Date(minY, minM - 1, minD);
+  const maxDateObj = new Date(maxY, maxM - 1, maxD);
+
+  const isDateValid = (d: Date) => d >= minDateObj && d <= maxDateObj;
+
+  // View Ngày: lưới ~30 ngày
+  const renderDayView = () => {
+    const y = pickerBaseDate.getFullYear();
+    const m = pickerBaseDate.getMonth();
+    const firstDay = new Date(y, m, 1);
+    const lastDay = new Date(y, m + 1, 0);
+    const startPad = (firstDay.getDay() + 6) % 7; // T2 = 0
+    const daysInMonth = lastDay.getDate();
+    const rows: (number | null)[][] = [];
+    let row: (number | null)[] = [];
+    for (let i = 0; i < startPad; i++) row.push(null);
+    for (let d = 1; d <= daysInMonth; d++) {
+      row.push(d);
+      if (row.length === 7) {
+        rows.push(row);
+        row = [];
+      }
+    }
+    if (row.length) {
+      while (row.length < 7) row.push(null);
+      rows.push(row);
+    }
+
+    return (
+      <View style={{ padding: 12 }}>
+        {rows.map((r, ri) => (
+          <View key={ri} style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 6 }}>
+            {r.map((d, di) => {
+              if (d === null) {
+                return <View key={di} style={{ width: 36, height: 36, margin: 2 }} />;
+              }
+              const date = new Date(y, m, d);
+              const isValid = isDateValid(date);
+              const isSel = selectedDate && selectedDate.getFullYear() === y && selectedDate.getMonth() === m && selectedDate.getDate() === d;
+              return (
+                <TouchableOpacity
+                  key={di}
+                  onPress={() => isValid && onSelectDate(toLocalDateOnly(date))}
+                  disabled={!isValid}
+                  style={{
+                    width: 36,
+                    height: 36,
+                    margin: 2,
+                    borderRadius: 18,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: isSel ? '#1976D2' : 'transparent',
+                  }}>
+                  <Text style={{ color: isSel ? '#fff' : isValid ? themeColors.text : (isLight ? '#BDBDBD' : '#6B7280'), fontSize: 15 }}>{d}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ))}
+      </View>
+    );
+  };
+
+  // View Tháng: 12 tháng
+  const renderMonthView = () => (
+    <View style={{ padding: 12, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8 }}>
+      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((monthIdx) => {
+        const isSel = pickerBaseDate.getMonth() === monthIdx;
+        return (
+          <TouchableOpacity
+            key={monthIdx}
+            onPress={() => {
+              setPickerBaseDate(new Date(pickerBaseDate.getFullYear(), monthIdx, 1));
+              setPickerView('day');
+            }}
+            style={{
+              width: '30%',
+              paddingVertical: 12,
+              borderRadius: 8,
+              alignItems: 'center',
+              backgroundColor: isSel ? themeColors.primaryButtonBg : (isLight ? themeColors.background : '#374151'),
+            }}>
+            <Text style={{ color: isSel ? themeColors.primaryButtonText : themeColors.text, fontWeight: isSel ? '600' : '400', fontSize: 14 }}>{MONTH_SHORT[monthIdx]}</Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+
+  // View Năm: danh sách năm
+  const renderYearView = () => {
+    const years = Array.from({ length: getMaxBirthYear() - getMinBirthYear() + 1 }, (_, i) => getMaxBirthYear() - i);
+    return (
+      <View style={{ maxHeight: 220, paddingHorizontal: 12, paddingBottom: 12 }}>
+        <FlatList
+          data={years}
+          keyExtractor={(y) => String(y)}
+          showsVerticalScrollIndicator={true}
+          initialNumToRender={25}
+          getItemLayout={(_, i) => ({ length: 44, offset: 44 * i, index: i })}
+          renderItem={({ item: y }) => {
+            const isSel = pickerBaseDate.getFullYear() === y;
+            return (
+              <TouchableOpacity
+                onPress={() => {
+                  setPickerBaseDate(new Date(y, pickerBaseDate.getMonth(), 1));
+                  setPickerView('month');
+                }}
+                style={{
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  borderRadius: 8,
+                  backgroundColor: isSel ? themeColors.primaryButtonBg : 'transparent',
+                  marginBottom: 4,
+                }}>
+                <Text style={{ color: isSel ? themeColors.primaryButtonText : themeColors.text, fontWeight: isSel ? '600' : '400', fontSize: 16 }}>{y}</Text>
+              </TouchableOpacity>
+            );
+          }}
+        />
+      </View>
+    );
+  };
+
+  return (
+    <View style={{ borderWidth: 1, borderColor: isLight ? themeColors.border : 'rgba(255,255,255,0.2)', borderRadius: 12, overflow: 'hidden', backgroundColor: bg }}>
+      {/* Header clickable: Tháng+Năm hoặc Năm (drill-down) */}
+      <TouchableOpacity
+        onPress={() => {
+          if (pickerView === 'day') setPickerView('month');
+          else if (pickerView === 'month') setPickerView('year');
+        }}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 6,
+          paddingVertical: 10,
+          borderBottomWidth: 1,
+          borderBottomColor: isLight ? themeColors.border : 'rgba(255,255,255,0.15)',
+        }}
+        activeOpacity={0.7}>
+        {pickerView === 'day' && (
+          <Text style={{ color: themeColors.text, fontSize: 16, fontWeight: '600' }}>
+            {MONTH_NAMES[pickerBaseDate.getMonth()]} {pickerBaseDate.getFullYear()}
+          </Text>
+        )}
+        {pickerView === 'month' && (
+          <Text style={{ color: themeColors.text, fontSize: 16, fontWeight: '600' }}>{pickerBaseDate.getFullYear()}</Text>
+        )}
+        {pickerView === 'year' && (
+          <Text style={{ color: themeColors.textSecondary, fontSize: 14 }}>Chọn năm</Text>
+        )}
+        <MaterialIcons name="expand-more" size={20} color={themeColors.tint} />
+      </TouchableOpacity>
+
+      {/* Mũi tên điều hướng tháng (chỉ khi view day) */}
+      {pickerView === 'day' && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingTop: 8 }}>
+          <TouchableOpacity
+            onPress={() => {
+              const d = new Date(pickerBaseDate);
+              d.setMonth(d.getMonth() - 1);
+              if (d >= minDateObj) setPickerBaseDate(d);
+            }}
+            style={{ padding: 4 }}>
+            <MaterialIcons name="chevron-left" size={28} color={themeColors.tint} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
+              const d = new Date(pickerBaseDate);
+              d.setMonth(d.getMonth() + 1);
+              if (d <= maxDateObj) setPickerBaseDate(d);
+            }}
+            style={{ padding: 4 }}>
+            <MaterialIcons name="chevron-right" size={28} color={themeColors.tint} />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Day headers (chỉ view day) */}
+      {pickerView === 'day' && (
+        <View style={{ flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 12, marginBottom: 4 }}>
+          {DAY_HEADERS.map((h, i) => (
+            <Text key={i} style={{ width: 36, textAlign: 'center', color: themeColors.textSecondary, fontSize: 12 }}>{h}</Text>
+          ))}
+        </View>
+      )}
+
+      {/* Nội dung theo view */}
+      {pickerView === 'day' && renderDayView()}
+      {pickerView === 'month' && renderMonthView()}
+      {pickerView === 'year' && renderYearView()}
+
+      <Text style={{ color: themeColors.textSecondary, fontSize: 11, textAlign: 'center', paddingVertical: 8 }}>
+        Chỉ ngày sinh hợp lệ (5–120 tuổi) có thể chọn
+      </Text>
+    </View>
+  );
+}
+
 export default function AccountSettingsScreen() {
   const { user } = useUser();
   const router = useRouter();
@@ -147,6 +373,12 @@ export default function AccountSettingsScreen() {
   const [editingField, setEditingField] = useState<{ key: string; label: string; value: string; isDate?: boolean } | null>(null);
   const [editValue, setEditValue] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [pickerView, setPickerView] = useState<'day' | 'month' | 'year'>('day'); // Windows-style drill-down
+  const [pickerBaseDate, setPickerBaseDate] = useState<Date>(() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 25);
+    return d;
+  });
   const [latitude, setLatitude] = useState<string>('');
   const [longitude, setLongitude] = useState<string>('');
   const [locationLoading, setLocationLoading] = useState(false);
@@ -267,12 +499,16 @@ export default function AccountSettingsScreen() {
       const parsed = parseDisplayDateToDate(initialValue);
       if (parsed) {
         setSelectedDate(parsed);
+        setPickerBaseDate(parsed);
       } else {
         const defaultDate = new Date();
         defaultDate.setFullYear(defaultDate.getFullYear() - 25);
-        setSelectedDate(toLocalDateOnly(defaultDate));
-        setEditValue(formatDateFromDate(defaultDate));
+        const d = toLocalDateOnly(defaultDate);
+        setSelectedDate(d);
+        setEditValue(formatDateFromDate(d));
+        setPickerBaseDate(d);
       }
+      setPickerView('day');
     } else {
       setSelectedDate(null);
     }
@@ -341,6 +577,7 @@ export default function AccountSettingsScreen() {
       setEditingField(null);
       setEditValue('');
       setSelectedDate(null);
+      setPickerView('day');
       setLatitude('');
       setLongitude('');
       Alert.alert('Thành công', 'Đã cập nhật thông tin');
@@ -520,12 +757,12 @@ export default function AccountSettingsScreen() {
               }
             }}
             style={{
-              backgroundColor: themeColors.tint,
+              backgroundColor: themeColors.primaryButtonBg,
               paddingHorizontal: 20,
               paddingVertical: 10,
               borderRadius: 8,
             }}>
-            <Text style={{ color: textOnTint }}>Thử lại</Text>
+            <Text style={{ color: themeColors.primaryButtonText }}>Thử lại</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -914,60 +1151,21 @@ export default function AccountSettingsScreen() {
                 autoFocus
               />
             ) : (
-              <View style={{ borderWidth: 1, borderColor: isLight ? themeColors.border : 'rgba(255,255,255,0.2)', borderRadius: 12, overflow: 'hidden' }}>
-                {/* Header xanh hiển thị ngày đã chọn */}
-                <View style={{ backgroundColor: '#1976D2', paddingVertical: 16, paddingHorizontal: 16, alignItems: 'center' }}>
-                  {selectedDate && (
-                    <>
-                      <Text style={{ color: '#fff', fontSize: 16, fontWeight: '500' }}>
-                        {formatDateForHeader(selectedDate).dayStr}
-                      </Text>
-                      <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 18, fontWeight: 'bold', marginTop: 4 }}>
-                        {formatDateForHeader(selectedDate).yearStr}
-                      </Text>
-                    </>
-                  )}
-                </View>
-                {/* Calendar - chỉ ngày 5–120 tuổi được tô màu, còn lại xám */}
-                <Calendar
-                  current={selectedDate ? toCalendarDateString(selectedDate) : toCalendarDateString(new Date())}
-                  minDate={getMinBirthDate()}
-                  maxDate={getMaxBirthDate()}
-                  onDayPress={(day) => {
-                    const d = new Date(day.dateString + 'T12:00:00');
-                    const normalized = toLocalDateOnly(d);
-                    setSelectedDate(normalized);
-                    setEditValue(formatDateFromDate(normalized));
-                  }}
-                  markedDates={
-                    selectedDate
-                      ? { [toCalendarDateString(selectedDate)]: { selected: true, selectedColor: '#1976D2' } }
-                      : {}
-                  }
-                  theme={{
-                    backgroundColor: isLight ? themeColors.card : '#1F2937',
-                    calendarBackground: isLight ? themeColors.card : '#1F2937',
-                    textSectionTitleColor: themeColors.textSecondary,
-                    selectedDayBackgroundColor: '#1976D2',
-                    selectedDayTextColor: '#ffffff',
-                    todayTextColor: themeColors.tint,
-                    dayTextColor: themeColors.text,
-                    textDisabledColor: isLight ? '#BDBDBD' : '#6B7280',
-                    arrowColor: themeColors.tint,
-                    monthTextColor: themeColors.text,
-                    textDayFontSize: 16,
-                    textMonthFontSize: 16,
-                    textDayHeaderFontSize: 14,
-                  }}
-                  style={{ marginTop: 8 }}
-                  firstDay={1}
-                  hideExtraDays
-                  monthFormat="MMMM yyyy"
-                />
-                <Text style={{ color: themeColors.textSecondary, fontSize: 12, textAlign: 'center', marginTop: 8, marginBottom: 4 }}>
-                  Chỉ ngày sinh hợp lệ (5–120 tuổi) có thể chọn
-                </Text>
-              </View>
+              <WindowsDatePicker
+                selectedDate={selectedDate}
+                onSelectDate={(d) => {
+                  setSelectedDate(d);
+                  setEditValue(formatDateFromDate(d));
+                }}
+                pickerView={pickerView}
+                setPickerView={setPickerView}
+                pickerBaseDate={pickerBaseDate}
+                setPickerBaseDate={setPickerBaseDate}
+                isLight={isLight}
+                themeColors={themeColors}
+                minDate={getMinBirthDate()}
+                maxDate={getMaxBirthDate()}
+              />
             )}
 
             <View
@@ -981,6 +1179,7 @@ export default function AccountSettingsScreen() {
                   setEditingField(null);
                   setEditValue('');
                   setSelectedDate(null);
+                  setPickerView('day');
                   setLatitude('');
                   setLongitude('');
                 }}
@@ -1001,15 +1200,15 @@ export default function AccountSettingsScreen() {
                 onPress={handleSaveEdit}
                 disabled={updating}
                 style={{
-                  backgroundColor: themeColors.tint,
+                  backgroundColor: themeColors.primaryButtonBg,
                   paddingHorizontal: 20,
                   paddingVertical: 10,
                   borderRadius: 8,
                 }}>
                 {updating ? (
-                  <ActivityIndicator size="small" color={textOnTint} />
+                  <ActivityIndicator size="small" color={themeColors.primaryButtonText} />
                 ) : (
-                  <Text style={{ color: textOnTint, fontSize: 16, fontWeight: '600' }}>Lưu</Text>
+                  <Text style={{ color: themeColors.primaryButtonText, fontSize: 16, fontWeight: '600' }}>Lưu</Text>
                 )}
               </TouchableOpacity>
             </View>

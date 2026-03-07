@@ -234,13 +234,13 @@ export default function AccountScreen() {
             <TouchableOpacity
               style={{
                 marginTop: 16,
-                backgroundColor: themeColors.tint,
+                backgroundColor: themeColors.primaryButtonBg,
                 paddingHorizontal: 24,
                 paddingVertical: 12,
                 borderRadius: 8,
               }}
               onPress={() => fetchData()}>
-              <Text style={{ color: textOnTint, fontWeight: '600' }}>Thử lại</Text>
+              <Text style={{ color: themeColors.primaryButtonText, fontWeight: '600' }}>Thử lại</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

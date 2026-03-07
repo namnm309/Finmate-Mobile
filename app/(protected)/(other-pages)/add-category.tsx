@@ -647,14 +647,14 @@ export default function AddOrEditCategoryScreen() {
               flex: 1,
               paddingVertical: 12,
               borderRadius: 999,
-              backgroundColor: saving ? themeColors.muted : themeColors.tint,
+              backgroundColor: saving ? themeColors.muted : themeColors.primaryButtonBg,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
             <Text
               style={{
-                color: textOnTint,
+                color: themeColors.primaryButtonText,
                 fontWeight: '600',
               }}
             >
