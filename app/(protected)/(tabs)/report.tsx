@@ -2,10 +2,11 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { loadDebtEntries } from '@/lib/storage/debtStorage';
 import { useMoneySourceService } from '@/lib/services/moneySourceService';
+import { useReportService } from '@/lib/services/reportService';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -14,6 +15,69 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+
+const BAR_MAX_HEIGHT = 120;
+
+const ReportBarChart = React.memo(function ReportBarChart({
+  data,
+  hasAnyData,
+  loading,
+  textColor,
+  tintColor,
+}: {
+  data: { month: number; income: number; expense: number }[];
+  hasAnyData: boolean;
+  loading: boolean;
+  textColor: string;
+  tintColor: string;
+}) {
+  const barHeights = useMemo(() => {
+    const maxVal = hasAnyData ? Math.max(1, ...data.flatMap((m) => [m.income, m.expense])) : 1;
+    const h = hasAnyData ? (v: number) => (v / maxVal) * BAR_MAX_HEIGHT : () => BAR_MAX_HEIGHT * 0.5;
+    return data.map((d) => ({
+      month: d.month,
+      income: Math.max(4, h(d.income)),
+      expense: Math.max(4, h(d.expense)),
+    }));
+  }, [data, hasAnyData]);
+
+  if (loading) {
+    return (
+      <View style={{ paddingVertical: 48, alignItems: 'center' }}>
+        <ActivityIndicator size="small" color={tintColor} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.reportBarChart}>
+      {barHeights.map((item, index) => (
+        <View key={`${item.month}-${index}`} style={styles.reportBarChartMonth}>
+          <View style={styles.reportBarChartBars}>
+            <View
+              style={[
+                styles.reportBar,
+                styles.reportIncomeBar,
+                { height: item.income },
+              ]}
+            />
+            <View
+              style={[
+                styles.reportBar,
+                styles.reportExpenseBar,
+                { height: item.expense },
+              ]}
+            />
+          </View>
+          <Text style={[styles.reportBarChartMonthLabel, { color: textColor }]}>
+            {['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
+              'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'][item.month] ?? `Tháng ${item.month + 1}`}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+});
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,11 +88,13 @@ const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('vi-VN').format(amount) + ' ₫';
 };
 
-// Format tên tháng
-const getMonthName = (monthIndex: number): string => {
-  const months = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 
-                  'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
-  return months[monthIndex] || `Tháng ${monthIndex + 1}`;
+// Lấy start/end của tháng (offset: 0 = tháng hiện tại, -1 = tháng trước, ...)
+const getMonthRange = (offset: number): { start: Date; end: Date } => {
+  const d = new Date();
+  d.setMonth(d.getMonth() + offset);
+  const start = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
+  const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+  return { start, end };
 };
 
 export default function ReportScreen() {
@@ -37,14 +103,19 @@ export default function ReportScreen() {
   const themeColors = Colors[resolvedTheme];
   const isLight = resolvedTheme === 'light';
   const { getGroupedMoneySources } = useMoneySourceService();
+  const { getOverview } = useReportService();
   const getGroupedMoneySourcesRef = useRef(getGroupedMoneySources);
   getGroupedMoneySourcesRef.current = getGroupedMoneySources;
 
   const [totalAssets, setTotalAssets] = useState<number>(0);
   const [totalDebt, setTotalDebt] = useState<number>(0);
   const [financeLoading, setFinanceLoading] = useState(true);
+  const [monthlyData, setMonthlyData] = useState<{ month: number; income: number; expense: number }[]>([]);
+  const [overviewLoading, setOverviewLoading] = useState(true);
   const hasLoadedOnceRef = useRef(false);
+  const overviewLoadedOnceRef = useRef(false);
   const lastFetchTimeRef = useRef(0);
+  const lastOverviewFetchRef = useRef(0);
   const THROTTLE_MS = 2000;
 
   useFocusEffect(
@@ -88,6 +159,47 @@ export default function ReportScreen() {
     }, [])
   );
 
+  // Sync 5 tháng gần nhất từ API (throttle để giảm lag)
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      const now = Date.now();
+      if (now - lastOverviewFetchRef.current < THROTTLE_MS && overviewLoadedOnceRef.current) {
+        setOverviewLoading(false);
+        return;
+      }
+      lastOverviewFetchRef.current = now;
+      setOverviewLoading(true);
+      const ranges = [-4, -3, -2, -1, 0].map((offset) => {
+        const { start, end } = getMonthRange(offset);
+        return { start, end, monthIndex: new Date(start).getMonth(), year: new Date(start).getFullYear() };
+      });
+      Promise.all(
+        ranges.map((r) =>
+          getOverview(r.start, r.end).then((ov) =>
+            cancelled ? null : { month: r.monthIndex, income: ov.totalIncome ?? 0, expense: ov.totalExpense ?? 0 }
+          )
+        )
+      )
+        .then((results) => {
+          if (!cancelled && results.every((r) => r !== null)) {
+            setMonthlyData(results as { month: number; income: number; expense: number }[]);
+            overviewLoadedOnceRef.current = true;
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setMonthlyData([]);
+            overviewLoadedOnceRef.current = true;
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setOverviewLoading(false);
+        });
+      return () => { cancelled = true; };
+    }, [getOverview])
+  );
+
   const currentBalance = totalAssets - totalDebt;
 
   const lightCardSurface = isLight
@@ -102,20 +214,20 @@ export default function ReportScreen() {
       }
     : null;
 
-  // Dữ liệu 5 tháng gần nhất (từ tháng 6 đến tháng 10)
-  const monthlyData = [
-    { month: 5, income: 18500000, expense: 12340000 }, // Tháng 6
-    { month: 6, income: 21000000, expense: 15000000 }, // Tháng 7
-    { month: 7, income: 19500000, expense: 18000000 }, // Tháng 8
-    { month: 8, income: 22000000, expense: 16500000 }, // Tháng 9
-    { month: 9, income: 20000000, expense: 14000000 }, // Tháng 10
-  ];
-
-  // Tính max value để scale biểu đồ
-  const maxValue = Math.max(
-    ...monthlyData.flatMap(m => [m.income, m.expense])
+  // Dữ liệu 5 tháng từ state (sync API) - memo để tránh re-render chart
+  const displayData = useMemo(() => {
+    if (monthlyData.length === 5) return monthlyData;
+    const indices = [-4, -3, -2, -1, 0].map((o) => {
+      const d = new Date();
+      d.setMonth(d.getMonth() + o);
+      return d.getMonth();
+    });
+    return indices.map((month) => ({ month, income: 0, expense: 0 }));
+  }, [monthlyData]);
+  const hasAnyData = useMemo(
+    () => displayData.some((m) => m.income > 0 || m.expense > 0),
+    [displayData]
   );
-
   // 6 chức năng phân tích
   const functions = [
     { id: 1, icon: 'show-chart', label: 'Phân tích chi tiêu', color: '#51A2FF' },
@@ -201,36 +313,18 @@ export default function ReportScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Biểu đồ cột 5 tháng */}
+          {/* Biểu đồ cột 5 tháng - dùng pixel height để tránh lag */}
           <View style={styles.reportBarChartContainer}>
-            <View style={styles.reportBarChart}>
-              {monthlyData.map((data, index) => (
-                <View key={index} style={styles.reportBarChartMonth}>
-                  <View style={styles.reportBarChartBars}>
-                    <View
-                      style={[
-                        styles.reportBar,
-                        styles.reportIncomeBar,
-                        { height: `${(data.income / maxValue) * 100}%` }
-                      ]}
-                    />
-                    <View
-                      style={[
-                        styles.reportBar,
-                        styles.reportExpenseBar,
-                        { height: `${(data.expense / maxValue) * 100}%` }
-                      ]}
-                    />
-                  </View>
-                  <Text style={[styles.reportBarChartMonthLabel, { color: themeColors.textSecondary }]}>
-                    {getMonthName(data.month)}
-                  </Text>
-                </View>
-              ))}
-            </View>
+            <ReportBarChart
+              data={displayData}
+              hasAnyData={hasAnyData}
+              loading={overviewLoading}
+              textColor={themeColors.textSecondary}
+              tintColor={themeColors.tint}
+            />
           </View>
 
-          {/* Thông báo trạng thái */}
+          {/* Thông báo trạng thái - sync theo dữ liệu */}
           <View
             style={[
               styles.reportStatusMessage,
@@ -241,7 +335,11 @@ export default function ReportScreen() {
               },
             ]}>
             <Text style={[styles.reportStatusMessageText, { color: themeColors.textSecondary }]}>
-              Chi tiêu tháng trước bằng 0, chưa có dữ liệu so sánh
+              {!hasAnyData
+                ? 'Chưa có dữ liệu thu chi để hiển thị'
+                : displayData.length >= 2 && displayData[displayData.length - 2].expense === 0
+                  ? 'Chi tiêu tháng trước bằng 0, chưa có dữ liệu so sánh'
+                  : 'Dữ liệu đồng bộ từ giao dịch của bạn'}
             </Text>
           </View>
         </View>

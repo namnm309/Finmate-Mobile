@@ -836,7 +836,8 @@ export const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 4,
     width: '100%',
-    height: '85%',
+    height: 128,
+    minHeight: 128,
     marginBottom: 8,
   },
   reportBar: {
@@ -1803,13 +1804,13 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-around',
-    height: '100%',
+    height: 120,
     paddingHorizontal: 8,
   },
   expenseAnalysisLineChartPoint: {
     flex: 1,
     alignItems: 'center',
-    height: '100%',
+    height: 120,
     justifyContent: 'flex-end',
   },
   expenseAnalysisLineChartBar: {
