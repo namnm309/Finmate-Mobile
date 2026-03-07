@@ -10,12 +10,12 @@ import { useRouter } from 'expo-router';
 import {
     Alert,
     Dimensions,
-    SafeAreaView,
     ScrollView,
     Text,
     TouchableOpacity,
     View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -285,7 +285,7 @@ export default function OtherScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent', flex: 1, width: SCREEN_WIDTH, minWidth: SCREEN_WIDTH }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent', flex: 1, width: SCREEN_WIDTH, minWidth: SCREEN_WIDTH }]} edges={['top', 'bottom']}>
       <ScrollView
         style={[styles.scrollView, { flex: 1 }]}
         contentContainerStyle={[styles.scrollContent, { flexGrow: 1 }]}
@@ -299,25 +299,21 @@ export default function OtherScreen() {
         {/* User Info Card */}
         <TouchableOpacity style={styles.otherUserCard} activeOpacity={0.8}>
           <LinearGradient
-            colors={[themeColors.tint, themeColors.success2]}
+            colors={resolvedTheme === 'light' ? ['#15803d', '#16a34a'] : ['#15803d', '#22c55e']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.otherUserCardGradient}>
             <View style={styles.otherUserInfo}>
               <View style={styles.avatarContainer}>
-                <View style={styles.avatarBorder}>
-                  <LinearGradient
-                    colors={['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.15)']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.avatarGradient}>
-                    <Text style={styles.avatarText}>{getUserInitial()}</Text>
-                  </LinearGradient>
+                <View style={[styles.avatarBorder, { borderColor: 'rgba(255,255,255,0.9)', overflow: 'hidden' }]}>
+                  <View style={[styles.avatarGradient, { backgroundColor: 'rgba(255,255,255,0.95)' }]}>
+                    <Text style={[styles.avatarText, { color: '#15803d', fontWeight: '700' }]}>{getUserInitial()}</Text>
+                  </View>
                 </View>
               </View>
               <View style={styles.userInfo}>
-                <Text style={styles.userNameText}>{getUserName()}</Text>
-                <Text style={styles.greetingText}>{getUserEmail()}</Text>
+                <Text style={[styles.userNameText, { color: '#FFFFFF', fontWeight: '600' }]}>{getUserName()}</Text>
+                <Text style={[styles.greetingText, { color: 'rgba(255,255,255,0.95)' }]}>{getUserEmail()}</Text>
               </View>
               <MaterialIcons name="chevron-right" size={24} color="#FFFFFF" />
             </View>

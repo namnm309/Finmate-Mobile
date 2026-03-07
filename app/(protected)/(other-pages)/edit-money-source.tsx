@@ -11,9 +11,11 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Modal,
-  SafeAreaView,
+  Platform,
   ScrollView,
   StyleSheet,
   Switch,
@@ -21,8 +23,8 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const getCountryFlag = (countryCode: string): string => {
   if (!countryCode || countryCode.length < 2) return '🏳️';
@@ -38,6 +40,7 @@ export default function EditMoneySourceScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
+  const insets = useSafeAreaInsets();
   const moneySourceService = useMoneySourceService();
   const serviceRef = useRef(moneySourceService);
   serviceRef.current = moneySourceService;
@@ -228,7 +231,7 @@ export default function EditMoneySourceScreen() {
 
   if (!id) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.headerButton} onPress={() => router.back()} activeOpacity={0.7}>
             <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
@@ -245,7 +248,7 @@ export default function EditMoneySourceScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.headerButton} onPress={() => router.back()} activeOpacity={0.7}>
             <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
@@ -263,7 +266,7 @@ export default function EditMoneySourceScreen() {
 
   if (error) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.headerButton} onPress={() => router.back()} activeOpacity={0.7}>
             <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
@@ -282,7 +285,8 @@ export default function EditMoneySourceScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerButton} onPress={() => router.back()} activeOpacity={0.7}>
           <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
@@ -303,7 +307,7 @@ export default function EditMoneySourceScreen() {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 32 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled">
         <View style={styles.balanceCard}>
@@ -475,6 +479,7 @@ export default function EditMoneySourceScreen() {
         onConfirm={handleConfirmDelete}
         onCancel={() => setShowDeleteDialog(false)}
       />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -499,7 +504,7 @@ const styles = StyleSheet.create({
   retryButton: { marginTop: 16, backgroundColor: '#51A2FF', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
   retryButtonText: { color: '#FFFFFF', fontWeight: '600' },
   scrollView: { flex: 1 },
-  scrollContent: { padding: 16, paddingBottom: 32 },
+  scrollContent: { padding: 16 },
   balanceCard: {
     backgroundColor: '#1E2939',
     borderRadius: 16,

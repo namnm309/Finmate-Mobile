@@ -1,11 +1,14 @@
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { loadDebtEntries } from '@/lib/storage/debtStorage';
+import { useMoneySourceService } from '@/lib/services/moneySourceService';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Dimensions,
-  SafeAreaView,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -13,6 +16,7 @@ import {
 } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from '@/styles/index.styles';
 
 // Format số tiền VNĐ
@@ -32,6 +36,60 @@ export default function ReportScreen() {
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
   const isLight = resolvedTheme === 'light';
+  const { getGroupedMoneySources } = useMoneySourceService();
+  const getGroupedMoneySourcesRef = useRef(getGroupedMoneySources);
+  getGroupedMoneySourcesRef.current = getGroupedMoneySources;
+
+  const [totalAssets, setTotalAssets] = useState<number>(0);
+  const [totalDebt, setTotalDebt] = useState<number>(0);
+  const [financeLoading, setFinanceLoading] = useState(true);
+  const hasLoadedOnceRef = useRef(false);
+  const lastFetchTimeRef = useRef(0);
+  const THROTTLE_MS = 2000;
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      const now = Date.now();
+      const shouldShowLoading = !hasLoadedOnceRef.current;
+      if (shouldShowLoading) setFinanceLoading(true);
+
+      if (now - lastFetchTimeRef.current < THROTTLE_MS && hasLoadedOnceRef.current) {
+        setFinanceLoading(false);
+        return;
+      }
+      lastFetchTimeRef.current = now;
+
+      const fetchFn = getGroupedMoneySourcesRef.current;
+      Promise.all([
+        fetchFn().then((r) => (cancelled ? 0 : r.totalBalance ?? 0)),
+        loadDebtEntries().then((entries) =>
+          cancelled ? 0 : entries.reduce((sum, e) => sum + e.amount, 0)
+        ),
+      ])
+        .then(([assets, debt]) => {
+          if (!cancelled) {
+            setTotalAssets(assets);
+            setTotalDebt(debt);
+            hasLoadedOnceRef.current = true;
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setTotalAssets(0);
+            setTotalDebt(0);
+            hasLoadedOnceRef.current = true;
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setFinanceLoading(false);
+        });
+      return () => { cancelled = true; };
+    }, [])
+  );
+
+  const currentBalance = totalAssets - totalDebt;
+
   const lightCardSurface = isLight
     ? {
         borderWidth: 1,
@@ -43,11 +101,6 @@ export default function ReportScreen() {
         elevation: 3,
       }
     : null;
-
-  // Mock data
-  const currentBalance = 24815000;
-  const totalAssets = 26450000;
-  const totalDebt = 1635000;
 
   // Dữ liệu 5 tháng gần nhất (từ tháng 6 đến tháng 10)
   const monthlyData = [
@@ -74,7 +127,7 @@ export default function ReportScreen() {
   ];
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent', flex: 1, width: SCREEN_WIDTH, minWidth: SCREEN_WIDTH }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent', flex: 1, width: SCREEN_WIDTH, minWidth: SCREEN_WIDTH }]} edges={['top', 'bottom']}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -85,7 +138,7 @@ export default function ReportScreen() {
           <Text style={[styles.reportHeaderTitle, { color: themeColors.text }]}>Báo cáo</Text>
         </View>
 
-        {/* Card Tài chính hiện tại */}
+        {/* Card Tài chính hiện tại - sync Tài khoản & Vay nợ */}
         <View style={styles.card}>
           <LinearGradient
             colors={['#009966', '#008236']}
@@ -93,21 +146,39 @@ export default function ReportScreen() {
             end={{ x: 1, y: 1 }}
             style={styles.reportCurrentFinanceCard}>
             <Text style={[styles.reportCurrentFinanceTitle, { color: '#d0fae5' }]}>Tài chính hiện tại</Text>
-            <Text style={styles.reportCurrentBalance}>{formatCurrency(currentBalance)}</Text>
+            {financeLoading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" style={{ marginVertical: 8 }} />
+            ) : (
+              <Text style={styles.reportCurrentBalance}>{formatCurrency(currentBalance)}</Text>
+            )}
             
             <View style={styles.reportFinanceBoxes}>
-              <TouchableOpacity style={styles.reportFinanceBox}>
+              <TouchableOpacity
+                style={styles.reportFinanceBox}
+                onPress={() => router.push('/(protected)/(tabs)/account')}
+                activeOpacity={0.8}>
                 <View style={styles.reportFinanceBoxContent}>
                   <Text style={styles.reportFinanceBoxLabel}>Tổng có</Text>
-                  <Text style={styles.reportFinanceBoxValue}>{formatCurrency(totalAssets)}</Text>
+                  {financeLoading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.reportFinanceBoxValue}>{formatCurrency(totalAssets)}</Text>
+                  )}
                 </View>
                 <MaterialIcons name="keyboard-arrow-up" size={20} color="#FFFFFF" />
               </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.reportFinanceBox}>
+
+              <TouchableOpacity
+                style={styles.reportFinanceBox}
+                onPress={() => router.push('/(protected)/(other-pages)/debt-tracking')}
+                activeOpacity={0.8}>
                 <View style={styles.reportFinanceBoxContent}>
                   <Text style={styles.reportFinanceBoxLabel}>Tổng nợ</Text>
-                  <Text style={styles.reportFinanceBoxValue}>{formatCurrency(totalDebt)}</Text>
+                  {financeLoading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.reportFinanceBoxValue}>{formatCurrency(totalDebt)}</Text>
+                  )}
                 </View>
                 <MaterialIcons name="keyboard-arrow-up" size={20} color="#FFFFFF" />
               </TouchableOpacity>
@@ -122,7 +193,10 @@ export default function ReportScreen() {
               <Text style={[styles.reportIncomeExpenseTitle, { color: themeColors.text }]}>Tình hình thu chi</Text>
               <Text style={[styles.reportIncomeExpenseSubtitle, { color: themeColors.textSecondary }]}>5 tháng gần nhất</Text>
             </View>
-            <TouchableOpacity style={styles.reportViewDetailButton}>
+            <TouchableOpacity
+              style={styles.reportViewDetailButton}
+              onPress={() => router.push('/(protected)/(other-pages)/expense-analysis')}
+              activeOpacity={0.7}>
               <Text style={[styles.reportViewDetailText, { color: themeColors.tint }]}>Xem chi tiết</Text>
             </TouchableOpacity>
           </View>
@@ -176,14 +250,12 @@ export default function ReportScreen() {
         <View style={styles.reportFunctionsGrid}>
           {functions.map((func) => {
             const handlePress = () => {
-              if (func.id === 1) {
-                // Phân tích chi tiêu
-                router.push('/(protected)/(other-pages)/expense-analysis');
-              } else if (func.id === 6) {
-                // Phân tích tài chính
-                router.push('/(protected)/(other-pages)/financial-analysis');
-              }
-              // Các chức năng khác có thể thêm sau
+              if (func.id === 1) router.push('/(protected)/(other-pages)/expense-analysis');
+              else if (func.id === 2) router.push('/(protected)/(other-pages)/income-analysis');
+              else if (func.id === 3) router.push('/(protected)/(other-pages)/debt-tracking');
+              else if (func.id === 4) router.push('/(protected)/(other-pages)/counterparty-analysis');
+              else if (func.id === 5) router.push('/(protected)/(other-pages)/trip-event');
+              else if (func.id === 6) router.push('/(protected)/(other-pages)/financial-analysis');
             };
             
             return (

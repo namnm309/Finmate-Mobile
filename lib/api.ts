@@ -85,26 +85,32 @@ export const useApiClient = () => {
           console.error('[API] Failed to parse error response:', parseError);
         }
 
-        // Log chi tiết lỗi từ server
+        // Log chi tiết lỗi từ server (dùng correlationId để tra log Azure)
         const serverMessage = errorData?.error ?? errorData?.message ?? errorText;
+        const correlationId = errorData?.correlationId;
         const errorDetails = {
           url,
           status: response.status,
           statusText: response.statusText,
           error: serverMessage,
+          correlationId: correlationId ?? undefined,
           errorData: errorData,
         };
 
         console.error('[API] Error response:', JSON.stringify(errorDetails, null, 2));
-        
-        // Tạo error message chi tiết hơn
+        if (correlationId && __DEV__) {
+          console.error(`[API] Tra log Azure với correlationId: ${correlationId}`);
+        }
+
+        // Hiển thị message từ BE (sau deploy sẽ thấy lỗi thực: User not found, relation does not exist...)
         let errorMessage = serverMessage || `API Error: ${response.status} ${response.statusText}`;
-        
-        // Thêm thông tin chi tiết nếu có (bao gồm lỗi thực từ MegaLLM)
         if (errorData?.detail) {
           errorMessage = `${errorMessage}\n\nChi tiết: ${errorData.detail}`;
         } else if (errorData?.message && errorData.message !== serverMessage) {
           errorMessage = `${errorMessage}\n\nChi tiết: ${errorData.message}`;
+        }
+        if (correlationId) {
+          errorMessage = `${errorMessage}\n(Mã tra log: ${correlationId})`;
         }
 
         throw new Error(errorMessage);

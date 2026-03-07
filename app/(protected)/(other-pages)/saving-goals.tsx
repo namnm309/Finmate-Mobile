@@ -3,79 +3,198 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-  SafeAreaView,
+  ActivityIndicator,
+  Alert,
   ScrollView,
   Text,
+  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useSavingGoal } from '@/contexts/saving-goal-context';
+import { computeGoalMetrics } from '@/lib/utils/goalMetrics';
 import { styles } from '@/styles/index.styles';
 
-interface SavingGoal {
-  id: string;
-  title: string;
-  category: string;
-  currentAmount: number;
-  targetAmount: number;
-  progress: number; // percentage
-  daysRemaining: number;
-  dailyAmount: number;
-}
-
-// Format số tiền VNĐ
 const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('vi-VN').format(amount) + ' ₫';
 };
 
-// Mock data
-const mockGoal: SavingGoal = {
-  id: '1',
-  title: 'iPhone 17 Pro Max',
-  category: 'Điện tử',
-  currentAmount: 8500000,
-  targetAmount: 40000000,
-  progress: 21.3,
-  daysRemaining: 53,
-  dailyAmount: 594340,
-};
+function formatAmountDisplay(raw: string): string {
+  const cleaned = raw.replace(/\D/g, '');
+  if (!cleaned) return '';
+  return cleaned.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+function parseAmount(display: string): number {
+  return parseInt(display.replace(/\D/g, ''), 10) || 0;
+}
 
 export default function SavingGoalsScreen() {
   const router = useRouter();
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
-  const [goal, setGoal] = useState<SavingGoal>(mockGoal);
-  const [selectedQuickAdd, setSelectedQuickAdd] = useState<number | null>(null);
-  const totalGoals = 1;
-  const activeGoals = 1;
+  const insets = useSafeAreaInsets();
+  const { goals, isLoading, error, refetch, addContribution, deleteGoal } = useSavingGoal();
+  const [addAmount, setAddAmount] = useState<Record<string, string>>({});
+  const [contributingId, setContributingId] = useState<string | null>(null);
+
+  const totalGoals = goals.length;
+  const activeGoals = goals.filter((g) => g.currentAmount < g.targetAmount).length;
 
   const handleBack = () => {
     router.push('/(protected)/(tabs)/other');
   };
 
-  const handleQuickAdd = (amount: number) => {
-    setSelectedQuickAdd(amount);
-    setGoal({
-      ...goal,
-      currentAmount: Math.min(goal.currentAmount + amount, goal.targetAmount),
-      progress: Math.min(
-        ((goal.currentAmount + amount) / goal.targetAmount) * 100,
-        100
-      ),
-    });
+  const handleAddGoal = () => {
+    router.push('/(protected)/(other-pages)/create-saving-goal');
   };
 
+  const handleViewPlan = (id: string) => {
+    router.push({ pathname: '/(protected)/(other-pages)/saving-plan', params: { id } });
+  };
+
+  const handleAddToFund = async (id: string) => {
+    const g = goals.find((x) => x.id === id);
+    const raw = addAmount[id] || '';
+    if (!g || !raw.trim()) return;
+    const amount = parseAmount(raw);
+    if (amount <= 0) {
+      Alert.alert('Lỗi', 'Vui lòng nhập số tiền hợp lệ.');
+      return;
+    }
+    setContributingId(id);
+    try {
+      await addContribution(id, amount);
+      setAddAmount((prev) => ({ ...prev, [id]: '' }));
+    } catch (err) {
+      Alert.alert(
+        'Lỗi',
+        err instanceof Error ? err.message : 'Không thể thêm tiền. Vui lòng thử lại.'
+      );
+    } finally {
+      setContributingId(null);
+    }
+  };
+
+  const handleDelete = (id: string) => {
+    const g = goals.find((x) => x.id === id);
+    if (!g) return;
+    Alert.alert(
+      'Xóa mục tiêu',
+      `Bạn có chắc muốn xóa "${g.title}"?`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteGoal(id);
+            } catch (err) {
+              Alert.alert(
+                'Lỗi',
+                err instanceof Error ? err.message : 'Không thể xóa mục tiêu. Vui lòng thử lại.'
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  if (isLoading && goals.length === 0) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
+        <View style={styles.savingGoalsHeader}>
+          <TouchableOpacity onPress={handleBack} style={styles.savingGoalsBackButton} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} activeOpacity={0.7}>
+            <MaterialIcons name="arrow-back" size={24} color={themeColors.text} />
+          </TouchableOpacity>
+          <View style={styles.savingGoalsHeaderCenter}>
+            <Text style={[styles.savingGoalsTitle, { color: themeColors.text }]}>Mục tiêu tiết kiệm</Text>
+            <Text style={[styles.savingGoalsSubtitle, { color: themeColors.textSecondary }]}>Theo dõi & đạt được mục tiêu</Text>
+          </View>
+          <View style={styles.savingGoalsAddButton} />
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <ActivityIndicator size="large" color="#155DFC" />
+          <Text style={[styles.savingGoalCardTitle, { color: themeColors.textSecondary, marginTop: 16 }]}>
+            Đang tải...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error && goals.length === 0) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
+        <View style={styles.savingGoalsHeader}>
+          <TouchableOpacity onPress={handleBack} style={styles.savingGoalsBackButton} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} activeOpacity={0.7}>
+            <MaterialIcons name="arrow-back" size={24} color={themeColors.text} />
+          </TouchableOpacity>
+          <View style={styles.savingGoalsHeaderCenter}>
+            <Text style={[styles.savingGoalsTitle, { color: themeColors.text }]}>Mục tiêu tiết kiệm</Text>
+            <Text style={[styles.savingGoalsSubtitle, { color: themeColors.textSecondary }]}>Theo dõi & đạt được mục tiêu</Text>
+          </View>
+          <View style={styles.savingGoalsAddButton} />
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <Text style={[styles.savingGoalCardTitle, { color: themeColors.textSecondary, marginBottom: 16 }]}>
+            {error}
+          </Text>
+          <TouchableOpacity
+            style={{ backgroundColor: '#155DFC', paddingHorizontal: 24, paddingVertical: 14, borderRadius: 12 }}
+            onPress={() => refetch()}
+            activeOpacity={0.8}>
+            <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Thử lại</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (goals.length === 0) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
+        <View style={styles.savingGoalsHeader}>
+          <TouchableOpacity onPress={handleBack} style={styles.savingGoalsBackButton} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} activeOpacity={0.7}>
+            <MaterialIcons name="arrow-back" size={24} color={themeColors.text} />
+          </TouchableOpacity>
+          <View style={styles.savingGoalsHeaderCenter}>
+            <Text style={[styles.savingGoalsTitle, { color: themeColors.text }]}>Mục tiêu tiết kiệm</Text>
+            <Text style={[styles.savingGoalsSubtitle, { color: themeColors.textSecondary }]}>Theo dõi & đạt được mục tiêu</Text>
+          </View>
+          <TouchableOpacity style={styles.savingGoalsAddButton} onPress={handleAddGoal} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} activeOpacity={0.7}>
+            <MaterialIcons name="add" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <Text style={[styles.savingGoalCardTitle, { color: themeColors.textSecondary, marginBottom: 16 }]}>
+            Chưa có mục tiêu
+          </Text>
+          <TouchableOpacity
+            style={{ backgroundColor: '#16a34a', paddingHorizontal: 24, paddingVertical: 14, borderRadius: 12 }}
+            onPress={handleAddGoal}
+            activeOpacity={0.8}>
+            <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Tạo mục tiêu mới</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 90 + insets.bottom }]}
         showsVerticalScrollIndicator={false}>
-        
         {/* Header */}
         <View style={styles.savingGoalsHeader}>
-          <TouchableOpacity onPress={handleBack} style={styles.savingGoalsBackButton}>
+          <TouchableOpacity onPress={handleBack} style={styles.savingGoalsBackButton} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} activeOpacity={0.7}>
             <MaterialIcons name="arrow-back" size={24} color={themeColors.text} />
           </TouchableOpacity>
           <View style={styles.savingGoalsHeaderCenter}>
@@ -85,7 +204,7 @@ export default function SavingGoalsScreen() {
             <Text style={[styles.savingGoalsTitle, { color: themeColors.text }]}>Mục tiêu tiết kiệm</Text>
             <Text style={[styles.savingGoalsSubtitle, { color: themeColors.textSecondary }]}>Theo dõi & đạt được mục tiêu</Text>
           </View>
-          <TouchableOpacity style={styles.savingGoalsAddButton}>
+          <TouchableOpacity style={styles.savingGoalsAddButton} onPress={handleAddGoal} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} activeOpacity={0.7}>
             <MaterialIcons name="add" size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
@@ -102,93 +221,124 @@ export default function SavingGoalsScreen() {
           </View>
         </View>
 
-        {/* Goal Card */}
-        <View style={styles.savingGoalCard}>
-          <View style={styles.savingGoalCardHeader}>
-            <View style={styles.savingGoalCardHeaderLeft}>
-              <Text style={styles.savingGoalCardTitle}>{goal.title}</Text>
-              <Text style={styles.savingGoalCardCategory}>{goal.category}</Text>
-            </View>
-            <TouchableOpacity style={styles.savingGoalCardDelete}>
-              <MaterialIcons name="delete-outline" size={20} color="#99A1AF" />
-            </TouchableOpacity>
-          </View>
+        {goals.map((goal) => {
+          const { dailyAmount, daysRemaining, remaining } = computeGoalMetrics(goal);
+          const progress = Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);
 
-          {/* Progress Section */}
-          <View style={styles.savingGoalProgressSection}>
-            <View style={styles.savingGoalProgressHeader}>
-              <Text style={styles.savingGoalProgressLabel}>Tiến độ</Text>
-              <Text style={styles.savingGoalProgressPercentage}>{goal.progress.toFixed(1)}%</Text>
-            </View>
-            <View style={styles.savingGoalProgressBar}>
-              <View style={styles.savingGoalProgressBarTrack}>
-                <LinearGradient
-                  colors={['#51A2FF', '#155DFC']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={[
-                    styles.savingGoalProgressBarFill,
-                    { width: `${goal.progress}%` }
-                  ]}
-                />
+          return (
+            <View key={goal.id}>
+              <View style={styles.savingGoalCard}>
+                <View style={styles.savingGoalCardHeader}>
+                  <View style={styles.savingGoalCardHeaderLeft}>
+                    <Text style={styles.savingGoalCardTitle}>{goal.title}</Text>
+                    <Text style={styles.savingGoalCardCategory}>{goal.category}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.savingGoalCardDelete}
+                    onPress={() => handleDelete(goal.id)}>
+                    <MaterialIcons name="delete-outline" size={20} color="#99A1AF" />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.savingGoalProgressSection}>
+                  <View style={styles.savingGoalProgressHeader}>
+                    <Text style={styles.savingGoalProgressLabel}>Tiến độ</Text>
+                    <Text style={styles.savingGoalProgressPercentage}>{progress.toFixed(1)}%</Text>
+                  </View>
+                  <View style={styles.savingGoalProgressBar}>
+                    <View style={styles.savingGoalProgressBarTrack}>
+                      <LinearGradient
+                        colors={['#51A2FF', '#155DFC']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={[styles.savingGoalProgressBarFill, { width: `${progress}%` }]}
+                      />
+                    </View>
+                  </View>
+                  <View style={styles.savingGoalAmountRow}>
+                    <Text style={styles.savingGoalCurrentAmount}>{formatCurrency(goal.currentAmount)}</Text>
+                    <Text style={styles.savingGoalTargetAmount}>{formatCurrency(goal.targetAmount)}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.savingGoalMetrics}>
+                  <View style={styles.savingGoalMetricCard}>
+                    <MaterialIcons name="calendar-today" size={20} color="#51A2FF" />
+                    <Text style={styles.savingGoalMetricLabel}>Còn lại</Text>
+                    <Text style={styles.savingGoalMetricValue}>{daysRemaining} ngày</Text>
+                  </View>
+                  <View style={styles.savingGoalMetricCard}>
+                    <MaterialIcons name="trending-up" size={20} color="#00D492" />
+                    <Text style={styles.savingGoalMetricLabel}>Mỗi ngày</Text>
+                    <Text style={styles.savingGoalMetricValue}>{formatCurrency(dailyAmount)}</Text>
+                  </View>
+                </View>
+
+                <View style={{ marginTop: 8 }}>
+                  <Text style={[styles.savingGoalMetricLabel, { marginBottom: 8 }]}>Thêm vào quỹ</Text>
+                  <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                    <TextInput
+                      style={{
+                        flex: 1,
+                        backgroundColor: themeColors.background,
+                        color: themeColors.text,
+                        fontSize: 16,
+                        paddingVertical: 10,
+                        paddingHorizontal: 14,
+                        borderRadius: 8,
+                      }}
+                      placeholder="VD: 350.000"
+                      placeholderTextColor={themeColors.textSecondary}
+                      value={addAmount[goal.id] || ''}
+                      onChangeText={(v) => setAddAmount((prev) => ({ ...prev, [goal.id]: formatAmountDisplay(v) }))}
+                      keyboardType="numeric"
+                    />
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: contributingId === goal.id ? '#99A1AF' : '#155DFC',
+                        paddingVertical: 10,
+                        paddingHorizontal: 16,
+                        borderRadius: 8,
+                        minWidth: 72,
+                        alignItems: 'center',
+                      }}
+                      onPress={() => handleAddToFund(goal.id)}
+                      disabled={contributingId === goal.id}
+                      activeOpacity={0.8}>
+                      {contributingId === goal.id ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Thêm</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
               </View>
-            </View>
-            <View style={styles.savingGoalAmountRow}>
-              <Text style={styles.savingGoalCurrentAmount}>
-                {formatCurrency(goal.currentAmount)}
-              </Text>
-              <Text style={styles.savingGoalTargetAmount}>
-                {formatCurrency(goal.targetAmount)}
-              </Text>
-            </View>
-          </View>
 
-          {/* Metrics */}
-          <View style={styles.savingGoalMetrics}>
-            <View style={styles.savingGoalMetricCard}>
-              <MaterialIcons name="calendar-today" size={20} color="#51A2FF" />
-              <Text style={styles.savingGoalMetricLabel}>Còn lại</Text>
-              <Text style={styles.savingGoalMetricValue}>{goal.daysRemaining} ngày</Text>
+              {/* Nút Xem plan AI */}
+              <TouchableOpacity
+                style={{
+                  backgroundColor: themeColors.card,
+                  paddingVertical: 14,
+                  borderRadius: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  marginTop: 12,
+                  marginBottom: 24,
+                  borderWidth: 1,
+                  borderColor: '#155DFC',
+                }}
+                onPress={() => handleViewPlan(goal.id)}
+                activeOpacity={0.8}>
+                <MaterialIcons name="auto-awesome" size={20} color="#155DFC" />
+                <Text style={{ color: '#155DFC', fontWeight: '600', fontSize: 15 }}>Xem plan AI</Text>
+              </TouchableOpacity>
             </View>
-            <View style={styles.savingGoalMetricCard}>
-              <MaterialIcons name="trending-up" size={20} color="#00D492" />
-              <Text style={styles.savingGoalMetricLabel}>Mỗi ngày</Text>
-              <Text style={styles.savingGoalMetricValue}>{formatCurrency(goal.dailyAmount)}</Text>
-            </View>
-          </View>
+          );
+        })}
 
-          {/* Quick Add Buttons */}
-          <View style={styles.savingGoalQuickAddButtons}>
-            {([
-              { amount: 100000, label: '+ 100k' },
-              { amount: 500000, label: '+ 500k' },
-              { amount: 1000000, label: '+ 1tr' },
-            ] as const).map(({ amount, label }) => {
-              const isSelected = selectedQuickAdd === amount;
-              return (
-                <TouchableOpacity
-                  key={amount}
-                  style={styles.savingGoalQuickAddButton}
-                  onPress={() => handleQuickAdd(amount)}
-                  activeOpacity={0.8}>
-                  {isSelected ? (
-                    <LinearGradient
-                      colors={['#9810FA', '#155DFC']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.savingGoalQuickAddButtonGradient}>
-                      <Text style={styles.savingGoalQuickAddButtonTextGradient}>{label}</Text>
-                    </LinearGradient>
-                  ) : (
-                    <Text style={styles.savingGoalQuickAddButtonText}>{label}</Text>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Bottom spacing */}
         <View style={styles.bottomSpacing} />
       </ScrollView>
     </SafeAreaView>

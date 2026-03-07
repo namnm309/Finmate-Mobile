@@ -3,13 +3,13 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  SafeAreaView,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -218,6 +218,7 @@ export default function SelectCategoryScreen() {
   return (
     <SafeAreaView
       style={{ flex: 1, backgroundColor: 'transparent' }}
+      edges={['top', 'bottom']}
     >
       {/* Header */}
       <View

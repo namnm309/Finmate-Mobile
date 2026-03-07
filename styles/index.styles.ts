@@ -1221,16 +1221,21 @@ export const styles = StyleSheet.create({
     lineHeight: 18,
     color: '#99A1AF',
   },
-  // Saving Goals Page Styles
+  // Saving Goals Page Styles - nút dễ bấm trên mobile (touch target min 44pt)
   savingGoalsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 20,
-    paddingTop: 12,
+    paddingTop: 8,
+    paddingBottom: 8,
   },
   savingGoalsBackButton: {
-    padding: 4,
+    padding: 12,
+    minWidth: 48,
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   savingGoalsHeaderCenter: {
     flex: 1,
@@ -1252,7 +1257,11 @@ export const styles = StyleSheet.create({
     color: '#99A1AF',
   },
   savingGoalsAddButton: {
-    padding: 4,
+    padding: 12,
+    minWidth: 48,
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   savingGoalsSummaryStats: {
     flexDirection: 'row',

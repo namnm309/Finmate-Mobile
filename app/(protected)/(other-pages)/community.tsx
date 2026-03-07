@@ -3,12 +3,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { styles } from '@/styles/index.styles';
@@ -98,6 +99,7 @@ export default function CommunityScreen() {
   const router = useRouter();
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
+  const insets = useSafeAreaInsets();
   const [activeFilter, setActiveFilter] = useState<FilterType>('featured');
   const [posts, setPosts] = useState<Post[]>(mockPosts);
 
@@ -112,10 +114,10 @@ export default function CommunityScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 90 + insets.bottom }]}
         showsVerticalScrollIndicator={false}>
         
         {/* Header */}

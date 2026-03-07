@@ -8,17 +8,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
+  ActivityIndicator,
   Alert,
   Dimensions,
-  SafeAreaView,
+  Modal,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator,
-  Modal
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { styles } from '@/styles/index.styles';
 import { useMoneySourceService } from '@/lib/services/moneySourceService';
 import { useReportService } from '@/lib/services/reportService';
@@ -26,8 +26,13 @@ import { OverviewReportDto } from '@/lib/types/report';
 import { SpendingIncomeOverviewCard } from '@/components/SpendingIncomeOverviewCard';
 import { AIChatbotModal } from '@/components/ai-chatbot-modal';
 import { useVoiceInput } from '@/lib/hooks/useVoiceInput';
+import { useNotificationBadge } from '@/contexts/notification-badge-context';
+import { useSavingGoal } from '@/contexts/saving-goal-context';
+import { computeGoalMetrics } from '@/lib/utils/goalMetrics';
+import type { SavingGoalData } from '@/lib/types/saving-goal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const CAROUSEL_ITEM_WIDTH = SCREEN_WIDTH - 48 - 40;
 const logoFinmate = require('@/assets/images/logo finmate.png');
 
 // Format số tiền VNĐ
@@ -47,6 +52,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
+  const insets = useSafeAreaInsets();
   const isLight = resolvedTheme === 'light';
   const lightOutlinedCircle = isLight
     ? {
@@ -75,6 +81,10 @@ export default function HomeScreen() {
   const [aiChatbotVisible, setAiChatbotVisible] = useState(false);
   const [aiInput, setAiInput] = useState('');
   const [aiInitialMessage, setAiInitialMessage] = useState('');
+  const [aiAutoSend, setAiAutoSend] = useState(false);
+  const { hasUnreadAlerts, hasMissingFieldsMessage, setHasMissingFieldsMessage } = useNotificationBadge();
+  const { goals } = useSavingGoal();
+  const [activeGoalIndex, setActiveGoalIndex] = useState(0);
   const { isListening, error: voiceError, toggleListening } = useVoiceInput((text) => {
     setAiInput((prev) => (prev ? `${prev} ${text}` : text));
   });
@@ -98,20 +108,34 @@ export default function HomeScreen() {
   const lastFetchTimeRef = useRef<number>(0);
   const OVERVIEW_FETCH_THROTTLE_MS = 3000;
 
-  // Mock data for other sections
   const today = new Date();
-  const spendingLimit = 15000000;
-  const spendingUsed = 12340000; // 82%
-  const dailySaving = 173000;
-  const daysRemaining = 182;
-  const todaySuggestion = 369000;
-  const avgDaily = 472000;
-  const totalSpent = 8500000;
+  const activeGoal = goals[activeGoalIndex];
+  const goalMetrics = activeGoal ? computeGoalMetrics(activeGoal) : null;
 
-  const tips = [
-    'Tiết kiệm 173k cho iPhone 17 Pro Max',
-    'Nấu ăn tại nhà thay vì ăn ngoài',
-  ];
+  const totalSpent = overviewData?.totalExpense ?? 0;
+  const avgDaily =
+    selectedPeriod === 'month'
+      ? Math.round((totalSpent || 0) / Math.max(1, new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()))
+      : selectedPeriod === 'year'
+        ? Math.round((totalSpent || 0) / 365)
+        : totalSpent > 0
+          ? Math.round(totalSpent / 30)
+          : 0;
+
+  // Hạn mức chi tiêu - sync với mục tiêu tiết kiệm (lương từ goal - tổng tiết kiệm tháng)
+  const totalMonthlySaving =
+    goals.length > 0
+      ? goals.reduce((sum, g) => sum + computeGoalMetrics(g).dailyAmount * 30, 0)
+      : 0;
+  const primaryGoalSalary = activeGoal?.salary ?? 0;
+  const spendingLimit = Math.max(0, primaryGoalSalary - totalMonthlySaving);
+  const spendingUsed = totalSpent;
+  const tips = goals.length > 0
+    ? goals.map((g) => {
+        const m = computeGoalMetrics(g);
+        return `Tiết kiệm ${formatCurrency(m.dailyAmount)} cho ${g.title}`;
+      })
+    : ['Đặt mục tiêu để bắt đầu tiết kiệm có kế hoạch!', 'Nấu ăn tại nhà thay vì ăn ngoài'];
 
   // Calculate date range based on period - memoize để tránh tạo mới mỗi lần
   const getDateRange = useCallback((period: TimePeriod): { startDate: Date; endDate: Date } => {
@@ -265,10 +289,10 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent', flex: 1, width: SCREEN_WIDTH, minWidth: SCREEN_WIDTH }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent', flex: 1, width: SCREEN_WIDTH, minWidth: SCREEN_WIDTH }]} edges={['top', 'bottom']}>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 90 + insets.bottom }]}
         showsVerticalScrollIndicator={false}>
         {/* Header với logo FinMate - đồng bộ với trang login */}
         <View style={[styles.appHeader, { marginBottom: 12 }]}>
@@ -310,12 +334,23 @@ export default function HomeScreen() {
                 <MaterialIcons name="auto-awesome" size={18} color="#FFFFFF" />
               </LinearGradient>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.statusIconButton, lightOutlinedCircle]}>
-              <MaterialIcons name="chat-bubble-outline" size={16} color={themeColors.icon} />
+            <TouchableOpacity
+              style={[styles.statusIconButton, lightOutlinedCircle]}
+              onPress={() => { setHasMissingFieldsMessage(false); setAiInitialMessage(''); setAiAutoSend(false); setAiChatbotVisible(true); }}
+              activeOpacity={0.8}>
+              <View>
+                <MaterialIcons name="chat-bubble-outline" size={16} color={themeColors.icon} />
+                {hasMissingFieldsMessage && <View style={styles.notificationDot} />}
+              </View>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.statusIconButton, lightOutlinedCircle]}>
-              <MaterialIcons name="notifications-none" size={16} color={themeColors.icon} />
-              <View style={styles.notificationDot} />
+            <TouchableOpacity
+              style={[styles.statusIconButton, lightOutlinedCircle]}
+              onPress={() => router.push('/(protected)/(other-pages)/notifications')}
+              activeOpacity={0.8}>
+              <View>
+                <MaterialIcons name="notifications-none" size={16} color={themeColors.icon} />
+                {hasUnreadAlerts && <View style={styles.notificationDot} />}
+              </View>
             </TouchableOpacity>
           </View>
         </View>
@@ -380,6 +415,7 @@ export default function HomeScreen() {
                   const text = aiInput.trim();
                   if (text) {
                     setAiInitialMessage(text);
+                    setAiAutoSend(true);
                     setAiChatbotVisible(true);
                     setAiInput('');
                   }
@@ -408,46 +444,113 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            {/* Goal Box */}
-            <BlurView intensity={4} style={styles.goalBox}>
-              <View style={styles.goalHeader}>
-                <Text style={styles.goalText}>
-                  Mục tiêu đang theo đuổi : iPhone 17 Pro Max
-                </Text>
-              </View>
-              <View style={styles.goalStats}>
-                <View style={styles.goalStatBox}>
-                  <Text style={styles.goalStatLabel}>Cần tiết kiệm/ngày</Text>
-                  <Text style={styles.goalStatValue}>{formatCurrency(dailySaving)}</Text>
+            {/* Goal section: Motivational UI (no goals) hoặc Carousel (có goals) */}
+            {goals.length === 0 ? (
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => router.push('/(protected)/(other-pages)/create-saving-goal')}
+                style={styles.goalBox}>
+                <View style={{ alignItems: 'center', paddingVertical: 12 }}>
+                  <MaterialIcons name="track-changes" size={48} color="rgba(255, 255, 255, 0.9)" />
+                  <Text style={[styles.goalText, { marginTop: 12, textAlign: 'center', fontSize: 14 }]}>
+                    Đặt mục tiêu để bắt đầu tiết kiệm có kế hoạch!
+                  </Text>
+                  <Text style={[styles.suggestionsDate, { marginTop: 8, textAlign: 'center' }]}>
+                    Mục tiêu giúp bạn biết cần tiết kiệm bao nhiêu mỗi ngày
+                  </Text>
+                  <View
+                    style={{
+                      marginTop: 16,
+                      backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                      paddingHorizontal: 24,
+                      paddingVertical: 12,
+                      borderRadius: 12,
+                    }}>
+                    <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 15 }}>Tạo mục tiêu</Text>
+                  </View>
                 </View>
-                <View style={styles.goalStatBox}>
-                  <Text style={styles.goalStatLabel}>Còn lại</Text>
-                  <Text style={styles.goalStatValue}>{daysRemaining} ngày</Text>
-                </View>
-              </View>
-              <Text style={styles.goalDescription}>
-                Để mua được iPhone 17 Pro Max, bạn cần tiết kiệm {formatCurrency(dailySaving)}/ngày trong {daysRemaining} ngày tới. Hôm nay nên chi tối đa {formatCurrency(todaySuggestion)}!
-              </Text>
-            </BlurView>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <ScrollView
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onMomentumScrollEnd={(e) => {
+                    const offset = e.nativeEvent.contentOffset.x;
+                    const index = Math.round(offset / CAROUSEL_ITEM_WIDTH);
+                    setActiveGoalIndex(Math.min(Math.max(0, index), goals.length - 1));
+                  }}
+                  decelerationRate="fast"
+                  contentContainerStyle={{ paddingHorizontal: 0 }}
+                  style={{ width: CAROUSEL_ITEM_WIDTH }}>
+                  {goals.map((goal) => {
+                    const m = computeGoalMetrics(goal);
+                    return (
+                      <View
+                        key={goal.id}
+                        style={{ width: CAROUSEL_ITEM_WIDTH, paddingHorizontal: 24 }}>
+                        <BlurView intensity={4} style={styles.goalBox}>
+                          <View style={styles.goalHeader}>
+                            <Text style={styles.goalText}>Mục tiêu đang theo đuổi: {goal.title}</Text>
+                          </View>
+                          <View style={styles.goalStats}>
+                            <View style={styles.goalStatBox}>
+                              <Text style={styles.goalStatLabel}>Cần tiết kiệm/ngày</Text>
+                              <Text style={styles.goalStatValue}>{formatCurrency(m.dailyAmount)}</Text>
+                            </View>
+                            <View style={styles.goalStatBox}>
+                              <Text style={styles.goalStatLabel}>Còn lại</Text>
+                              <Text style={styles.goalStatValue}>{m.daysRemaining} ngày</Text>
+                            </View>
+                          </View>
+                          <Text style={styles.goalDescription}>
+                            Để mua được {goal.title}, bạn cần tiết kiệm {formatCurrency(m.dailyAmount)}/ngày trong {m.daysRemaining} ngày tới.
+                            {m.todaySuggestion > 0 && ` Hôm nay nên chi tối đa ${formatCurrency(m.todaySuggestion)}!`}
+                          </Text>
+                        </BlurView>
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+                {goals.length > 1 && (
+                  <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: 16 }}>
+                    {goals.map((_, i) => (
+                      <View
+                        key={i}
+                        style={{
+                          width: i === activeGoalIndex ? 10 : 6,
+                          height: 6,
+                          borderRadius: 3,
+                          backgroundColor: i === activeGoalIndex ? '#FFFFFF' : 'rgba(255, 255, 255, 0.5)',
+                        }}
+                      />
+                    ))}
+                  </View>
+                )}
+              </>
+            )}
 
-            {/* Stats Boxes */}
-            <View style={styles.statsRow}>
-              <BlurView intensity={4} style={styles.statBox}>
-                <MaterialIcons name="show-chart" size={12} color="rgba(255, 255, 255, 0.6)" />
-                <Text style={styles.statLabel}>Gợi ý</Text>
-                <Text style={styles.statValue}>{formatCurrency(todaySuggestion)}</Text>
-              </BlurView>
-              <BlurView intensity={4} style={styles.statBox}>
-                <MaterialIcons name="calendar-today" size={12} color="rgba(255, 255, 255, 0.6)" />
-                <Text style={styles.statLabel}>TB/ngày</Text>
-                <Text style={styles.statValue}>{formatCurrency(avgDaily)}</Text>
-              </BlurView>
-              <BlurView intensity={4} style={styles.statBox}>
-                <MaterialIcons name="fiber-manual-record" size={12} color="rgba(255, 255, 255, 0.6)" />
-                <Text style={styles.statLabel}>Đã chi</Text>
-                <Text style={styles.statValue}>{formatCurrency(totalSpent)}</Text>
-              </BlurView>
-            </View>
+            {/* Stats Boxes - ẩn khi chưa có mục tiêu */}
+            {goals.length > 0 && goalMetrics && (
+              <View style={styles.statsRow}>
+                <BlurView intensity={4} style={styles.statBox}>
+                  <MaterialIcons name="show-chart" size={12} color="rgba(255, 255, 255, 0.6)" />
+                  <Text style={styles.statLabel}>Gợi ý</Text>
+                  <Text style={styles.statValue}>{formatCurrency(goalMetrics.todaySuggestion)}</Text>
+                </BlurView>
+                <BlurView intensity={4} style={styles.statBox}>
+                  <MaterialIcons name="calendar-today" size={12} color="rgba(255, 255, 255, 0.6)" />
+                  <Text style={styles.statLabel}>TB/ngày</Text>
+                  <Text style={styles.statValue}>{formatCurrency(avgDaily)}</Text>
+                </BlurView>
+                <BlurView intensity={4} style={styles.statBox}>
+                  <MaterialIcons name="fiber-manual-record" size={12} color="rgba(255, 255, 255, 0.6)" />
+                  <Text style={styles.statLabel}>Đã chi</Text>
+                  <Text style={styles.statValue}>{formatCurrency(totalSpent)}</Text>
+                </BlurView>
+              </View>
+            )}
 
             {/* Tips Section */}
             <View style={styles.tipsSection}>
@@ -472,69 +575,96 @@ export default function HomeScreen() {
           formatCurrency={formatCurrency}
         />
 
-          {/* Spending Limit Card */}
+          {/* Spending Limit Card - sync với mục tiêu tiết kiệm */}
           <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }, lightCardSurface]}>
           <View style={styles.limitHeader}>
-            <Text style={[styles.limitTitle, { color: themeColors.text }]}>Hạn mức chi</Text>
+            <Text style={[styles.limitTitle, { color: themeColors.text }]}>Hạn mức chi tiêu</Text>
             <View style={styles.limitActions}>
-                <TouchableOpacity
-                  style={[
-                    styles.limitButton,
-                    isLight && {
-                      backgroundColor: themeColors.card,
-                      borderWidth: 1,
-                      borderColor: themeColors.border,
-                    },
-                  ]}>
+              <TouchableOpacity
+                style={[
+                  styles.limitButton,
+                  isLight && {
+                    backgroundColor: themeColors.card,
+                    borderWidth: 1,
+                    borderColor: themeColors.border,
+                  },
+                ]}>
                 <MaterialIcons name="settings" size={16} color={themeColors.icon} />
               </TouchableOpacity>
-              <TouchableOpacity>
-                <Text style={[styles.limitLink, { color: themeColors.tint }]}>Xem tất cả →</Text>
+              <TouchableOpacity onPress={() => router.push('/(protected)/(other-pages)/saving-goals')} activeOpacity={0.7}>
+                <Text style={[styles.limitLink, { color: themeColors.tint }]}>Xem tất cả</Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          <View style={styles.limitContent}>
-            <LinearGradient
-              colors={['#FF8904', '#F6339A']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.limitIcon}>
-              <Text style={styles.limitEmoji}>🎯</Text>
-            </LinearGradient>
-            <View style={styles.limitInfo}>
-              <Text style={[styles.limitLabel, { color: themeColors.textSecondary }]}>Chi mỗi month</Text>
-              <Text style={[styles.limitDate, { color: themeColors.textSecondary }]}>01/10 - 31/10</Text>
-              <Text style={[styles.limitAmount, { color: themeColors.text }]}>{formatCurrency(spendingLimit)}</Text>
-            </View>
-          </View>
+          {goals.length > 0 && spendingLimit > 0 ? (
+            <>
+              <View style={styles.limitContent}>
+                <LinearGradient
+                  colors={['#FF8904', '#F6339A']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.limitIcon}>
+                  <Text style={styles.limitEmoji}>🎯</Text>
+                </LinearGradient>
+                <View style={styles.limitInfo}>
+                  <Text style={[styles.limitLabel, { color: themeColors.textSecondary }]}>
+                    Chi mỗi tháng {activeGoal ? `(${activeGoal.title})` : ''}
+                  </Text>
+                  <Text style={[styles.limitDate, { color: themeColors.textSecondary }]}>
+                    {(() => {
+                      const { startDate, endDate } = getDateRange(selectedPeriod);
+                      const fmt = (d: Date) =>
+                        `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+                      return `${fmt(startDate)} - ${fmt(endDate)}`;
+                    })()}
+                  </Text>
+                  <Text style={[styles.limitAmount, { color: themeColors.text }]}>{formatCurrency(spendingLimit)}</Text>
+                </View>
+              </View>
 
-          <View style={styles.progressContainer}>
-            <View
-              style={[
-                styles.progressBar,
-                isLight && { backgroundColor: themeColors.border },
-              ]}>
-              <LinearGradient
-                colors={['#FF8904', '#FB2C36']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={[styles.progressFill, { width: `${(spendingUsed / spendingLimit) * 100}%` }]}
-              />
-            </View>
-          </View>
+              <View style={styles.progressContainer}>
+                <View
+                  style={[
+                    styles.progressBar,
+                    isLight && { backgroundColor: themeColors.border },
+                  ]}>
+                  <LinearGradient
+                    colors={['#FF8904', '#FB2C36']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[
+                      styles.progressFill,
+                      { width: `${Math.min(100, spendingLimit > 0 ? (spendingUsed / spendingLimit) * 100 : 0)}%` },
+                    ]}
+                  />
+                </View>
+              </View>
 
-          <View
-            style={[
-              styles.todayBox,
-              isLight && {
-                backgroundColor: themeColors.card,
-                borderWidth: 1,
-                borderColor: themeColors.border,
-              },
-            ]}>
-            <Text style={[styles.todayText, { color: themeColors.textSecondary }]}>Hôm nay</Text>
-          </View>
+              <View
+                style={[
+                  styles.todayBox,
+                  isLight && {
+                    backgroundColor: themeColors.card,
+                    borderWidth: 1,
+                    borderColor: themeColors.border,
+                  },
+                ]}>
+                <Text style={[styles.todayText, { color: themeColors.textSecondary }]}>Hôm nay</Text>
+              </View>
+            </>
+          ) : (
+            <TouchableOpacity
+              onPress={() => router.push('/(protected)/(other-pages)/create-saving-goal')}
+              activeOpacity={0.8}
+              style={{ paddingVertical: 20, alignItems: 'center' }}>
+              <MaterialIcons name="track-changes" size={40} color={themeColors.textSecondary} />
+              <Text style={[styles.emptyStateText, { color: themeColors.textSecondary, marginTop: 12, textAlign: 'center' }]}>
+                Chưa có hạn mức. Đặt mục tiêu tiết kiệm để thiết lập hạn mức chi tiêu.
+              </Text>
+              <Text style={[styles.limitLink, { marginTop: 8, color: themeColors.tint }]}>Tạo mục tiêu</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Bottom spacing */}
@@ -597,8 +727,11 @@ export default function HomeScreen() {
         onClose={() => {
           setAiChatbotVisible(false);
           setAiInitialMessage('');
+          setAiAutoSend(false);
         }}
         initialMessage={aiInitialMessage}
+        autoSend={aiAutoSend}
+        onMissingFieldsShown={() => setHasMissingFieldsMessage(true)}
       />
     </SafeAreaView>
   );

@@ -3,13 +3,13 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  SafeAreaView,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -159,6 +159,7 @@ export default function EditCategoriesScreen() {
   return (
     <SafeAreaView
       style={{ flex: 1, backgroundColor: 'transparent' }}
+      edges={['top', 'bottom']}
     >
       {/* Header */}
       <View
@@ -281,7 +282,7 @@ export default function EditCategoriesScreen() {
       ) : (
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 80 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 90 + insets.bottom }}
           showsVerticalScrollIndicator={false}
         >
           {filteredCategories.length === 0 ? (
@@ -350,7 +351,7 @@ export default function EditCategoriesScreen() {
         style={{
           position: 'absolute',
           right: 24,
-          bottom: 24,
+          bottom: 70 + insets.bottom + 16,
           width: 56,
           height: 56,
           borderRadius: 28,

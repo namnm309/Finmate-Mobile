@@ -2,9 +2,11 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Modal,
-  SafeAreaView,
+  Platform,
   ScrollView,
   StyleSheet,
   Switch,
@@ -12,9 +14,8 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator,
-  Platform,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useMoneySourceService } from '@/lib/services/moneySourceService';
@@ -37,6 +38,7 @@ export default function AddMoneySourceScreen() {
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
   const isDark = resolvedTheme === 'dark';
+  const insets = useSafeAreaInsets();
   const headerBgColor = isDark ? themeColors.card : themeColors.tint;
   const headerFgColor = '#FFFFFF';
   const primaryButtonTextColor = isDark ? themeColors.background : '#FFFFFF';
@@ -220,7 +222,7 @@ export default function AddMoneySourceScreen() {
   // Loading state
   if (loadingData) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
         <View style={[styles.header, { backgroundColor: headerBgColor, borderBottomColor: themeColors.border }]}>
           <TouchableOpacity
             style={styles.headerButton}
@@ -247,7 +249,7 @@ export default function AddMoneySourceScreen() {
   // Error state
   if (error) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
         <View style={[styles.header, { backgroundColor: headerBgColor, borderBottomColor: themeColors.border }]}>
           <TouchableOpacity
             style={styles.headerButton}
@@ -275,7 +277,11 @@ export default function AddMoneySourceScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={0}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: headerBgColor, borderBottomColor: themeColors.border }]}>
         <TouchableOpacity
@@ -305,8 +311,9 @@ export default function AddMoneySourceScreen() {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}>
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 32 + insets.bottom }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled">
         
         {/* Balance Input */}
         <View style={[styles.balanceCard, { backgroundColor: themeColors.card }]}>
@@ -568,6 +575,7 @@ export default function AddMoneySourceScreen() {
           </ScrollView>
         </SafeAreaView>
       </Modal>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -626,7 +634,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 32,
   },
   balanceCard: {
     borderRadius: 16,

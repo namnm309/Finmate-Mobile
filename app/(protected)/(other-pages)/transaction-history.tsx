@@ -3,7 +3,6 @@ import { useRouter } from 'expo-router';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useFocusEffect } from 'expo-router';
 import {
-  SafeAreaView,
   ScrollView,
   Text,
   TextInput,
@@ -12,6 +11,7 @@ import {
   ActivityIndicator,
   FlatList
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { styles } from '@/styles/index.styles';
@@ -282,7 +282,7 @@ export default function TransactionHistoryScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
       {/* Header */}
       <View
         style={[

@@ -4,12 +4,12 @@ import { styles } from '@/styles/index.styles';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import {
-  SafeAreaView,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type ThemePreference = 'light' | 'dark' | 'system';
 
@@ -30,7 +30,7 @@ export default function ThemeSettingsScreen() {
   const border = Colors[resolvedTheme].border;
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: bg }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: bg }]} edges={['top', 'bottom']}>
       <View style={styles.statusBar}>
         <TouchableOpacity
           onPress={() => router.back()}

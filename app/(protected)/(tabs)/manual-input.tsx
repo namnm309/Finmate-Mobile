@@ -9,15 +9,15 @@ import { CategoryDto, TransactionTypeDto } from '@/lib/types/transaction';
 import { useCategorySelection } from '@/contexts/category-selection-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
     Dimensions,
+    KeyboardAvoidingView,
     Modal,
     Platform,
-    SafeAreaView,
     ScrollView,
     StyleSheet,
     Switch,
@@ -26,6 +26,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -492,9 +493,11 @@ function CategoryPicker({
 
 export default function ManualInputScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ amount?: string; date?: string; description?: string }>();
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
   const isDark = resolvedTheme === 'dark';
+  const insets = useSafeAreaInsets();
 
   const { pendingSelectedCategory, clearPendingSelectedCategory } =
     useCategorySelection();
@@ -539,6 +542,23 @@ export default function ManualInputScreen() {
       clearPendingSelectedCategory();
     }
   }, [pendingSelectedCategory, clearPendingSelectedCategory]);
+
+  // Pre-fill từ AI quét hóa đơn (params: amount, date DD/MM/YYYY, description)
+  useEffect(() => {
+    if (!params?.amount && !params?.date && !params?.description) return;
+    if (params.amount) {
+      const raw = params.amount.replace(/\D/g, '');
+      setAmount(raw ? raw.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '');
+    }
+    if (params.date) {
+      const parts = params.date.split(/[/-]/);
+      if (parts.length >= 3) {
+        const d = parseInt(parts[0], 10); const m = parseInt(parts[1], 10) - 1; const y = parseInt(parts[2], 10);
+        if (!isNaN(d) && !isNaN(m) && !isNaN(y)) setDate(new Date(y, m, d));
+      }
+    }
+    if (params.description) setDescription(params.description);
+  }, [params?.amount, params?.date, params?.description]);
 
   // Fetch initial data
   const fetchData = useCallback(async () => {
@@ -721,7 +741,7 @@ export default function ManualInputScreen() {
   // Loading state
   if (loadingData) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
         <View style={[styles.header, { borderBottomColor: themeColors.border }]}>
           <TouchableOpacity
             style={styles.backButton}
@@ -743,7 +763,7 @@ export default function ManualInputScreen() {
   // Error state
   if (error) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
         <View style={[styles.header, { borderBottomColor: themeColors.border }]}>
           <TouchableOpacity
             style={styles.backButton}
@@ -782,7 +802,11 @@ export default function ManualInputScreen() {
   const currentTypeColor = selectedTransactionType?.color || '#F87171';
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: themeColors.border }]}>
         <TouchableOpacity
@@ -835,8 +859,9 @@ export default function ManualInputScreen() {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}>
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 32 + insets.bottom }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled">
         {/* Amount Input */}
         <View style={styles.amountContainer}>
           <TextInput
@@ -1440,6 +1465,7 @@ export default function ManualInputScreen() {
         </TouchableOpacity>
       </Modal>
       */}
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -1491,7 +1517,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 32,
   },
   amountContainer: {
     flexDirection: 'row',

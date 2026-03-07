@@ -7,12 +7,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-    SafeAreaView,
     ScrollView,
     Text,
     TouchableOpacity,
     View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Format số tiền VNĐ
 const formatCurrency = (amount: number): string => {
@@ -255,7 +255,7 @@ export default function FinancialAnalysisScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -686,7 +686,15 @@ export default function FinancialAnalysisScreen() {
           ))}
         </View>
 
-        {/* Dự đoán AI */}
+        {/* Dự đoán AI - AI Smart: mở modal để hỏi AI về dự đoán thu chi */}
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => {
+            openAIModal(
+              'Dựa trên dữ liệu tài chính của tôi, hãy dự đoán thu chi 6 tháng tới và đưa ra các khuyến nghị tiết kiệm. Phân tích tài sản ròng, tổng tiết kiệm sau 1 năm, thời gian đạt quỹ khẩn cấp.',
+              true
+            );
+          }}>
         <View style={styles.card}>
           <LinearGradient
             colors={['#9810FA', '#51A2FF']}
@@ -726,6 +734,7 @@ export default function FinancialAnalysisScreen() {
             </Text>
           </LinearGradient>
         </View>
+        </TouchableOpacity>
 
         {/* Bottom spacing */}
         <View style={styles.bottomSpacing} />
