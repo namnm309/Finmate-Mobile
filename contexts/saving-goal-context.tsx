@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useAuth } from '@clerk/clerk-expo';
 import { useGoalService } from '@/lib/services/goalService';
 import { goalDtoToSavingGoal } from '@/lib/utils/goalMapper';
 import type { ContributionEntry, SavingGoalData } from '@/lib/types/saving-goal';
@@ -42,6 +43,7 @@ const SavingGoalContext = createContext<SavingGoalContextValue | null>(null);
 
 export function SavingGoalProvider({ children }: { children: React.ReactNode }) {
   const todayStr = () => new Date().toISOString().slice(0, 10);
+  const { isSignedIn } = useAuth();
   const [goals, setGoals] = useState<SavingGoalData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -69,8 +71,14 @@ export function SavingGoalProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   useEffect(() => {
+    if (!isSignedIn) {
+      setGoals([]);
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
     fetchGoals();
-  }, [fetchGoals]);
+  }, [isSignedIn, fetchGoals]);
 
   const addGoal = useCallback(
     async (g: Omit<SavingGoalData, 'id' | 'currentAmount' | 'startDate' | 'contributions'>) => {
