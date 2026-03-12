@@ -4,8 +4,11 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTransactionService } from '@/lib/services/transactionService';
 import { useReportService } from '@/lib/services/reportService';
 import { useMoneySourceService } from '@/lib/services/moneySourceService';
+import { useCategoryService } from '@/lib/services/categoryService';
+import { useTransactionTypeService } from '@/lib/services/transactionTypeService';
 import { useSavingGoal } from '@/contexts/saving-goal-context';
 import { buildUserContextForAI } from '@/lib/utils/buildUserContext';
+import type { CategoryDto, TransactionTypeDto } from '@/lib/types/transaction';
 import { MaterialIcons } from '@expo/vector-icons';
 import { File, Directory, Paths } from 'expo-file-system';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -62,10 +65,29 @@ const SYSTEM_PROMPT_BASE = `Bạn là trợ lý AI tài chính của FinMate. B�
    - Lấy số tiền ở cuối hoá đơn (thường là dòng cuối cùng trước barcode)
    - Tìm ngày: dòng đầu hoá đơn hoặc gần tên cửa hàng
 
-   BILL THANH TOÁN NGÂN HÀNG VIỆT NAM (thành công):
-   - Đọc được thông báo "Giao dịch thành công", "Thanh toán thành công", "Chuyển khoản thành công"
-   - Tìm: "Số tiền", "Amount", "Tổng tiền", "Số dư còn lại", "Ngày GD", "Thời gian"
-   - Áp dụng cho: Vietcombank, VietinBank, BIDV, Techcombank, VPBank, MB Bank, ACB, TPBank, Shinhan, HDBank, MSB, OCB, Sacombank... và các ngân hàng VN khác
+   BILL CHUYỂN KHOẢN / BIẾN ĐỘNG SỐ DƯ NGÂN HÀNG VIỆT NAM:
+   - Nhận diện các app/ngân hàng phổ biến: Vietcombank, VietinBank, BIDV, Agribank, Techcombank, VPBank, MB Bank, ACB, TPBank, Sacombank, HDBank, OCB, MSB, VIB, SHB, Shinhan, SeABank... và các ngân hàng VN khác
+   - Dấu hiệu thành công thường gặp: "Giao dịch thành công", "Chuyển khoản thành công", "Thanh toán thành công", "Transfer successful", "Success"
+   - ƯU TIÊN tìm số tiền đi cùng các nhãn: "Số tiền", "Số tiền giao dịch", "Số tiền chuyển", "Số tiền thanh toán", "Giá trị giao dịch", "Amount", "Transfer amount", "Payment amount", "Tổng tiền"
+   - Nếu KHÔNG có nhãn rõ cho amount, ưu tiên lấy con số tiền lớn, nổi bật, nằm ngay dưới tiêu đề giao dịch hoặc dưới trạng thái thành công ở phần đầu màn hình
+   - Tìm ngày giờ ở các nhãn: "Ngày GD", "Ngày giao dịch", "Thời gian", "Thời gian giao dịch", "Transaction time", "Transaction date", "Ngày tạo lệnh"
+   - KHÔNG lấy nhầm các số sau làm amount: "Số dư", "Số dư còn lại", "Available balance", "Số tài khoản", "Mã giao dịch", "Mã tham chiếu", "Reference", "Phí", "Fee"
+   - Nếu ảnh có nhiều số tiền, chọn số gắn trực tiếp với giao dịch vừa thành công, không chọn số dư còn lại
+   - Với ảnh kiểu app banking, amount thường là số to nhất ở card đầu hoặc ở giữa màn hình; ưu tiên số đó hơn các số trong phần chi tiết bên dưới
+
+   BILL CHUYỂN KHOẢN MOMO:
+   - Nhận diện các cụm: "MoMo", "Ví MoMo", "Chuyển tiền thành công", "Giao dịch thành công", "Thanh toán thành công"
+   - ƯU TIÊN amount ở các nhãn: "Số tiền", "Số tiền chuyển", "Tổng tiền", "Giá trị giao dịch"
+   - Nếu không có nhãn "Số tiền", ưu tiên số tiền lớn hiển thị trong card đầu tiên ngay dưới tiêu đề như "CHUYỂN TIỀN", "THANH TOÁN", "NHẬN TIỀN"
+   - Tìm ngày giờ ở các nhãn: "Thời gian", "Thời gian giao dịch", "Ngày giao dịch"
+   - Bỏ qua: "Mã giao dịch", "Mã đơn hàng", "Số dư ví", "Phí", "Nguồn tiền"
+   - Với MoMo, nếu thấy dạng "16:30 - 09/03/2026" thì date phải lấy phần ngày "09/03/2026", bỏ phần giờ
+
+   BILL CHUYỂN KHOẢN VNPAY / VNPAY QR:
+   - Nhận diện các cụm: "VNPAY", "VNPay", "VNPAY QR", "Thanh toán thành công", "Giao dịch thành công", "Chuyển tiền thành công"
+   - ƯU TIÊN amount ở các nhãn: "Số tiền", "Số tiền thanh toán", "Giá trị giao dịch", "Amount", "Tổng tiền"
+   - Tìm ngày giờ ở các nhãn: "Thời gian giao dịch", "Ngày giao dịch", "Transaction time", "Transaction date"
+   - Bỏ qua: "Mã giao dịch", "Mã tham chiếu", "Mã đơn hàng", "Order ID", "Phí", "Số dư"
 
    BILL CỬA HÀNG TIỆN LỢI (giấy + điện tử):
    - Circle K: bill giấy, email, app — tìm "Total", "Tổng", "Date", "Store"
@@ -76,10 +98,19 @@ const SYSTEM_PROMPT_BASE = `Bạn là trợ lý AI tài chính của FinMate. B�
 
    LUÔN LUÔN:
    - Trả lời NGAY số tiền và ngày, KHÔNG hỏi lại hay yêu cầu upload thêm
+   - Mục tiêu quan trọng nhất khi scan bill chuyển khoản là lấy đúng 2 field: amount và date
+   - amount phải là số nguyên VND: bỏ dấu chấm, dấu phẩy, ký hiệu "đ", "VND", không lấy số tài khoản, số dư, mã giao dịch, phí
+   - Nếu amount hiển thị có dấu âm như "-70,000đ" hoặc "-2.939.000đ", hiểu đó là giao dịch tiền ra nhưng output amount vẫn là số dương: 70000, 2939000
+   - Nếu ảnh có cả ngày và giờ, output date dạng DD/MM/YYYY; bỏ phần giờ khỏi field date
+   - Nếu thấy các biến thể OCR gần giống như "So tien", "S0 tien", "S6 tien", "Ngay GD", "Thdi gian" thì vẫn hiểu là "Số tiền", "Ngày GD", "Thời gian"
+   - Nếu ảnh là màn hình app và amount nằm ở phần header/card đầu còn phần dưới là danh sách chi tiết, luôn ưu tiên amount ở phần header/card đầu
+   - Với bill chuyển khoản, content ưu tiên ghi ngắn gọn dạng: "Chuyển khoản", "Chuyển khoản MoMo", "Thanh toán VNPAY", hoặc tên cửa hàng/người nhận nếu đọc rõ
+   - Sau khi đọc xong ảnh và đã có amount + date, hãy hỏi thêm đúng 1 câu xác nhận: "Bạn có muốn lưu số tiền này vào mục chi không?"
+   - CHỈ hỏi xác nhận lưu, KHÔNG nói đã lưu thành công trước khi user xác nhận
    - Format hiển thị:
      💰 Số tiền: [X] VND
      📅 Ngày: [DD/MM/YYYY hoặc ghi "không rõ"]
-     🧾 Nội dung: [tóm tắt ngắn — tên cửa hàng / loại hàng]
+     🧾 Nội dung: [tóm tắt ngắn — tên cửa hàng / loại giao dịch]
    - Sau phần trả lời, BẮT BUỘC thêm 1 dòng để app tự điền form Nhập thủ công:
      [FINMATE_EXTRACT]{"amount":SỐ_NGUYÊN,"date":"DD/MM/YYYY","content":"chuỗi"}[/FINMATE_EXTRACT]
      amount=số tiền (VD 125000), date=DD/MM/YYYY (không rõ thì dùng hôm nay), content=tên cửa hàng/loại (max 200 ký tự)
@@ -119,6 +150,82 @@ function stripCreateGoalTag(text: string): string {
   return text.replace(FINMATE_CREATE_GOAL_REGEX, '').replace(/\s*\n\s*\n/g, '\n\n').trim();
 }
 
+function normalizeText(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function normalizeReceiptDate(raw: string): string {
+  const value = String(raw || '').trim();
+  if (!value) {
+    return new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  }
+
+  const ddmmyyyy = value.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+  if (ddmmyyyy) {
+    const day = ddmmyyyy[1].padStart(2, '0');
+    const month = ddmmyyyy[2].padStart(2, '0');
+    const year = ddmmyyyy[3];
+    return `${day}/${month}/${year}`;
+  }
+
+  const yyyymmdd = value.match(/(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+  if (yyyymmdd) {
+    const year = yyyymmdd[1];
+    const month = yyyymmdd[2].padStart(2, '0');
+    const day = yyyymmdd[3].padStart(2, '0');
+    return `${day}/${month}/${year}`;
+  }
+
+  return new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function parseReceiptDateToIso(dateStr: string): string {
+  const normalized = normalizeReceiptDate(dateStr);
+  const [day, month, year] = normalized.split('/');
+  const d = parseInt(day, 10);
+  const m = parseInt(month, 10) - 1;
+  const y = parseInt(year, 10);
+  const date = new Date(y, m, d, 12, 0, 0, 0);
+  return date.toISOString();
+}
+
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('vi-VN').format(amount) + ' đ';
+}
+
+function isReceiptSaveConfirmation(text: string): boolean {
+  const value = normalizeText(text);
+  return [
+    'co',
+    'ok',
+    'yes',
+    'y',
+    'luu',
+    'luu di',
+    'luu nhe',
+    'luu ngay',
+    'dong y',
+    'xac nhan',
+    'them di',
+    'save',
+    'save it',
+  ].includes(value);
+}
+
+function isReceiptEditIntent(text: string): boolean {
+  const value = normalizeText(text);
+  return value.includes('chinh') || value.includes('sua') || value.includes('thu cong') || value.includes('manual');
+}
+
+function isReceiptCancelIntent(text: string): boolean {
+  const value = normalizeText(text);
+  return ['khong', 'ko', 'khong luu', 'huy', 'thoi', 'no', 'cancel'].includes(value);
+}
+
 interface CreateGoalPayload {
   title: string;
   targetAmount: number;
@@ -126,6 +233,22 @@ interface CreateGoalPayload {
   daysToAchieve: number;
   dailyEssential: number;
   category: string;
+}
+
+interface ReceiptExtractPayload {
+  amount: number;
+  date: string;
+  content: string;
+}
+
+interface PendingReceiptDraft extends ReceiptExtractPayload {
+  transactionTypeId: string;
+  transactionTypeName: string;
+  moneySourceId: string;
+  moneySourceName: string;
+  categoryId: string;
+  categoryName: string;
+  transactionDateIso: string;
 }
 
 function parseCreateGoal(text: string): CreateGoalPayload | null {
@@ -146,18 +269,47 @@ function parseCreateGoal(text: string): CreateGoalPayload | null {
   }
 }
 
-function parseReceiptExtract(text: string): { amount: number; date: string; content: string } | null {
+function parseReceiptExtract(text: string): ReceiptExtractPayload | null {
   const m = text.match(FINMATE_EXTRACT_REGEX);
   if (!m) return null;
   try {
     const obj = JSON.parse(m[1].trim());
-    const amount = typeof obj.amount === 'number' ? obj.amount : parseInt(String(obj.amount || 0), 10);
-    const date = String(obj.date || '').trim() || new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '/');
+    const rawAmount = typeof obj.amount === 'number' ? obj.amount : parseInt(String(obj.amount || 0), 10);
+    const amount = Math.abs(Number.isFinite(rawAmount) ? rawAmount : 0);
+    const date = normalizeReceiptDate(String(obj.date || '').trim());
     const content = String(obj.content || '').trim().slice(0, 200);
     return { amount, date, content };
   } catch {
     return null;
   }
+}
+
+function pickExpenseType(types: TransactionTypeDto[]): TransactionTypeDto | null {
+  return types.find((t) => normalizeText(t.name) === 'chi tieu')
+    || types.find((t) => !t.isIncome && !normalizeText(t.name).includes('vay'))
+    || types[0]
+    || null;
+}
+
+function pickReceiptCategory(categories: CategoryDto[], content: string): CategoryDto | null {
+  if (!categories.length) return null;
+
+  const normalizedContent = normalizeText(content);
+  const categoryName = (c: CategoryDto) => normalizeText(c.name);
+  const includesAny = (text: string, keywords: string[]) => keywords.some((k) => text.includes(k));
+
+  const pickByKeywords = (contentKeywords: string[], categoryKeywords: string[]) => {
+    if (!includesAny(normalizedContent, contentKeywords)) return null;
+    return categories.find((c) => includesAny(categoryName(c), categoryKeywords)) || null;
+  };
+
+  return pickByKeywords(['an', 'uong', 'tra sua', 'ca phe', 'com', 'bun', 'pho'], ['an uong', 'do an', 'thuc an', 'do uong'])
+    || pickByKeywords(['grab', 'be', 'xang', 'xe', 'di chuyen'], ['di chuyen', 'xang xe', 'giao thong'])
+    || pickByKeywords(['dien', 'nuoc', 'internet', 'wifi', 'dien thoai'], ['hoa don', 'dien nuoc', 'dien', 'nuoc', 'internet'])
+    || pickByKeywords(['shopee', 'lazada', 'tiki', 'mua', 'shopping'], ['mua sam', 'shopping'])
+    || pickByKeywords(['chuyen khoan', 'momo', 'vnpay', 'zalo'], ['chuyen tien', 'khac', 'chi khac'])
+    || categories.find((c) => ['chi khac', 'khac', 'other'].includes(categoryName(c)))
+    || categories[0];
 }
 
 interface AIChatbotModalProps {
@@ -179,9 +331,11 @@ export function AIChatbotModal({ visible, onClose, initialMessage, autoSend, emb
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
   const { sendMessage } = useChatService();
-  const { getTransactions } = useTransactionService();
+  const { getTransactions, createTransaction } = useTransactionService();
   const { getOverview } = useReportService();
-  const { getGroupedMoneySources } = useMoneySourceService();
+  const { getGroupedMoneySources, getMoneySources } = useMoneySourceService();
+  const { getCategories } = useCategoryService();
+  const { getTransactionTypes } = useTransactionTypeService();
   const { goals, addGoal } = useSavingGoal();
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<DisplayMessage[]>([
@@ -192,6 +346,8 @@ export function AIChatbotModal({ visible, onClose, initialMessage, autoSend, emb
     },
   ]);
   const [loading, setLoading] = useState(false);
+  const [savingReceipt, setSavingReceipt] = useState(false);
+  const [pendingReceipt, setPendingReceipt] = useState<PendingReceiptDraft | null>(null);
   const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const autoSentRef = useRef(false);
@@ -210,6 +366,12 @@ export function AIChatbotModal({ visible, onClose, initialMessage, autoSend, emb
   }, [visible, embedded, messages]);
 
   useEffect(() => {
+    if (pendingReceipt) {
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
+    }
+  }, [pendingReceipt]);
+
+  useEffect(() => {
     if ((visible || embedded) && initialMessage?.trim()) {
       setMessage(initialMessage);
       if (autoSend && !autoSentRef.current) {
@@ -222,6 +384,89 @@ export function AIChatbotModal({ visible, onClose, initialMessage, autoSend, emb
     }
     if (!visible) autoSentRef.current = false;
   }, [visible, initialMessage, autoSend]);
+
+  const buildPendingReceiptDraft = async (extracted: ReceiptExtractPayload): Promise<PendingReceiptDraft | null> => {
+    const [transactionTypes, moneySources] = await Promise.all([
+      getTransactionTypes(),
+      getMoneySources(),
+    ]);
+    const transactionType = pickExpenseType(transactionTypes);
+    const moneySource = moneySources[0] || null;
+    if (!transactionType || !moneySource) return null;
+
+    const categories = await getCategories(transactionType.id);
+    const category = pickReceiptCategory(categories, extracted.content);
+    if (!category) return null;
+
+    return {
+      ...extracted,
+      transactionTypeId: transactionType.id,
+      transactionTypeName: transactionType.name,
+      moneySourceId: moneySource.id,
+      moneySourceName: moneySource.name,
+      categoryId: category.id,
+      categoryName: category.name,
+      transactionDateIso: parseReceiptDateToIso(extracted.date),
+    };
+  };
+
+  const openManualInputForReceipt = (draft: ReceiptExtractPayload | PendingReceiptDraft) => {
+    setPendingReceipt(null);
+    if (!embedded) onClose();
+    router.push({
+      pathname: '/(protected)/(tabs)/manual-input',
+      params: {
+        amount: String(draft.amount),
+        date: draft.date,
+        description: draft.content,
+      },
+    });
+  };
+
+  const confirmSavePendingReceipt = async () => {
+    if (!pendingReceipt || savingReceipt) return;
+    try {
+      setSavingReceipt(true);
+      await createTransaction({
+        transactionTypeId: pendingReceipt.transactionTypeId,
+        moneySourceId: pendingReceipt.moneySourceId,
+        categoryId: pendingReceipt.categoryId,
+        amount: pendingReceipt.amount,
+        transactionDate: pendingReceipt.transactionDateIso,
+        description: pendingReceipt.content || undefined,
+        isBorrowingForThis: false,
+        isFee: false,
+        excludeFromReport: false,
+      });
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'Đã lưu thành công.',
+        },
+      ]);
+      setPendingReceipt(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Không thể lưu giao dịch';
+      setMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: `⚠️ Không thể lưu tự động. ${msg}` },
+      ]);
+    } finally {
+      setSavingReceipt(false);
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
+    }
+  };
+
+  const declinePendingReceipt = () => {
+    if (!pendingReceipt) return;
+    setPendingReceipt(null);
+    setMessages((prev) => [
+      ...prev,
+      { role: 'assistant', content: 'Bạn có cần mình giúp gì nữa không?' },
+    ]);
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
+  };
 
   const sendChat = async (userMsg: DisplayMessage, options?: { imageBase64?: string; imageFormat?: 'png' | 'jpeg' }) => {
     setLoading(true);
@@ -295,29 +540,45 @@ ${userContext}
       if (options?.imageBase64) {
         const extracted = parseReceiptExtract(reply);
         if (extracted) {
-          onClose();
           const missing: string[] = [];
           if (!extracted.amount || extracted.amount <= 0) missing.push('Số tiền');
           if (!extracted.date) missing.push('Ngày');
           if (missing.length > 0) {
+            setPendingReceipt(null);
             onMissingFieldsShown?.();
             Alert.alert(
               'Thiếu thông tin',
               `Không đọc được: ${missing.join(', ')}. Vui lòng mở Nhập thủ công để điền bổ sung.`,
-              [{ text: 'Nhập thủ công', onPress: () => router.push({ pathname: '/(protected)/(tabs)/manual-input', params: { amount: String(extracted.amount || ''), date: extracted.date, description: extracted.content } }) }, { text: 'Đóng', style: 'cancel' }]
+              [{ text: 'Nhập thủ công', onPress: () => openManualInputForReceipt(extracted) }, { text: 'Đóng', style: 'cancel' }]
             );
           } else {
-            onClose();
-            router.push({
-              pathname: '/(protected)/(tabs)/manual-input',
-              params: { amount: String(extracted.amount), date: extracted.date, description: extracted.content },
-            });
+            const draft = await buildPendingReceiptDraft(extracted);
+            if (draft) {
+              setPendingReceipt(draft);
+              if (!normalizeText(displayContent).includes('luu')) {
+                setMessages((prev) => [
+                  ...prev,
+                  {
+                    role: 'assistant',
+                    content: 'Bạn có muốn lưu số tiền này vào mục chi không?',
+                  },
+                ]);
+              }
+            } else {
+              onMissingFieldsShown?.();
+              Alert.alert(
+                'Cần bổ sung thông tin',
+                'Chưa xác định được tài khoản hoặc hạng mục mặc định để lưu tự động. App sẽ mở form đã điền sẵn để bạn kiểm tra lại.',
+                [{ text: 'Mở form', onPress: () => openManualInputForReceipt(extracted) }, { text: 'Đóng', style: 'cancel' }]
+              );
+            }
           }
           return;
         }
+        setPendingReceipt(null);
         onMissingFieldsShown?.();
         Alert.alert('Chưa trích xuất được', 'App sẽ mở form Nhập thủ công. Bạn cần chọn Tài khoản và Hạng mục rồi lưu.', [
-          { text: 'Mở form', onPress: () => { onClose(); router.push({ pathname: '/(protected)/(tabs)/manual-input', params: { description: 'Từ ảnh hóa đơn' } }); } },
+          { text: 'Mở form', onPress: () => openManualInputForReceipt({ amount: 0, date: normalizeReceiptDate(''), content: 'Từ ảnh hóa đơn' }) },
           { text: 'Ở lại', style: 'cancel' },
         ]);
       }
@@ -335,10 +596,26 @@ ${userContext}
 
   const handleSend = async () => {
     const text = message.trim();
-    if (!text || loading) return;
+    if (!text || loading || savingReceipt) return;
     const userMsg: DisplayMessage = { role: 'user', content: text };
     setMessages((prev) => [...prev, userMsg]);
     setMessage('');
+    if (pendingReceipt && isReceiptSaveConfirmation(text)) {
+      await confirmSavePendingReceipt();
+      return;
+    }
+    if (pendingReceipt && isReceiptEditIntent(text)) {
+      setMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: 'Mình sẽ mở form đã điền sẵn để bạn chỉnh lại trước khi lưu.' },
+      ]);
+      openManualInputForReceipt(pendingReceipt);
+      return;
+    }
+    if (pendingReceipt && isReceiptCancelIntent(text)) {
+      declinePendingReceipt();
+      return;
+    }
     await sendChat(userMsg);
   };
 
@@ -590,12 +867,79 @@ ${userContext}
               )}
             </ScrollView>
 
+            {pendingReceipt && (
+              <View style={[styles.receiptConfirmWrap, { borderTopColor: themeColors.border, backgroundColor: themeColors.card }]}>
+                <View style={styles.receiptConfirmHeader}>
+                  <View style={styles.receiptConfirmIcon}>
+                    <MaterialIcons name="receipt-long" size={18} color="#16a34a" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.receiptConfirmTitle, { color: themeColors.text }]}>Sẵn sàng lưu giao dịch</Text>
+                    <Text style={[styles.receiptConfirmSubtitle, { color: themeColors.textSecondary }]}>
+                      FinMate sẽ lưu nhanh bằng cấu hình mặc định. Bạn chỉ cần chọn Có hoặc Không ngay trong chat.
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={[styles.receiptSummaryCard, { backgroundColor: themeColors.background, borderColor: themeColors.border }]}>
+                  <Text style={styles.receiptAmount}>{formatCurrency(pendingReceipt.amount)}</Text>
+                  <Text style={[styles.receiptSummaryText, { color: themeColors.text }]}>Lưu vào mục chi ngày {pendingReceipt.date}</Text>
+                  <Text style={[styles.receiptSummaryText, { color: themeColors.textSecondary }]}>
+                    Nội dung: {pendingReceipt.content || 'Từ ảnh hóa đơn'}
+                  </Text>
+                  <Text style={[styles.receiptSummaryMeta, { color: themeColors.textSecondary }]}>
+                    Tài khoản mặc định: {pendingReceipt.moneySourceName}
+                  </Text>
+                  <Text style={[styles.receiptSummaryMeta, { color: themeColors.textSecondary }]}>
+                    Hạng mục mặc định: {pendingReceipt.categoryName}
+                  </Text>
+                </View>
+
+                <View style={styles.receiptActionRow}>
+                  <TouchableOpacity
+                    style={[styles.receiptSecondaryBtn, { borderColor: themeColors.border, backgroundColor: themeColors.background }]}
+                    onPress={() => {
+                      setMessages((prev) => [...prev, { role: 'user', content: 'Không' }]);
+                      declinePendingReceipt();
+                    }}
+                    activeOpacity={0.7}
+                    disabled={savingReceipt}>
+                    <Text style={[styles.receiptSecondaryBtnText, { color: themeColors.text }]}>Không</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.receiptPrimaryBtn, savingReceipt && { opacity: 0.7 }]}
+                    onPress={async () => {
+                      setMessages((prev) => [...prev, { role: 'user', content: 'Có' }]);
+                      await confirmSavePendingReceipt();
+                    }}
+                    activeOpacity={0.85}
+                    disabled={savingReceipt}>
+                    <LinearGradient
+                      colors={['#16a34a', '#22c55e']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.receiptPrimaryBtnGradient}>
+                      {savingReceipt ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <>
+                          <MaterialIcons name="check-circle-outline" size={18} color="#FFFFFF" />
+                          <Text style={styles.receiptPrimaryBtnText}>Có</Text>
+                        </>
+                      )}
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
             {/* Input */}
             <View style={[styles.inputBar, { backgroundColor: themeColors.card, borderTopColor: themeColors.border }]}>
               <TouchableOpacity
                 style={[styles.scanBtn, { backgroundColor: themeColors.background }]}
                 onPress={handleScanReceipt}
-                disabled={loading}
+                disabled={loading || savingReceipt}
                 activeOpacity={0.7}>
                 <MaterialIcons name="receipt-long" size={22} color="#16a34a" />
               </TouchableOpacity>
@@ -607,15 +951,15 @@ ${userContext}
                 onChangeText={setMessage}
                 multiline
                 maxLength={500}
-                editable={!loading}
+                editable={!loading && !savingReceipt}
               />
               <TouchableOpacity
-                style={[styles.sendBtn, (!message.trim() || loading) && styles.sendBtnDisabled]}
+                style={[styles.sendBtn, (!message.trim() || loading || savingReceipt) && styles.sendBtnDisabled]}
                 onPress={handleSend}
                 activeOpacity={0.7}
-                disabled={!message.trim() || loading}>
+                disabled={!message.trim() || loading || savingReceipt}>
                 <LinearGradient
-                  colors={message.trim() && !loading ? ['#16a34a', '#22c55e'] : ['#9ca3af', '#6b7280']}
+                  colors={message.trim() && !loading && !savingReceipt ? ['#16a34a', '#22c55e'] : ['#9ca3af', '#6b7280']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.sendBtnGradient}>
@@ -846,6 +1190,92 @@ const styles = StyleSheet.create({
   fullscreenImage: {
     width: '95%',
     height: '80%',
+  },
+  receiptConfirmWrap: {
+    borderTopWidth: 1,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 10,
+  },
+  receiptConfirmHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  receiptConfirmIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(22, 163, 74, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  receiptConfirmTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  receiptConfirmSubtitle: {
+    fontSize: 12.5,
+    lineHeight: 18,
+  },
+  receiptSummaryCard: {
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    marginBottom: 12,
+  },
+  receiptAmount: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#16a34a',
+    marginBottom: 6,
+  },
+  receiptSummaryText: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 4,
+  },
+  receiptSummaryMeta: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  receiptActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  receiptSecondaryBtn: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: 16,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+  },
+  receiptSecondaryBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  receiptPrimaryBtn: {
+    flex: 1.25,
+    minHeight: 46,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  receiptPrimaryBtnGradient: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  receiptPrimaryBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   inputBar: {
     flexDirection: 'row',
