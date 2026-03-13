@@ -1,16 +1,16 @@
+import { useAppAlert } from '@/contexts/app-alert-context';
 import { DeleteMoneySourceDialog } from '@/components/DeleteMoneySourceDialog';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useMoneySourceService } from '@/lib/services/moneySourceService';
+import { useTransactionRefresh } from '@/contexts/transaction-refresh-context';
 import { MoneySourceDto, MoneySourceGroupedDto, MoneySourceGroupedResponseDto } from '@/lib/types/moneySource';
 import { styles } from '@/styles/index.styles';
 import { MaterialIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   Modal,
   RefreshControl,
@@ -33,13 +33,14 @@ type TabType = 'accounts' | 'savings' | 'accumulation';
 
 export default function AccountScreen() {
   const router = useRouter();
+  const { showAlert } = useAppAlert();
   const { refresh } = useLocalSearchParams<{ refresh?: string }>();
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
   const isLight = resolvedTheme === 'light';
   const textOnTint = resolvedTheme === 'dark' ? themeColors.background : '#ffffff';
   // Nút Thêm tài khoản: sáng = xanh lá, tối = xanh dương đậm
-  const addButtonColor = isLight ? themeColors.tint : '#2563eb';
+  const addButtonColor = themeColors.tint;
   const lightOutlinedIcon = isLight
     ? {
         backgroundColor: themeColors.card,
@@ -51,7 +52,7 @@ export default function AccountScreen() {
         shadowRadius: 3,
         elevation: 2,
       }
-    : null;
+    : { backgroundColor: themeColors.cardGlass, borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.12)' };
   const lightCardSurface = isLight
     ? {
         backgroundColor: themeColors.card,
@@ -63,7 +64,7 @@ export default function AccountScreen() {
         shadowRadius: 6,
         elevation: 3,
       }
-    : null;
+    : { backgroundColor: themeColors.cardGlass, borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.12)' };
   const [activeTab, setActiveTab] = useState<TabType>('accounts');
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -75,6 +76,8 @@ export default function AccountScreen() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const { getGroupedMoneySources, updateMoneySource, deleteMoneySource } = useMoneySourceService();
+  const { transactionRefreshTrigger } = useTransactionRefresh();
+  const lastTriggerFetchRef = useRef(0);
 
   // Navigate to add money source screen
   const handleAddMoneySource = () => {
@@ -88,12 +91,20 @@ export default function AccountScreen() {
     }, [])
   );
 
-  const fetchData = useCallback(async (isRefresh = false) => {
+  const TRIGGER_THROTTLE_MS = 2000;
+  useEffect(() => {
+    if (transactionRefreshTrigger <= 0) return;
+    const now = Date.now();
+    if (now - lastTriggerFetchRef.current < TRIGGER_THROTTLE_MS) return;
+    lastTriggerFetchRef.current = now;
+    fetchData(false, true);
+  }, [transactionRefreshTrigger, fetchData]);
+
+  const fetchData = useCallback(async (isRefresh = false, silent = false) => {
     try {
-      if (isRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
+      if (!silent) {
+        if (isRefresh) setRefreshing(true);
+        else setLoading(true);
       }
       setError(null);
 
@@ -109,8 +120,10 @@ export default function AccountScreen() {
       setError(errorMessage);
       console.error('Error fetching money sources:', err);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (!silent) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 
@@ -168,7 +181,7 @@ export default function AccountScreen() {
       fetchData();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Không thể xóa tài khoản';
-      Alert.alert('Lỗi', msg);
+      showAlert({ title: 'Lỗi', message: msg, icon: 'error' });
     }
   };
 
@@ -180,13 +193,13 @@ export default function AccountScreen() {
       fetchData();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Không thể ngừng sử dụng';
-      Alert.alert('Lỗi', msg);
+      showAlert({ title: 'Lỗi', message: msg, icon: 'error' });
     }
   };
 
   const handleMenuPlaceholder = () => {
     closeAccountMenu();
-    Alert.alert('Thông báo', 'Tính năng đang phát triển');
+    showAlert({ title: 'Thông báo', message: 'Tính năng đang phát triển', icon: 'info' });
   };
 
   // Loading state
@@ -320,24 +333,17 @@ export default function AccountScreen() {
         </View>
 
         {/* Total Balance Section */}
-        <LinearGradient
-          colors={[themeColors.successBorder, themeColors.success2]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
+        <View
           style={[
             styles.accountTotalBalance,
-            {
-              backgroundColor: 'transparent',
-              shadowColor: themeColors.successBorder,
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.3,
-              shadowRadius: 10,
-              elevation: 6,
-            },
+            isLight
+              ? { backgroundColor: themeColors.tint, shadowColor: themeColors.successBorder }
+              : { backgroundColor: 'rgba(34, 197, 94, 0.15)', borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.2)', shadowColor: 'transparent' },
+            { shadowOffset: { width: 0, height: 6 }, shadowOpacity: isLight ? 0.3 : 0, shadowRadius: 10, elevation: 6 },
           ]}>
-          <Text style={[styles.accountTotalLabel, { color: 'rgba(255,255,255,0.9)' }]}>Tổng tiền</Text>
-          <Text style={[styles.accountTotalAmount, { color: '#ffffff' }]}>{formatCurrency(totalBalance)}</Text>
-        </LinearGradient>
+          <Text style={[styles.accountTotalLabel, { color: isLight ? 'rgba(255,255,255,0.9)' : themeColors.textSecondary }]}>Tổng tiền</Text>
+          <Text style={[styles.accountTotalAmount, { color: isLight ? '#ffffff' : themeColors.text }]}>{formatCurrency(totalBalance)}</Text>
+        </View>
 
         {/* Account Categories Section */}
         <View style={styles.accountCategoriesSection}>
@@ -425,10 +431,10 @@ export default function AccountScreen() {
           activeOpacity={1}
           onPress={closeAccountMenu}>
           <TouchableOpacity
-            style={[localStyles.sheetContent, { backgroundColor: themeColors.card }]}
+            style={[localStyles.sheetContent, { backgroundColor: isLight ? themeColors.card : themeColors.cardGlass, borderTopWidth: 1, borderTopColor: isLight ? 'transparent' : 'rgba(34, 197, 94, 0.15)' }]}
             activeOpacity={1}
             onPress={(e) => e.stopPropagation()}>
-            <View style={localStyles.sheetHandle} />
+            <View style={[localStyles.sheetHandle, { backgroundColor: themeColors.textSecondary }]} />
             <TouchableOpacity style={localStyles.sheetItem} onPress={handleMenuPlaceholder}>
               <MaterialIcons name="swap-horiz" size={24} color={themeColors.text} />
               <Text style={[localStyles.sheetItemText, { color: themeColors.text }]}>Chuyển khoản</Text>
@@ -476,7 +482,6 @@ const localStyles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheetContent: {
-    backgroundColor: '#1A2332',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 34,

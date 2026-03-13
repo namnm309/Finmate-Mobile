@@ -1,4 +1,4 @@
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuth } from '@/hooks/use-auth';
 import { useCallback, useMemo } from 'react';
 
 //Lấy url host của BE đã host để call api
@@ -28,7 +28,7 @@ export const useApiClient = () => {
       ...(headers as Record<string, string>),
     };
 
-    // Nạp token vào header nếu không bỏ qua xác thực (từ Clerk, app không dùng token paste tay)
+    // Luôn dùng Clerk JWT qua getToken() - skipAuth chỉ cho endpoint công khai (ví dụ health)
     if (!skipAuth) {
       try {
         const token = await getToken();

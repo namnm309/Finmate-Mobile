@@ -1,6 +1,9 @@
 import { useAuth as useClerkAuth } from '@clerk/clerk-expo';
 
-// Tùy chỉnh hook useAuth để phù hợp với nhu cầu của ứng dụng
+/**
+ * Hook xác thực duy nhất - toàn bộ mobile dùng Clerk qua hook này.
+ * Không dùng trực tiếp @clerk/clerk-expo useAuth, luôn dùng useAuth từ đây.
+ */
 export const useAuth = () => {
   const {
     isLoaded,

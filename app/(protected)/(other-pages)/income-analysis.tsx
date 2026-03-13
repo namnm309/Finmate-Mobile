@@ -1,4 +1,5 @@
-import { useAIModal } from '@/contexts/ai-modal-context';
+import { AIActionButton } from '@/components/AIActionButton';
+import { useAIChatbot } from '@/contexts/ai-chatbot-context';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -11,7 +12,7 @@ export default function IncomeAnalysisScreen() {
   const router = useRouter();
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
-  const { openAIModal } = useAIModal();
+  const { openChatbot } = useAIChatbot();
 
   const handleBack = () => {
     router.replace({ pathname: '/(protected)/(tabs)/report', params: { __replace: 'pop' } } as any);
@@ -31,12 +32,14 @@ export default function IncomeAnalysisScreen() {
         <Text style={[localStyles.desc, { color: themeColors.textSecondary }]}>
           Tính năng phân tích nguồn thu, xu hướng thu nhập sẽ được AI hỗ trợ.
         </Text>
-        <TouchableOpacity
-          style={localStyles.aiButton}
-          onPress={() => openAIModal('Phân tích nguồn thu và xu hướng thu nhập của tôi. Đưa ra khuyến nghị tăng thu.', true)}>
-          <MaterialIcons name="auto-awesome" size={20} color="#FFFFFF" />
-          <Text style={localStyles.aiButtonText}>Hỏi AI</Text>
-        </TouchableOpacity>
+        <AIActionButton
+          label="Hỏi AI"
+          onPress={() => openChatbot({
+            initialMessage: 'Phân tích nguồn thu và xu hướng thu nhập của tôi. Đưa ra khuyến nghị tăng thu.',
+            autoSend: true,
+          })}
+          style={{ marginTop: 24 }}
+        />
       </View>
     </SafeAreaView>
   );
@@ -48,15 +51,4 @@ const localStyles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: '700', marginTop: 16 },
   subtitle: { fontSize: 14, marginTop: 8 },
   desc: { fontSize: 15, textAlign: 'center', marginTop: 16, lineHeight: 22 },
-  aiButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#16a34a',
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 12,
-    marginTop: 24,
-  },
-  aiButtonText: { color: '#FFFFFF', fontWeight: '600', fontSize: 16 },
 });

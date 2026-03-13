@@ -1,4 +1,4 @@
-import { Colors } from '@/constants/theme';
+import { Colors, GlassCardColors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { SavingGoalData } from '@/contexts/saving-goal-context';
 import { useSavingGoal } from '@/contexts/saving-goal-context';
@@ -118,7 +118,8 @@ export default function SavingPlanScreen() {
   const idParam = params.id;
   const id = typeof idParam === 'string' ? idParam : Array.isArray(idParam) ? idParam[0] : undefined;
   const router = useRouter();
-  const themeColors = Colors[useColorScheme()];
+  const resolvedTheme = useColorScheme();
+  const themeColors = Colors[resolvedTheme];
   const { goals } = useSavingGoal();
   const { sendMessage } = useChatService();
   const [selectedId, setSelectedId] = useState<string | null>(id ?? null);
@@ -384,14 +385,14 @@ export default function SavingPlanScreen() {
   const svgWidth = Y_AXIS_WIDTH + CHART_PADDING.left + chartInnerWidth + CHART_PADDING.right;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <MaterialIcons name="arrow-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
         {goals.length > 1 ? (
           <TouchableOpacity
-            style={[styles.dropdown, { backgroundColor: themeColors.card }]}
+            style={[styles.dropdown, { backgroundColor: GlassCardColors.bg, borderWidth: 1, borderColor: GlassCardColors.border }]}
             onPress={() => setShowDropdown(true)}
             activeOpacity={0.8}>
             <Text style={[styles.dropdownText, { color: themeColors.text }]} numberOfLines={1}>
@@ -403,7 +404,7 @@ export default function SavingPlanScreen() {
           <Text style={[styles.headerTitle, { color: themeColors.text }]}>Plan AI</Text>
         )}
         <TouchableOpacity
-          style={[styles.reloadBtn, { backgroundColor: themeColors.card }]}
+          style={[styles.reloadBtn, { backgroundColor: GlassCardColors.bg, borderWidth: 1, borderColor: GlassCardColors.border }]}
           onPress={handleReload}
           disabled={loading || isAchieved}
           activeOpacity={0.8}>
@@ -419,7 +420,7 @@ export default function SavingPlanScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
-        <View style={[styles.goalCard, { backgroundColor: themeColors.card }]}>
+        <View style={[styles.goalCard, { backgroundColor: GlassCardColors.bg, borderWidth: 1, borderColor: GlassCardColors.border }]}>
           <Text style={[styles.goalTitle, { color: themeColors.text }]}>{goal.title}</Text>
           <Text style={[styles.goalMeta, { color: themeColors.textSecondary }]}>
             {isAchieved ? 'Đã hoàn thành' : `Còn ${daysLeft} ngày • Để dành ${formatCurrency(dailyTarget)}/ngày`}
@@ -427,7 +428,7 @@ export default function SavingPlanScreen() {
         </View>
 
         {isAchieved ? (
-          <View style={[styles.planCard, { backgroundColor: themeColors.card }]}>
+          <View style={[styles.planCard, { backgroundColor: GlassCardColors.bg, borderWidth: 1, borderColor: GlassCardColors.border }]}>
             <Text style={[styles.planBody, { color: themeColors.text }]}>{CONGRATS_MSG}</Text>
           </View>
         ) : loading && !manualReloading ? (
@@ -436,18 +437,18 @@ export default function SavingPlanScreen() {
             <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>Đang lập plan...</Text>
           </View>
         ) : planText ? (
-          <View style={[styles.planCard, { backgroundColor: themeColors.card }]}>
+          <View style={[styles.planCard, { backgroundColor: GlassCardColors.bg, borderWidth: 1, borderColor: GlassCardColors.border }]}>
             <Text style={[styles.planBody, { color: themeColors.text }]}>{stripAsterisks(planText)}</Text>
           </View>
         ) : null}
 
         <Modal visible={showDropdown} transparent animationType="fade">
           <TouchableOpacity style={styles.dropdownOverlay} activeOpacity={1} onPress={() => setShowDropdown(false)}>
-            <View style={[styles.dropdownList, { backgroundColor: themeColors.card }]} onStartShouldSetResponder={() => true}>
+            <View style={[styles.dropdownList, { backgroundColor: themeColors.card, borderWidth: 1, borderColor: GlassCardColors.border }]} onStartShouldSetResponder={() => true}>
               {goals.map((g) => (
                 <TouchableOpacity
                   key={g.id}
-                  style={[styles.dropdownItem, selectedId === g.id && { backgroundColor: themeColors.background }]}
+                  style={[styles.dropdownItem, selectedId === g.id && { backgroundColor: resolvedTheme === 'dark' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(22, 163, 74, 0.15)' }]}
                   onPress={() => handleSelectGoal(g)}
                   activeOpacity={0.7}>
                   <Text style={[styles.dropdownItemText, { color: themeColors.text }]}>{g.title}</Text>
@@ -460,10 +461,10 @@ export default function SavingPlanScreen() {
           </TouchableOpacity>
         </Modal>
 
-        <View style={[styles.chartCard, { backgroundColor: themeColors.card }]}>
+        <View style={[styles.chartCard, { backgroundColor: GlassCardColors.bg, borderWidth: 1, borderColor: GlassCardColors.border }]}>
           <Text style={[styles.chartTitle, { color: themeColors.text }]}>Xu hướng tiết kiệm</Text>
 
-          <View style={[styles.filterRow, { backgroundColor: themeColors.background }]}>
+          <View style={[styles.filterRow, { backgroundColor: GlassCardColors.inner }]}>
             <TouchableOpacity
               style={[styles.filterBtn, { borderColor: themeColors.textSecondary }]}
               onPress={() => setShowDatePickerFor('start')}
@@ -498,7 +499,7 @@ export default function SavingPlanScreen() {
               />
               {Platform.OS === 'ios' && (
                 <TouchableOpacity
-                  style={[styles.datePickerDone, { backgroundColor: themeColors.card }]}
+                  style={[styles.datePickerDone, { backgroundColor: GlassCardColors.bg, borderWidth: 1, borderColor: GlassCardColors.border }]}
                   onPress={() => setShowDatePickerFor(null)}>
                   <Text style={{ color: '#155DFC', fontWeight: '600' }}>Xong</Text>
                 </TouchableOpacity>

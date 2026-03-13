@@ -1,4 +1,6 @@
-import { useAIModal } from '@/contexts/ai-modal-context';
+import { AIActionButton } from '@/components/AIActionButton';
+import { useAppAlert } from '@/contexts/app-alert-context';
+import { useAIChatbot } from '@/contexts/ai-chatbot-context';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
@@ -18,7 +20,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -63,7 +64,8 @@ export default function TripEventDetailScreen() {
   const insets = useSafeAreaInsets();
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
-  const { openAIModal } = useAIModal();
+  const { openChatbot } = useAIChatbot();
+  const { showAlert } = useAppAlert();
 
   const [trip, setTrip] = useState<TripEvent | null>(null);
   const [expenses, setExpenses] = useState<TripExpense[]>([]);
@@ -115,7 +117,7 @@ export default function TripEventDetailScreen() {
     if (!id || !trip) return;
     const amt = parseAmount(amount);
     if (amt <= 0) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập số tiền hợp lệ.');
+      showAlert({ title: 'Thiếu thông tin', message: 'Vui lòng nhập số tiền hợp lệ.', icon: 'warning' });
       return;
     }
 
@@ -132,28 +134,33 @@ export default function TripEventDetailScreen() {
       setDate(new Date());
       await load();
     } catch (e) {
-      Alert.alert('Lỗi', 'Không thể lưu. Vui lòng thử lại.');
+      showAlert({ title: 'Lỗi', message: 'Không thể lưu. Vui lòng thử lại.', icon: 'error' });
     } finally {
       setSaving(false);
     }
   };
 
   const handleDeleteExpense = (exp: TripExpense) => {
-    Alert.alert('Xóa', 'Bạn có chắc muốn xóa khoản chi này?', [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Xóa',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteTripExpense(exp.id);
-            await load();
-          } catch {
-            Alert.alert('Lỗi', 'Không thể xóa.');
-          }
+    showAlert({
+      title: 'Xóa',
+      message: 'Bạn có chắc muốn xóa khoản chi này?',
+      icon: 'warning',
+      buttons: [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa',
+          style: 'danger',
+          onPress: async () => {
+            try {
+              await deleteTripExpense(exp.id);
+              await load();
+            } catch {
+              showAlert({ title: 'Lỗi', message: 'Không thể xóa.', icon: 'error' });
+            }
+          },
         },
-      },
-    ]);
+      ],
+    });
   };
 
   if (!trip && !loading) return null;
@@ -304,18 +311,15 @@ export default function TripEventDetailScreen() {
               </View>
 
               {/* Nút hỏi AI */}
-              <TouchableOpacity
-                style={localStyles.aiButton}
+              <AIActionButton
+                label="Hỏi AI"
                 onPress={() =>
-                  openAIModal(
-                    `Tôi đang theo dõi chi tiêu cho "${trip.name}" (${TRIP_TYPE_LABELS[trip.type]}). Đã chi ${formatCurrency(totalSpent)}${budget > 0 ? ` / ngân sách ${formatCurrency(budget)}` : ''}. Hãy phân tích và đưa ra gợi ý tiết kiệm.`,
-                    true
-                  )
+                  openChatbot({
+                    initialMessage: `Tôi đang theo dõi chi tiêu cho "${trip.name}" (${TRIP_TYPE_LABELS[trip.type]}). Đã chi ${formatCurrency(totalSpent)}${budget > 0 ? ` / ngân sách ${formatCurrency(budget)}` : ''}. Hãy phân tích và đưa ra gợi ý tiết kiệm.`,
+                    autoSend: true,
+                  })
                 }
-                activeOpacity={0.8}>
-                <MaterialIcons name="auto-awesome" size={20} color="#FFFFFF" />
-                <Text style={localStyles.aiButtonText}>Hỏi AI</Text>
-              </TouchableOpacity>
+              />
             </>
           ) : null}
         </ScrollView>

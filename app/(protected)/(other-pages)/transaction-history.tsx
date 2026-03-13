@@ -17,6 +17,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { styles } from '@/styles/index.styles';
 import { useTransactionService } from '@/lib/services/transactionService';
 import { TransactionDto } from '@/lib/types/transaction';
+import { useTransactionRefresh } from '@/contexts/transaction-refresh-context';
 
 // Format số tiền VNĐ
 const formatCurrency = (amount: number): string => {
@@ -76,7 +77,7 @@ export default function TransactionHistoryScreen() {
   const isLight = resolvedTheme === 'light';
   const textOnTint = resolvedTheme === 'dark' ? themeColors.background : '#ffffff';
   const { getTransactions } = useTransactionService();
-  
+  const { transactionRefreshTrigger } = useTransactionRefresh();
   const [transactions, setTransactions] = useState<TransactionDto[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -89,13 +90,13 @@ export default function TransactionHistoryScreen() {
   const hasLoadedInitiallyRef = useRef(false);
 
   const fetchTransactions = useCallback(
-    async (pageNum: number = 1, append: boolean = false) => {
+    async (pageNum: number = 1, append: boolean = false, silent: boolean = false) => {
       // Tránh gọi chồng request (spinner bị kẹt nếu return sớm lúc loading=true)
       if (isFetchingRef.current) return;
       isFetchingRef.current = true;
 
       try {
-        setLoading(true);
+        if (!silent) setLoading(true);
         const response = await getTransactions({
           page: pageNum,
           pageSize: pageSize,
@@ -116,7 +117,7 @@ export default function TransactionHistoryScreen() {
       } catch (err) {
         console.error('Error fetching transactions:', err);
       } finally {
-        setLoading(false);
+        if (!silent) setLoading(false);
         isFetchingRef.current = false;
       }
     },
@@ -125,7 +126,6 @@ export default function TransactionHistoryScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Chỉ fetch lần đầu khi màn được mở
       if (!hasLoadedInitiallyRef.current) {
         hasLoadedInitiallyRef.current = true;
         fetchTransactions(1, false);
@@ -133,6 +133,14 @@ export default function TransactionHistoryScreen() {
       }
     }, [fetchTransactions]),
   );
+
+  useEffect(() => {
+    if (transactionRefreshTrigger > 0) {
+      hasLoadedInitiallyRef.current = true;
+      fetchTransactions(1, false, true);
+      setPage(1);
+    }
+  }, [transactionRefreshTrigger, fetchTransactions]);
 
   // Filter transactions by search query
   const filteredTransactions = searchQuery

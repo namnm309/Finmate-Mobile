@@ -1,4 +1,5 @@
-import { useAIModal } from '@/contexts/ai-modal-context';
+import { AIActionButton } from '@/components/AIActionButton';
+import { useAIChatbot } from '@/contexts/ai-chatbot-context';
 import { useNotificationBadge } from '@/contexts/notification-badge-context';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -54,7 +55,7 @@ export default function NotificationsScreen() {
   const { markAlertsRead } = useNotificationBadge();
   useEffect(() => { markAlertsRead(); }, [markAlertsRead]);
   const themeColors = Colors[resolvedTheme];
-  const { openAIModal } = useAIModal();
+  const { openChatbot } = useAIChatbot();
   const isLight = resolvedTheme === 'light';
 
   const handleBack = () => {
@@ -63,7 +64,7 @@ export default function NotificationsScreen() {
 
   const handleAskAI = (tip: (typeof SAVING_TIPS)[0]) => {
     const prompt = `Mẹo tiết kiệm: "${tip.title}" - ${tip.message}. Hãy giải thích chi tiết hơn và đưa ra ví dụ thực tế.`;
-    openAIModal(prompt, true);
+    openChatbot({ initialMessage: prompt, autoSend: true });
   };
 
   return (
@@ -102,13 +103,11 @@ export default function NotificationsScreen() {
               <Text style={[localStyles.tipMessage, { color: isLight ? '#475569' : '#cbd5e1' }]}>
                 {tip.message}
               </Text>
-              <TouchableOpacity
-                style={[localStyles.askAiBtn, { backgroundColor: tip.color + '15' }]}
+              <AIActionButton
+                label="Hỏi AI"
+                variant="chip"
                 onPress={() => handleAskAI(tip)}
-                activeOpacity={0.7}>
-                <MaterialIcons name="auto-awesome" size={16} color={tip.color} />
-                <Text style={[localStyles.askAiText, { color: tip.color }]}>Hỏi AI</Text>
-              </TouchableOpacity>
+              />
             </View>
           </View>
         ))}
@@ -121,13 +120,14 @@ export default function NotificationsScreen() {
           <Text style={[localStyles.aiCtaDesc, { color: isLight ? '#15803d' : '#99f6e4' }]}>
             AI sẽ phân tích giao dịch thật của bạn và đưa ra nhận xét chi tiết.
           </Text>
-          <TouchableOpacity
+          <AIActionButton
+            label="Kiểm tra chi tiêu với AI"
+            onPress={() => openChatbot({
+              initialMessage: 'Phân tích các giao dịch gần đây của tôi và cho biết có chi tiêu nào khả nghi hoặc bất hợp lý không.',
+              autoSend: true,
+            })}
             style={localStyles.aiCta}
-            onPress={() => openAIModal('Phân tích các giao dịch gần đây của tôi và cho biết có chi tiêu nào khả nghi hoặc bất hợp lý không.', true)}
-            activeOpacity={0.8}>
-            <MaterialIcons name="auto-awesome" size={18} color="#FFFFFF" />
-            <Text style={localStyles.aiCtaText}>Kiểm tra chi tiêu với AI</Text>
-          </TouchableOpacity>
+          />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -153,16 +153,6 @@ const localStyles = StyleSheet.create({
   tipContent: { flex: 1 },
   tipTitle: { fontSize: 16, fontWeight: '700', marginBottom: 6 },
   tipMessage: { fontSize: 14, lineHeight: 22, marginBottom: 12 },
-  askAiBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  askAiText: { fontSize: 14, fontWeight: '600' },
   aiCtaCard: {
     padding: 24,
     borderRadius: 12,
@@ -172,15 +162,5 @@ const localStyles = StyleSheet.create({
   },
   aiCtaTitle: { fontSize: 17, fontWeight: '700', marginTop: 12 },
   aiCtaDesc: { fontSize: 14, textAlign: 'center', marginTop: 6, lineHeight: 20 },
-  aiCta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#16a34a',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 10,
-    marginTop: 16,
-  },
-  aiCtaText: { color: '#FFFFFF', fontWeight: '600', fontSize: 15 },
+  aiCta: { marginTop: 16 },
 });

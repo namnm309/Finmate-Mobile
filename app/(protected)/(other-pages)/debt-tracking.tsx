@@ -1,5 +1,7 @@
-import { useAIModal } from '@/contexts/ai-modal-context';
-import { Colors } from '@/constants/theme';
+import { AIActionButton } from '@/components/AIActionButton';
+import { useAppAlert } from '@/contexts/app-alert-context';
+import { useAIChatbot } from '@/contexts/ai-chatbot-context';
+import { Colors, GlassCardColors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
   addDebtEntry,
@@ -15,7 +17,6 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -53,7 +54,8 @@ export default function DebtTrackingScreen() {
   const insets = useSafeAreaInsets();
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
-  const { openAIModal } = useAIModal();
+  const { openChatbot } = useAIChatbot();
+  const { showAlert } = useAppAlert();
 
   const [entries, setEntries] = useState<DebtEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -119,15 +121,15 @@ export default function DebtTrackingScreen() {
     const creditorValue = getCreditorValue();
 
     if (!creditorValue) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng chọn hoặc nhập chủ nợ.');
+      showAlert({ title: 'Thiếu thông tin', message: 'Vui lòng chọn hoặc nhập chủ nợ.', icon: 'warning' });
       return;
     }
     if (amt <= 0) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập số tiền hợp lệ.');
+      showAlert({ title: 'Thiếu thông tin', message: 'Vui lòng nhập số tiền hợp lệ.', icon: 'warning' });
       return;
     }
     if (!notes.trim()) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập ghi chú.');
+      showAlert({ title: 'Thiếu thông tin', message: 'Vui lòng nhập ghi chú.', icon: 'warning' });
       return;
     }
 
@@ -147,32 +149,37 @@ export default function DebtTrackingScreen() {
       setDate(new Date());
       await load();
     } catch (e) {
-      Alert.alert('Lỗi', 'Không thể lưu. Vui lòng thử lại.');
+      showAlert({ title: 'Lỗi', message: 'Không thể lưu. Vui lòng thử lại.', icon: 'error' });
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = (id: string) => {
-    Alert.alert('Xóa', 'Bạn có chắc muốn xóa khoản nợ này?', [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Xóa',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteDebtEntry(id);
-            await load();
-          } catch {
-            Alert.alert('Lỗi', 'Không thể xóa.');
-          }
+    showAlert({
+      title: 'Xóa',
+      message: 'Bạn có chắc muốn xóa khoản nợ này?',
+      icon: 'warning',
+      buttons: [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa',
+          style: 'danger',
+          onPress: async () => {
+            try {
+              await deleteDebtEntry(id);
+              await load();
+            } catch {
+              showAlert({ title: 'Lỗi', message: 'Không thể xóa.', icon: 'error' });
+            }
+          },
         },
-      },
-    ]);
+      ],
+    });
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background, flex: 1 }]} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent', flex: 1 }]} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -199,13 +206,13 @@ export default function DebtTrackingScreen() {
           </View>
 
           {/* Form thêm mới */}
-          <View style={[localStyles.card, { backgroundColor: themeColors.card }]}>
+          <View style={[localStyles.card, { backgroundColor: GlassCardColors.bg, borderWidth: 1, borderColor: GlassCardColors.border }]}>
             <Text style={[localStyles.cardTitle, { color: themeColors.text }]}>Thêm khoản nợ</Text>
 
             {/* Ngày */}
             <Text style={[localStyles.label, { color: themeColors.textSecondary }]}>Ngày vay</Text>
             <TouchableOpacity
-              style={[localStyles.inputRow, { backgroundColor: themeColors.background, borderColor: themeColors.border }]}
+              style={[localStyles.inputRow, { backgroundColor: GlassCardColors.inner, borderColor: GlassCardColors.border }]}
               onPress={() => setShowDatePicker(true)}
               activeOpacity={0.7}>
               <MaterialIcons name="calendar-today" size={20} color={themeColors.tint} />
@@ -227,7 +234,7 @@ export default function DebtTrackingScreen() {
             {/* Số tiền */}
             <Text style={[localStyles.label, { color: themeColors.textSecondary }]}>Số tiền (VNĐ)</Text>
             <TextInput
-              style={[localStyles.textInput, { backgroundColor: themeColors.background, borderColor: themeColors.border, color: themeColors.text }]}
+              style={[localStyles.textInput, { backgroundColor: GlassCardColors.inner, borderColor: GlassCardColors.border, color: themeColors.text }]}
               placeholder="0"
               placeholderTextColor={themeColors.textSecondary}
               value={amount}
@@ -238,7 +245,7 @@ export default function DebtTrackingScreen() {
             {/* Ghi chú */}
             <Text style={[localStyles.label, { color: themeColors.textSecondary }]}>Ghi chú</Text>
             <TextInput
-              style={[localStyles.textInput, localStyles.notesInput, { backgroundColor: themeColors.background, borderColor: themeColors.border, color: themeColors.text }]}
+              style={[localStyles.textInput, localStyles.notesInput, { backgroundColor: GlassCardColors.inner, borderColor: GlassCardColors.border, color: themeColors.text }]}
               placeholder="VD: Vay mua điện thoại, Trả góp..."
               placeholderTextColor={themeColors.textSecondary}
               value={notes}
@@ -249,7 +256,7 @@ export default function DebtTrackingScreen() {
             {/* Chủ nợ */}
             <Text style={[localStyles.label, { color: themeColors.textSecondary }]}>Chủ nợ</Text>
             <TouchableOpacity
-              style={[localStyles.inputRow, { backgroundColor: themeColors.background, borderColor: themeColors.border }]}
+              style={[localStyles.inputRow, { backgroundColor: GlassCardColors.inner, borderColor: GlassCardColors.border }]}
               onPress={() => setShowCreditorModal(true)}
               activeOpacity={0.7}>
               <MaterialIcons name="account-balance" size={20} color={themeColors.tint} />
@@ -261,7 +268,7 @@ export default function DebtTrackingScreen() {
 
             {creditor === CREDITOR_OTHER && (
               <TextInput
-                style={[localStyles.textInput, { backgroundColor: themeColors.background, borderColor: themeColors.border, color: themeColors.text, marginTop: 12 }]}
+                style={[localStyles.textInput, { backgroundColor: GlassCardColors.inner, borderColor: GlassCardColors.border, color: themeColors.text, marginTop: 12 }]}
                 placeholder="Nhập tên người/công ty bạn nợ"
                 placeholderTextColor={themeColors.textSecondary}
                 value={creditorCustom}
@@ -286,7 +293,7 @@ export default function DebtTrackingScreen() {
           </View>
 
           {/* Danh sách đã lưu */}
-          <View style={[localStyles.card, { backgroundColor: themeColors.card }]}>
+          <View style={[localStyles.card, { backgroundColor: GlassCardColors.bg, borderWidth: 1, borderColor: GlassCardColors.border }]}>
             <Text style={[localStyles.cardTitle, { color: themeColors.text }]}>Khoản nợ đã ghi</Text>
             {loading ? (
               <ActivityIndicator size="small" color={themeColors.tint} style={{ marginVertical: 24 }} />
@@ -296,7 +303,7 @@ export default function DebtTrackingScreen() {
               entries.map((e) => (
                 <View
                   key={e.id}
-                  style={[localStyles.entryRow, { backgroundColor: themeColors.background, borderColor: themeColors.border }]}>
+                  style={[localStyles.entryRow, { backgroundColor: GlassCardColors.inner, borderColor: GlassCardColors.border }]}>
                   <View style={localStyles.entryLeft}>
                     <Text style={[localStyles.entryCreditor, { color: themeColors.text }]}>{e.creditor}</Text>
                     <Text style={[localStyles.entryNotes, { color: themeColors.textSecondary }]} numberOfLines={1}>{e.notes}</Text>
@@ -314,13 +321,13 @@ export default function DebtTrackingScreen() {
           </View>
 
           {/* Nút hỏi AI */}
-          <TouchableOpacity
-            style={localStyles.aiButton}
-            onPress={() => openAIModal('Giúp tôi đánh giá khoản nợ và lên kế hoạch trả nợ hợp lý.', true)}
-            activeOpacity={0.8}>
-            <MaterialIcons name="auto-awesome" size={20} color="#FFFFFF" />
-            <Text style={localStyles.aiButtonText}>Hỏi AI</Text>
-          </TouchableOpacity>
+          <AIActionButton
+            label="Hỏi AI"
+            onPress={() => openChatbot({
+              initialMessage: 'Giúp tôi đánh giá khoản nợ và lên kế hoạch trả nợ hợp lý.',
+              autoSend: true,
+            })}
+          />
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -333,7 +340,15 @@ export default function DebtTrackingScreen() {
           style={localStyles.modalOverlay}
           activeOpacity={1}
           onPress={() => setShowCreditorModal(false)}>
-          <View style={[localStyles.modalContent, { backgroundColor: themeColors.card }]}>
+          <View
+            style={[
+              localStyles.modalContent,
+              {
+                backgroundColor: themeColors.card,
+                borderWidth: 2,
+                borderColor: resolvedTheme === 'dark' ? 'rgba(34, 197, 94, 0.35)' : 'rgba(22, 163, 74, 0.25)',
+              },
+            ]}>
             <Text style={[localStyles.modalTitle, { color: themeColors.text }]}>Chọn chủ nợ</Text>
 
             <ScrollView
@@ -439,7 +454,7 @@ const localStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#51A2FF',
+    backgroundColor: '#16a34a',
     paddingVertical: 14,
     borderRadius: 12,
   },
@@ -462,18 +477,6 @@ const localStyles = StyleSheet.create({
   entryAmount: { fontSize: 15, fontWeight: '600' },
 
   emptyText: { fontSize: 15, textAlign: 'center', marginVertical: 20 },
-
-  aiButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#16a34a',
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 12,
-  },
-  aiButtonText: { color: '#FFFFFF', fontWeight: '600', fontSize: 16 },
 
   modalOverlay: {
     flex: 1,

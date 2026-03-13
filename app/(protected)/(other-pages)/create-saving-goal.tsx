@@ -1,3 +1,4 @@
+import { useAppAlert } from '@/contexts/app-alert-context';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSavingGoal } from '@/contexts/saving-goal-context';
@@ -6,7 +7,6 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -34,6 +34,7 @@ function formatCurrency(amount: number): string {
 
 export default function CreateSavingGoalScreen() {
   const router = useRouter();
+  const { showAlert } = useAppAlert();
   const insets = useSafeAreaInsets();
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
@@ -59,23 +60,23 @@ export default function CreateSavingGoalScreen() {
     const d = parseInt(daysToAchieve, 10);
 
     if (!title.trim()) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập tên mục tiêu.');
+      showAlert({ title: 'Thiếu thông tin', message: 'Vui lòng nhập tên mục tiêu.', icon: 'warning' });
       return;
     }
     if (s <= 0) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập lương hợp lệ.');
+      showAlert({ title: 'Thiếu thông tin', message: 'Vui lòng nhập lương hợp lệ.', icon: 'warning' });
       return;
     }
     if (t <= 0) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập số tiền mục tiêu hợp lệ.');
+      showAlert({ title: 'Thiếu thông tin', message: 'Vui lòng nhập số tiền mục tiêu hợp lệ.', icon: 'warning' });
       return;
     }
     if (d <= 0 || isNaN(d)) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập số ngày mong muốn đạt mục tiêu.');
+      showAlert({ title: 'Thiếu thông tin', message: 'Vui lòng nhập số ngày mong muốn đạt mục tiêu.', icon: 'warning' });
       return;
     }
     if (e < 0) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập số tiền sinh hoạt thiết yếu mỗi ngày.');
+      showAlert({ title: 'Thiếu thông tin', message: 'Vui lòng nhập số tiền sinh hoạt thiết yếu mỗi ngày.', icon: 'warning' });
       return;
     }
 
@@ -84,22 +85,25 @@ export default function CreateSavingGoalScreen() {
     const requiredDaily = t / d;
 
     if (maxAffordableDaily <= 0) {
-      Alert.alert(
-        'Không thể tiết kiệm',
-        'Với thu nhập và chi tiêu thiết yếu hiện tại, bạn không có dư để tiết kiệm. Vui lòng kiểm tra lại số liệu.'
-      );
+      showAlert({
+        title: 'Không thể tiết kiệm',
+        message: 'Với thu nhập và chi tiêu thiết yếu hiện tại, bạn không có dư để tiết kiệm. Vui lòng kiểm tra lại số liệu.',
+        icon: 'warning',
+      });
       return;
     }
 
     if (requiredDaily > maxAffordableDaily) {
       const adjustedDays = Math.ceil(t / maxAffordableDaily);
-      Alert.alert(
-        'Thời gian đã được điều chỉnh',
-        `Với thu nhập và chi tiêu thiết yếu hiện tại, bạn chỉ có thể tiết kiệm tối đa ${formatCurrency(Math.floor(maxAffordableDaily))}/ngày.\n\nĐể đạt mục tiêu ${formatCurrency(t)}, cần khoảng ${adjustedDays} ngày.\nThời gian đã được tự động điều chỉnh từ ${d} thành ${adjustedDays} ngày.`,
-        [
+      showAlert({
+        title: 'Thời gian đã được điều chỉnh',
+        message: `Với thu nhập và chi tiêu thiết yếu hiện tại, bạn chỉ có thể tiết kiệm tối đa ${formatCurrency(Math.floor(maxAffordableDaily))}/ngày.\n\nĐể đạt mục tiêu ${formatCurrency(t)}, cần khoảng ${adjustedDays} ngày.\nThời gian đã được tự động điều chỉnh từ ${d} thành ${adjustedDays} ngày.`,
+        icon: 'info',
+        buttons: [
           { text: 'Hủy', style: 'cancel' },
           {
             text: 'Đồng ý',
+            style: 'confirm',
             onPress: async () => {
               setSaving(true);
               try {
@@ -113,17 +117,18 @@ export default function CreateSavingGoalScreen() {
                 });
                 router.back();
               } catch (err) {
-                Alert.alert(
-                  'Lỗi',
-                  err instanceof Error ? err.message : 'Không thể lưu mục tiêu. Vui lòng thử lại.'
-                );
+                showAlert({
+                  title: 'Lỗi',
+                  message: err instanceof Error ? err.message : 'Không thể lưu mục tiêu. Vui lòng thử lại.',
+                  icon: 'error',
+                });
               } finally {
                 setSaving(false);
               }
             },
           },
-        ]
-      );
+        ],
+      });
       return;
     }
 
@@ -139,10 +144,11 @@ export default function CreateSavingGoalScreen() {
       });
       router.back();
     } catch (err) {
-      Alert.alert(
-        'Lỗi',
-        err instanceof Error ? err.message : 'Không thể lưu mục tiêu. Vui lòng thử lại.'
-      );
+      showAlert({
+        title: 'Lỗi',
+        message: err instanceof Error ? err.message : 'Không thể lưu mục tiêu. Vui lòng thử lại.',
+        icon: 'error',
+      });
     } finally {
       setSaving(false);
     }

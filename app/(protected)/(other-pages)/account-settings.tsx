@@ -1,10 +1,10 @@
 import { useUser } from '@clerk/clerk-expo';
+import * as SecureStore from 'expo-secure-store';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import {
-  Alert,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -18,9 +18,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import MapView, { Marker } from 'react-native-maps';
-import { Colors } from '@/constants/theme';
+import { Colors, GlassCardColors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { styles } from '@/styles/index.styles';
+import { useAppAlert } from '@/contexts/app-alert-context';
 import { useUserService } from '@/lib/services/userService';
 import { UserResponse } from '@/lib/types/user';
 import { useAuth } from '@/hooks/use-auth';
@@ -96,6 +97,8 @@ const toCalendarDateString = (date: Date): string => {
   const d = date.getDate().toString().padStart(2, '0');
   return `${y}-${m}-${d}`;
 };
+
+const USER_LOCATION_STORAGE_KEY = 'finmate_user_location';
 
 // Năm hợp lệ cho ngày sinh (5–120 tuổi)
 const getMinBirthYear = (): number => new Date().getFullYear() - 120;
@@ -364,6 +367,7 @@ export default function AccountSettingsScreen() {
   const isLight = resolvedTheme === 'light';
   const textOnTint = resolvedTheme === 'dark' ? themeColors.background : '#ffffff';
   const { getUserProfile, updateUserProfile, deleteUserData, deleteUserAccount } = useUserService();
+  const { showAlert } = useAppAlert();
   
   // State management
   const [userData, setUserData] = useState<UserResponse | null>(null);
@@ -382,6 +386,9 @@ export default function AccountSettingsScreen() {
   const [latitude, setLatitude] = useState<string>('');
   const [longitude, setLongitude] = useState<string>('');
   const [locationLoading, setLocationLoading] = useState(false);
+  const [showDangerButtons, setShowDangerButtons] = useState(false);
+  const [showChemistryModal, setShowChemistryModal] = useState(false);
+  const [chemistryAnswer, setChemistryAnswer] = useState('');
 
   // Fetch user data khi component mount
   useEffect(() => {
@@ -457,10 +464,10 @@ export default function AccountSettingsScreen() {
 
   const handleEdit = () => {
     // Navigate to edit screen hoặc hiển thị edit modal
-    Alert.alert('Chỉnh sửa', 'Nhấn vào từng mục để chỉnh sửa');
+    showAlert({ title: 'Chỉnh sửa', message: 'Nhấn vào từng mục để chỉnh sửa', icon: 'info' });
   };
 
-  const handleInfoItemPress = (field: string, currentValue: string) => {
+  const handleInfoItemPress = async (field: string, currentValue: string) => {
     const fieldMap: Record<string, { key: keyof UserResponse; label: string; isDate?: boolean }> = {
       'Họ và tên': { key: 'fullName', label: 'Họ và tên' },
       'Số điện thoại': { key: 'phoneNumber', label: 'Số điện thoại' },
@@ -471,13 +478,13 @@ export default function AccountSettingsScreen() {
 
     const fieldInfo = fieldMap[field];
     if (!fieldInfo) {
-      Alert.alert('Thông báo', 'Không thể chỉnh sửa trường này');
+      showAlert({ title: 'Thông báo', message: 'Không thể chỉnh sửa trường này', icon: 'info' });
       return;
     }
 
     // Email không thể edit
     if (field === 'Email') {
-      Alert.alert('Thông báo', 'Email được quản lý bởi Clerk, không thể chỉnh sửa tại đây');
+      showAlert({ title: 'Thông báo', message: 'Email được quản lý bởi Clerk, không thể chỉnh sửa tại đây', icon: 'info' });
       return;
     }
 
@@ -512,6 +519,36 @@ export default function AccountSettingsScreen() {
     } else {
       setSelectedDate(null);
     }
+
+    // Khi mở modal Địa chỉ: load lat/lng từ local (tránh nặng DB)
+    if (fieldInfo.key === 'address') {
+      try {
+        const stored = await SecureStore.getItemAsync(USER_LOCATION_STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored) as { latitude?: string; longitude?: string };
+          if (parsed.latitude && parsed.longitude) {
+            setLatitude(parsed.latitude);
+            setLongitude(parsed.longitude);
+            return;
+          }
+        }
+      } catch (_e) {
+        /* ignore */
+      }
+      setLatitude('');
+      setLongitude('');
+    }
+  };
+
+  const saveLocationToLocal = async (lat: string, lng: string) => {
+    try {
+      await SecureStore.setItemAsync(
+        USER_LOCATION_STORAGE_KEY,
+        JSON.stringify({ latitude: lat, longitude: lng })
+      );
+    } catch (_e) {
+      /* ignore */
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -519,36 +556,36 @@ export default function AccountSettingsScreen() {
 
     if (editingField.isDate) {
       if (!selectedDate) {
-        Alert.alert('Lỗi', 'Vui lòng chọn ngày sinh');
+        showAlert({ title: 'Lỗi', message: 'Vui lòng chọn ngày sinh', icon: 'error' });
         return;
       }
       const dateCheck = validateDateOfBirth(selectedDate);
       if (!dateCheck.valid) {
-        Alert.alert('Lỗi', dateCheck.message ?? 'Ngày sinh không hợp lệ');
+        showAlert({ title: 'Lỗi', message: dateCheck.message ?? 'Ngày sinh không hợp lệ', icon: 'error' });
         return;
       }
     } else {
       const raw = editValue.trim();
       if (!raw) {
-        Alert.alert('Lỗi', 'Vui lòng nhập giá trị');
+        showAlert({ title: 'Lỗi', message: 'Vui lòng nhập giá trị', icon: 'error' });
         return;
       }
       if (editingField.key === 'phoneNumber') {
         const check = validatePhoneVN(raw);
         if (!check.valid) {
-          Alert.alert('Lỗi', check.message ?? 'Số điện thoại không hợp lệ');
+          showAlert({ title: 'Lỗi', message: check.message ?? 'Số điện thoại không hợp lệ', icon: 'error' });
           return;
         }
       } else if (editingField.key === 'fullName') {
         const check = validateFullName(raw);
         if (!check.valid) {
-          Alert.alert('Lỗi', check.message ?? 'Họ tên không hợp lệ');
+          showAlert({ title: 'Lỗi', message: check.message ?? 'Họ tên không hợp lệ', icon: 'error' });
           return;
         }
       } else if (editingField.key === 'occupation') {
         const check = validateOccupation(raw);
         if (!check.valid) {
-          Alert.alert('Lỗi', check.message ?? 'Nghề nghiệp không hợp lệ');
+          showAlert({ title: 'Lỗi', message: check.message ?? 'Nghề nghiệp không hợp lệ', icon: 'error' });
           return;
         }
       }
@@ -574,49 +611,51 @@ export default function AccountSettingsScreen() {
 
       await updateUserProfile(updateData);
       await refreshUserData();
+      // Lưu tọa độ local (chỉ address, không đẩy lat/lng lên DB)
+      if (editingField.key === 'address' && latitude.trim() && longitude.trim()) {
+        await saveLocationToLocal(latitude.trim(), longitude.trim());
+      }
       setEditingField(null);
       setEditValue('');
       setSelectedDate(null);
       setPickerView('day');
       setLatitude('');
       setLongitude('');
-      Alert.alert('Thành công', 'Đã cập nhật thông tin');
+      showAlert({ title: 'Thành công', message: 'Đã cập nhật thông tin', icon: 'check-circle' });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Không thể cập nhật thông tin';
-      Alert.alert('Lỗi', errorMessage);
+      showAlert({ title: 'Lỗi', message: errorMessage, icon: 'error' });
     } finally {
       setUpdating(false);
     }
   };
 
   const handleDeleteAllData = () => {
-    Alert.alert(
-      'Xóa tất cả dữ liệu',
-      'Bạn có chắc chắn muốn xóa toàn bộ giao dịch và cài đặt? Hành động này không thể hoàn tác.',
-      [
-        {
-          text: 'Hủy',
-          style: 'cancel',
-        },
+    showAlert({
+      title: 'Xóa tất cả dữ liệu',
+      message: 'Bạn có chắc chắn muốn xóa toàn bộ giao dịch và cài đặt? Hành động này không thể hoàn tác.',
+      icon: 'warning',
+      buttons: [
+        { text: 'Hủy', style: 'cancel' },
         {
           text: 'Xóa',
-          style: 'destructive',
+          style: 'danger',
           onPress: async () => {
             try {
               setUpdating(true);
               await deleteUserData();
               await refreshUserData();
-              Alert.alert('Thành công', 'Đã xóa tất cả dữ liệu');
+              showAlert({ title: 'Thành công', message: 'Đã xóa tất cả dữ liệu', icon: 'check-circle' });
             } catch (err) {
               const errorMessage = err instanceof Error ? err.message : 'Không thể xóa dữ liệu';
-              Alert.alert('Lỗi', errorMessage);
+              showAlert({ title: 'Lỗi', message: errorMessage, icon: 'error' });
             } finally {
               setUpdating(false);
             }
           },
         },
-      ]
-    );
+      ],
+    });
   };
 
   // Lấy vị trí hiện tại - logic y chang QuanLySinhVien
@@ -625,38 +664,51 @@ export default function AccountSettingsScreen() {
       setLocationLoading(true);
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Quyền bị từ chối', 'Cần quyền truy cập vị trí để lấy tọa độ.');
+        showAlert({ title: 'Quyền bị từ chối', message: 'Cần quyền truy cập vị trí để lấy tọa độ.', icon: 'warning' });
         return;
       }
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      setLatitude(loc.coords.latitude.toFixed(6));
-      setLongitude(loc.coords.longitude.toFixed(6));
+      const lat = loc.coords.latitude.toFixed(6);
+      const lng = loc.coords.longitude.toFixed(6);
+      setLatitude(lat);
+      setLongitude(lng);
+      await saveLocationToLocal(lat, lng);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Vui lòng thử lại';
-      Alert.alert('Lỗi', 'Không thể lấy vị trí: ' + msg);
+      showAlert({ title: 'Lỗi', message: 'Không thể lấy vị trí: ' + msg, icon: 'error' });
     } finally {
       setLocationLoading(false);
     }
   };
 
+  const handleCheckChemistry = () => {
+    const normalized = chemistryAnswer.trim().replace(/,/g, '.');
+    const num = parseFloat(normalized);
+    // Đáp án: 56 (CaCO3 → CaO: 100g → 56g)
+    if (!isNaN(num) && Math.round(num) === 56) {
+      setShowChemistryModal(false);
+      setChemistryAnswer('');
+      setShowDangerButtons(true);
+    } else {
+      showAlert({ title: 'Sai', message: 'Đáp án không đúng. Vui lòng thử lại.', icon: 'error' });
+    }
+  };
+
   const handleDeleteAccount = () => {
-    Alert.alert(
-      'Xóa tài khoản',
-      'Bạn có chắc chắn muốn xóa vĩnh viễn tài khoản của bạn? Hành động này không thể hoàn tác.',
-      [
-        {
-          text: 'Hủy',
-          style: 'cancel',
-        },
+    showAlert({
+      title: 'Xóa tài khoản',
+      message: 'Bạn có chắc chắn muốn xóa vĩnh viễn tài khoản của bạn? Hành động này không thể hoàn tác.',
+      icon: 'warning',
+      buttons: [
+        { text: 'Hủy', style: 'cancel' },
         {
           text: 'Xóa tài khoản',
-          style: 'destructive',
+          style: 'danger',
           onPress: async () => {
             try {
               setUpdating(true);
               await deleteUserAccount();
-              Alert.alert('Thành công', 'Tài khoản đã được xóa. Bạn sẽ được đăng xuất.');
-              // Sign out và redirect về login
+              showAlert({ title: 'Thành công', message: 'Tài khoản đã được xóa. Bạn sẽ được đăng xuất.', icon: 'check-circle' });
               await signOut();
               router.replace({
                 pathname: '/(auth)/sign-in',
@@ -664,13 +716,13 @@ export default function AccountSettingsScreen() {
               } as any);
             } catch (err) {
               const errorMessage = err instanceof Error ? err.message : 'Không thể xóa tài khoản';
-              Alert.alert('Lỗi', errorMessage);
+              showAlert({ title: 'Lỗi', message: errorMessage, icon: 'error' });
               setUpdating(false);
             }
           },
         },
-      ]
-    );
+      ],
+    });
   };
 
   const accountInfoItems = [
@@ -829,10 +881,10 @@ export default function AccountSettingsScreen() {
           <View
             style={[
               styles.accountSettingsInfoContainer,
-              isLight && {
-                backgroundColor: themeColors.card,
+              {
+                backgroundColor: GlassCardColors.bg,
                 borderWidth: 1,
-                borderColor: themeColors.border,
+                borderColor: GlassCardColors.border,
               },
             ]}>
             {accountInfoItems.map((item) => (
@@ -886,52 +938,72 @@ export default function AccountSettingsScreen() {
           <View
             style={[
               styles.accountSettingsDangerZone,
-              isLight && {
-                backgroundColor: themeColors.card,
+              {
+                backgroundColor: GlassCardColors.bg,
                 borderWidth: 1,
-                borderColor: themeColors.border,
+                borderColor: GlassCardColors.border,
               },
             ]}>
             <TouchableOpacity
-              style={[
-                styles.accountSettingsDangerItem,
-                isLight && { borderBottomColor: themeColors.border },
-              ]}
+              style={styles.accountSettingsDangerItem}
               activeOpacity={0.7}
-              onPress={handleDeleteAllData}
-              disabled={updating}>
+              onPress={() => setShowChemistryModal(true)}>
               <View style={styles.accountSettingsDangerContent}>
-                <Text style={styles.accountSettingsDangerLabel}>Xóa tất cả dữ liệu</Text>
+                <Text style={[styles.accountSettingsDangerLabel, { color: themeColors.text }]}>Nguy hiểm</Text>
                 <Text
                   style={[
                     styles.accountSettingsDangerDescription,
                     { color: themeColors.textSecondary },
                   ]}>
-                  Xóa toàn bộ giao dịch và cài đặt
+                  Xác thực để mở khóa các thao tác không thể hoàn tác
                 </Text>
               </View>
               <MaterialIcons name="chevron-right" size={24} color="#FB2C36" />
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.accountSettingsDangerItem,
-                isLight && { borderBottomColor: themeColors.border },
-              ]}
-              activeOpacity={0.7}
-              onPress={handleDeleteAccount}
-              disabled={updating}>
-              <View style={styles.accountSettingsDangerContent}>
-                <Text style={styles.accountSettingsDangerLabel}>Xóa tài khoản</Text>
-                <Text
+            {showDangerButtons && (
+              <>
+                <TouchableOpacity
                   style={[
-                    styles.accountSettingsDangerDescription,
-                    { color: themeColors.textSecondary },
-                  ]}>
-                  Xóa vĩnh viễn tài khoản của bạn
-                </Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={24} color="#FB2C36" />
-            </TouchableOpacity>
+                    styles.accountSettingsDangerItem,
+                    isLight && { borderBottomColor: themeColors.border },
+                  ]}
+                  activeOpacity={0.7}
+                  onPress={handleDeleteAllData}
+                  disabled={updating}>
+                  <View style={styles.accountSettingsDangerContent}>
+                    <Text style={styles.accountSettingsDangerLabel}>Xóa tất cả dữ liệu</Text>
+                    <Text
+                      style={[
+                        styles.accountSettingsDangerDescription,
+                        { color: themeColors.textSecondary },
+                      ]}>
+                      Xóa toàn bộ giao dịch và cài đặt
+                    </Text>
+                  </View>
+                  <MaterialIcons name="chevron-right" size={24} color="#FB2C36" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.accountSettingsDangerItem,
+                    isLight && { borderBottomColor: themeColors.border },
+                  ]}
+                  activeOpacity={0.7}
+                  onPress={handleDeleteAccount}
+                  disabled={updating}>
+                  <View style={styles.accountSettingsDangerContent}>
+                    <Text style={styles.accountSettingsDangerLabel}>Xóa tài khoản</Text>
+                    <Text
+                      style={[
+                        styles.accountSettingsDangerDescription,
+                        { color: themeColors.textSecondary },
+                      ]}>
+                      Xóa vĩnh viễn tài khoản của bạn
+                    </Text>
+                  </View>
+                  <MaterialIcons name="chevron-right" size={24} color="#FB2C36" />
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
 
@@ -1214,6 +1286,101 @@ export default function AccountSettingsScreen() {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* Chemistry verification modal */}
+      <Modal
+        visible={showChemistryModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowChemistryModal(false);
+          setChemistryAnswer('');
+        }}>
+        <TouchableOpacity
+          activeOpacity={1}
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 20,
+          }}
+          onPress={() => {
+            setShowChemistryModal(false);
+            setChemistryAnswer('');
+          }}>
+          <TouchableOpacity
+            activeOpacity={1}
+            style={{
+              backgroundColor: isLight ? themeColors.card : '#1F2937',
+              borderRadius: 16,
+              padding: 24,
+              width: '100%',
+              maxWidth: 400,
+              borderWidth: 1,
+              borderColor: themeColors.border,
+            }}
+            onPress={(e) => e.stopPropagation()}>
+            <Text
+              style={{
+                color: themeColors.text,
+                fontSize: 18,
+                fontWeight: '700',
+                marginBottom: 16,
+              }}>
+              Xác thực hóa học
+            </Text>
+            <Text
+              style={{
+                color: themeColors.textSecondary,
+                fontSize: 14,
+                lineHeight: 22,
+                marginBottom: 16,
+              }}>
+              CaCO₃ → CaO + CO₂ (nhiệt độ cao){'\n'}
+              Nhiệt phân hoàn toàn 100g CaCO₃. Tính khối lượng CaO thu được? (Đáp án: số nguyên gam)
+            </Text>
+            <TextInput
+              style={{
+                backgroundColor: isLight ? themeColors.background : '#374151',
+                borderRadius: 8,
+                padding: 14,
+                color: themeColors.text,
+                fontSize: 16,
+                marginBottom: 16,
+                borderWidth: isLight ? 1 : 0,
+                borderColor: isLight ? themeColors.border : 'transparent',
+              }}
+              placeholder="Nhập đáp án (gam)"
+              placeholderTextColor={themeColors.textSecondary}
+              value={chemistryAnswer}
+              onChangeText={setChemistryAnswer}
+              keyboardType="numeric"
+              autoFocus
+            />
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12 }}>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowChemistryModal(false);
+                  setChemistryAnswer('');
+                }}
+                style={{ paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}>
+                <Text style={{ color: themeColors.textSecondary, fontSize: 16 }}>Hủy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleCheckChemistry}
+                style={{
+                  backgroundColor: themeColors.tint,
+                  paddingHorizontal: 20,
+                  paddingVertical: 10,
+                  borderRadius: 8,
+                }}>
+                <Text style={{ color: textOnTint, fontSize: 16, fontWeight: '600' }}>Kiểm tra</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </SafeAreaView>
   );

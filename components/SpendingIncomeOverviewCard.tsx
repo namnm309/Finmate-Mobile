@@ -157,7 +157,7 @@ export const SpendingIncomeOverviewCard: React.FC<SpendingIncomeOverviewCardProp
   }));
 
   return (
-    <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }, lightCardSurface]}>
+    <View style={[styles.card, styles.darkCard, { backgroundColor: resolvedTheme === 'dark' ? 'rgba(34, 197, 94, 0.06)' : themeColors.card, borderWidth: resolvedTheme === 'dark' ? 1 : 0, borderColor: 'rgba(34, 197, 94, 0.12)' }, lightCardSurface]}>
       <View style={styles.overviewHeader}>
         <Text style={[styles.overviewTitle, { color: themeColors.text }]}>Tình hình thu chi</Text>
         <View style={styles.overviewActions}>
@@ -175,22 +175,18 @@ export const SpendingIncomeOverviewCard: React.FC<SpendingIncomeOverviewCardProp
       <View style={{ position: 'relative' }}>
         <>
           {/* Summary Stats */}
-          <View style={styles.summaryStats}>
-            <View style={styles.summaryStat}>
-              <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Thu</Text>
-              <Text style={[styles.summaryValue, styles.incomeValue]}>
-                {formatCurrency(totalIncome)}
-              </Text>
+          <View style={[styles.summaryStats, { flexWrap: 'nowrap' }]}>
+            <View style={[styles.summaryStat, { minWidth: 0, flex: 1 }]}>
+              <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]} numberOfLines={1}>Thu</Text>
+              <Text style={[styles.summaryValue, styles.incomeValue]} numberOfLines={1} ellipsizeMode="tail">{formatCurrency(totalIncome)}</Text>
             </View>
-            <View style={[styles.summaryStat, { alignItems: 'center' }]}>
-              <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Chi</Text>
-              <Text style={[styles.summaryValue, styles.expenseValue]}>
-                {formatCurrency(totalExpense)}
-              </Text>
+            <View style={[styles.summaryStat, { alignItems: 'center', minWidth: 0, flex: 1 }]}>
+              <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]} numberOfLines={1}>Chi</Text>
+              <Text style={[styles.summaryValue, styles.expenseValue]} numberOfLines={1} ellipsizeMode="tail">{formatCurrency(totalExpense)}</Text>
             </View>
-            <View style={[styles.summaryStat, { alignItems: 'flex-end' }]}>
-              <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Chênh lệch</Text>
-              <Text style={[styles.summaryValue, styles.differenceValue, { color: themeColors.text }]}>
+            <View style={[styles.summaryStat, { alignItems: 'flex-end', minWidth: 0, flex: 1 }]}>
+              <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]} numberOfLines={1}>Chênh lệch</Text>
+              <Text style={[styles.summaryValue, styles.differenceValue, { color: themeColors.text }]} numberOfLines={1} ellipsizeMode="tail">
                 {difference >= 0 ? '+' : ''}
                 {formatCurrency(difference)}
               </Text>
@@ -220,7 +216,7 @@ export const SpendingIncomeOverviewCard: React.FC<SpendingIncomeOverviewCardProp
           )}
 
           {/* Pie Chart + Legend / Empty state */}
-          <View style={styles.pieChartSection}>
+          <View style={[styles.pieChartSection, { overflow: 'hidden' }]}>
             {hasCategories ? (
               <>
                 <View style={styles.pieChartPlaceholder}>
@@ -236,19 +232,19 @@ export const SpendingIncomeOverviewCard: React.FC<SpendingIncomeOverviewCardProp
                     />
                   </Animated.View>
                 </View>
-                <View style={styles.legend}>
+                <View style={[styles.legend, { flex: 1, minWidth: 0 }]}>
                   {decoratedCategories.map((category, index) => (
-                    <View key={category.categoryId || index} style={styles.legendItem}>
+                    <View key={category.categoryId || index} style={[styles.legendItem, { minWidth: 0 }]}>
                       <View
                         style={[
                           styles.legendDot,
                           { backgroundColor: category.displayColor },
                         ]}
                       />
-                      <Text numberOfLines={1} style={[styles.legendName, { color: themeColors.text }]}>
+                      <Text numberOfLines={1} ellipsizeMode="tail" style={[styles.legendName, { color: themeColors.text, flexShrink: 1 }]}>
                         {category.categoryName}
                       </Text>
-                      <Text style={[styles.legendPercentage, { color: themeColors.textSecondary }]}>
+                      <Text numberOfLines={1} style={[styles.legendPercentage, { color: themeColors.textSecondary, flexShrink: 0 }]}>
                         {category.percentage.toFixed(2).replace('.', ',')}%
                       </Text>
                     </View>
@@ -279,7 +275,7 @@ export const SpendingIncomeOverviewCard: React.FC<SpendingIncomeOverviewCardProp
           </View>
         </>
 
-        {overviewLoading && (
+        {overviewLoading && !overviewData && (
           <View
             style={{
               position: 'absolute',
@@ -289,7 +285,7 @@ export const SpendingIncomeOverviewCard: React.FC<SpendingIncomeOverviewCardProp
               bottom: 0,
               justifyContent: 'center',
               alignItems: 'center',
-              backgroundColor: 'rgba(0,0,0,0.12)',
+              backgroundColor: 'rgba(0,0,0,0.08)',
               borderRadius: 12,
             }}>
             <ActivityIndicator size="small" color={themeColors.tint} />

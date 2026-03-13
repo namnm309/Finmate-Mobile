@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuth } from '@/hooks/use-auth';
 import { useGoalService } from '@/lib/services/goalService';
 import { goalDtoToSavingGoal } from '@/lib/utils/goalMapper';
 import type { ContributionEntry, SavingGoalData } from '@/lib/types/saving-goal';

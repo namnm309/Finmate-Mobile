@@ -11,45 +11,55 @@ import { Platform } from 'react-native';
  * - accent: #16a34a, #22c55e (green gradient)
  */
 const tintColorLight = '#16a34a';
-const tintColorDark = '#fff';
+const tintColorDark = '#22c55e';
 
-/** Màu nút primary: luôn có contrast tốt (nền đậm + chữ trắng) */
+/** Màu nút primary: luôn có contrast tốt (nền xanh + chữ trắng) */
 export const PrimaryButtonColors = {
   light: { bg: '#16a34a', text: '#FFFFFF' },
-  dark: { bg: '#2563eb', text: '#FFFFFF' },
+  dark: { bg: '#22c55e', text: '#FFFFFF' },
+};
+
+/** Glass card style - xanh lá trong suốt (apply toàn app) */
+export const GlassCardColors = {
+  bg: 'rgba(34, 197, 94, 0.1)',
+  border: 'rgba(34, 197, 94, 0.2)',
+  inner: 'rgba(34, 197, 94, 0.08)',
+  innerAlt: 'rgba(34, 197, 94, 0.12)',
 };
 
 export const Colors = {
   light: {
-    text: '#101828',
-    textSecondary: '#4a5565',
-    muted: '#6a7282',
+    text: '#0F172A',
+    textSecondary: '#475569',
+    muted: '#64748b',
     background: '#dcfce7',
     card: '#ffffff',
-    border: '#e5e7eb',
+    cardGlass: 'rgba(34, 197, 94, 0.04)',
+    border: '#e2e8f0',
     successBorder: '#22c55e',
     success2: '#22c55e',
     tint: tintColorLight,
     primaryButtonBg: PrimaryButtonColors.light.bg,
     primaryButtonText: PrimaryButtonColors.light.text,
-    icon: '#6a7282',
-    tabIconDefault: '#6a7282',
+    icon: '#475569',
+    tabIconDefault: '#64748b',
     tabIconSelected: tintColorLight,
   },
   dark: {
-    text: '#ECEDEE',
-    textSecondary: '#9BA1A6',
-    muted: '#9BA1A6',
+    text: '#F1F5F9',
+    textSecondary: '#B8BDC4',
+    muted: '#94a3b8',
     background: '#0F1729',
     card: '#1A2332',
-    border: '#2d3748',
+    cardGlass: 'rgba(34, 197, 94, 0.06)',
+    border: 'rgba(255, 255, 255, 0.1)',
     successBorder: '#22c55e',
     success2: '#22c55e',
     tint: tintColorDark,
     primaryButtonBg: PrimaryButtonColors.dark.bg,
     primaryButtonText: PrimaryButtonColors.dark.text,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
+    icon: '#94a3b8',
+    tabIconDefault: '#94a3b8',
     tabIconSelected: tintColorDark,
   },
 };

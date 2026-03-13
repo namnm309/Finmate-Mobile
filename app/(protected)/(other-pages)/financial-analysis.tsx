@@ -1,13 +1,21 @@
-import { useAIModal } from '@/contexts/ai-modal-context';
+import { AIActionButton } from '@/components/AIActionButton';
+import { useAIChatbot } from '@/contexts/ai-chatbot-context';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useReportService } from '@/lib/services/reportService';
+import { useMoneySourceService } from '@/lib/services/moneySourceService';
+import { useTransactionRefresh } from '@/contexts/transaction-refresh-context';
+import { useSavingGoal } from '@/contexts/saving-goal-context';
 import { styles } from '@/styles/index.styles';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import Svg, { Path, Circle } from 'react-native-svg';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+    ActivityIndicator,
     ScrollView,
+    StyleSheet,
     Text,
     TouchableOpacity,
     View
@@ -18,6 +26,26 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('vi-VN').format(amount) + ' ₫';
 };
+
+const CHART_W = 280;
+const CHART_H = 100;
+const PAD = { top: 8, right: 8, bottom: 20, left: 4 };
+
+const localGrowthStyles = StyleSheet.create({
+  chartWrap: { height: CHART_H + 24, marginBottom: 12 },
+  chartRow: { flexDirection: 'row', alignItems: 'flex-end' },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+    marginTop: 4,
+  },
+  label: { fontSize: 10 },
+  summary: { gap: 6 },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap' },
+  summaryLabel: { fontSize: 12, flexShrink: 0 },
+  summaryValue: { fontSize: 13, fontWeight: '600', flex: 1, textAlign: 'right', marginLeft: 8 },
+});
 
 type InsightTab = 'smart' | 'recommendations';
 
@@ -30,7 +58,7 @@ interface HealthScoreFactor {
 
 interface AIInsight {
   id: number;
-  type: 'excellent' | 'improve' | 'potential' | 'growth';
+  type: 'excellent' | 'improve' | 'potential' | 'growth' | 'info';
   title: string;
   description: string;
   icon: string;
@@ -82,132 +110,344 @@ export default function FinancialAnalysisScreen() {
   const themeColors = Colors[resolvedTheme];
   const isLight = resolvedTheme === 'light';
   const [activeTab, setActiveTab] = useState<InsightTab>('smart');
-  const { openAIModal } = useAIModal();
+  const { openChatbot } = useAIChatbot();
+  const { getOverview } = useReportService();
+  const { getGroupedMoneySources } = useMoneySourceService();
+  const { transactionRefreshTrigger } = useTransactionRefresh();
+  const { goals } = useSavingGoal();
 
-  // Mock data
-  const healthScore = 72;
+  const [loading, setLoading] = useState(true);
+  const [currentOverview, setCurrentOverview] = useState<{
+    totalIncome: number;
+    totalExpense: number;
+    difference: number;
+    categoryStats: { categoryName: string; amount: number; percentage: number; color: string }[];
+  } | null>(null);
+  const [previousOverview, setPreviousOverview] = useState<{
+    totalIncome: number;
+    totalExpense: number;
+  } | null>(null);
+  const [monthlyDiffs, setMonthlyDiffs] = useState<number[]>([]); // 6 tháng: [tháng cũ nhất .. tháng mới nhất]
+  const [totalBalance, setTotalBalance] = useState<number>(0);
+  const loadedOnceRef = useRef(false);
+  const lastFetchRef = useRef(0);
+  const THROTTLE_MS = 2000;
+
+  const getMonthRange = (offset: number) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + offset);
+    const start = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
+    const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+    return { start, end };
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      const now = Date.now();
+      if (now - lastFetchRef.current < THROTTLE_MS && loadedOnceRef.current) {
+        setLoading(false);
+        return;
+      }
+      lastFetchRef.current = now;
+      setLoading(true);
+      const curr = getMonthRange(0);
+      const prev = getMonthRange(-1);
+      const monthRanges = [0, -1, -2, -3, -4, -5].map((off) => getMonthRange(off));
+      const overviewPromises = monthRanges.map((r) => getOverview(r.start, r.end));
+      Promise.all([
+        ...overviewPromises,
+        getGroupedMoneySources(),
+      ])
+        .then((results) => {
+          if (cancelled) return;
+          const overviews = results.slice(0, 6) as { difference?: number }[];
+          const balanceRes = results[6] as { totalBalance?: number };
+          const currOv = overviews[0] as { totalIncome?: number; totalExpense?: number; difference?: number; categoryStats?: { categoryName: string; amount?: number; percentage?: number; color?: string }[] };
+          const prevOv = overviews[1] as { totalIncome?: number; totalExpense?: number };
+          const diffs = overviews.map((o) => o?.difference ?? 0);
+          setCurrentOverview({
+            totalIncome: currOv?.totalIncome ?? 0,
+            totalExpense: currOv?.totalExpense ?? 0,
+            difference: currOv?.difference ?? 0,
+            categoryStats: (currOv?.categoryStats ?? []).map((s) => ({
+              categoryName: s.categoryName,
+              amount: s.amount ?? 0,
+              percentage: s.percentage ?? 0,
+              color: s.color ?? '#51A2FF',
+            })),
+          });
+          setPreviousOverview({
+            totalIncome: prevOv?.totalIncome ?? 0,
+            totalExpense: prevOv?.totalExpense ?? 0,
+          });
+          setMonthlyDiffs(diffs);
+          setTotalBalance(balanceRes?.totalBalance ?? 0);
+          loadedOnceRef.current = true;
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setCurrentOverview(null);
+            setPreviousOverview(null);
+            setMonthlyDiffs([]);
+            setTotalBalance(0);
+            loadedOnceRef.current = true;
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+      return () => { cancelled = true; };
+    }, [getOverview, getGroupedMoneySources])
+  );
+
+  useEffect(() => {
+    if (transactionRefreshTrigger <= 0) return;
+    lastFetchRef.current = 0;
+    loadedOnceRef.current = false;
+    const monthRanges = [0, -1, -2, -3, -4, -5].map((off) => getMonthRange(off));
+    Promise.all([
+      ...monthRanges.map((r) => getOverview(r.start, r.end)),
+      getGroupedMoneySources(),
+    ])
+      .then((results) => {
+        const overviews = results.slice(0, 6) as { totalIncome?: number; totalExpense?: number; difference?: number; categoryStats?: { categoryName: string; amount?: number; percentage?: number; color?: string }[] }[];
+        const currOv = overviews[0];
+        const prevOv = overviews[1];
+        const balanceRes = results[6] as { totalBalance?: number };
+        const diffs = overviews.map((o) => o?.difference ?? 0);
+        setCurrentOverview({
+          totalIncome: currOv?.totalIncome ?? 0,
+          totalExpense: currOv?.totalExpense ?? 0,
+          difference: currOv?.difference ?? 0,
+          categoryStats: (currOv?.categoryStats ?? []).map((s: { categoryName: string; amount?: number; percentage?: number; color?: string }) => ({
+            categoryName: s.categoryName,
+            amount: s.amount ?? 0,
+            percentage: s.percentage ?? 0,
+            color: s.color ?? '#51A2FF',
+          })),
+        });
+        setPreviousOverview({
+          totalIncome: prevOv?.totalIncome ?? 0,
+          totalExpense: prevOv?.totalExpense ?? 0,
+        });
+        setMonthlyDiffs(diffs);
+        setTotalBalance(balanceRes?.totalBalance ?? 0);
+      })
+      .catch(() => {});
+  }, [transactionRefreshTrigger, getOverview, getGroupedMoneySources]);
+
+  const totalIncome = currentOverview?.totalIncome ?? 0;
+  const totalExpense = currentOverview?.totalExpense ?? 0;
+  const prevIncome = previousOverview?.totalIncome ?? 0;
+  const prevExpense = previousOverview?.totalExpense ?? 0;
+  const diff = currentOverview?.difference ?? 0;
+  const savingsRate = totalIncome > 0 ? Math.round(((totalIncome - totalExpense) / totalIncome) * 1000) / 10 : 0;
+  const prevSavingsRate = prevIncome > 0 ? Math.round(((prevIncome - prevExpense) / prevIncome) * 1000) / 10 : 0;
+  const expenseChange = prevExpense > 0 ? Math.round(((totalExpense - prevExpense) / prevExpense) * 100) : 0;
+  const avgMonthlyExpense = totalExpense > 0 ? totalExpense : Math.max(1, prevExpense);
+  const emergencyMonths = avgMonthlyExpense > 0 ? Math.floor(totalBalance / avgMonthlyExpense) : 0;
+
+  const savingsScore = Math.min(100, Math.max(0, Math.round(savingsRate)));
+  const expenseScore = expenseChange <= 0 ? 80 : expenseChange <= 20 ? 60 : Math.max(20, 80 - expenseChange);
+  const emergencyScore = emergencyMonths >= 6 ? 95 : emergencyMonths >= 3 ? 70 : Math.min(60, emergencyMonths * 20);
+
+  const healthScore = Math.round(
+    (savingsScore + 70 + expenseScore + emergencyScore) / 4
+  );
   const healthScoreFactors: HealthScoreFactor[] = [
-    { name: 'Tỷ lệ tiết kiệm', score: 80, maxScore: 100, color: '#10B981' },
+    { name: 'Tỷ lệ tiết kiệm', score: savingsScore, maxScore: 100, color: '#10B981' },
     { name: 'Quản lý nợ', score: 70, maxScore: 100, color: '#51A2FF' },
-    { name: 'Duy trì chi tiêu', score: 60, maxScore: 100, color: '#FF6900' },
-    { name: 'Dự phòng', score: 95, maxScore: 100, color: '#A78BFA' }
+    { name: 'Duy trì chi tiêu', score: expenseScore, maxScore: 100, color: '#FF6900' },
+    { name: 'Dự phòng', score: emergencyScore, maxScore: 100, color: '#A78BFA' },
   ];
 
-  const aiInsights: AIInsight[] = [
-    {
-      id: 1,
-      type: 'excellent',
-      title: 'Tuyệt vời',
-      description: 'Tỷ lệ tiết kiệm 35.4% của bạn cao hơn 75% người dùng khác.',
-      icon: 'trending-up',
-      color: '#10B981'
-    },
-    {
-      id: 2,
-      type: 'improve',
-      title: 'Cần cải thiện',
-      description: 'Quỹ khẩn cấp chỉ đủ chi tiêu 3 tháng. Mục tiêu cần đạt là 6 tháng.',
-      icon: 'trending-up',
-      color: '#FF6900'
-    },
-    {
-      id: 3,
-      type: 'potential',
-      title: 'Tiềm năng',
-      description: 'Nếu giảm 15% chi tiêu không cần thiết, bạn có thể tiết kiệm thêm 1.5M triệu/tháng.',
-      icon: 'star',
-      color: '#FBBF24'
-    },
-    {
-      id: 4,
-      type: 'growth',
-      title: 'Tăng trưởng tốt',
-      description: 'Tài sản ròng tăng 8.9% so với tháng trước, vượt mục tiêu 5%.',
-      icon: 'trending-up',
-      color: '#10B981'
+  const aiInsights: AIInsight[] = useMemo(() => {
+    const list: AIInsight[] = [];
+    let id = 1;
+    if (savingsRate >= 20) {
+      list.push({
+        id: id++,
+        type: 'excellent',
+        title: 'Tuyệt vời',
+        description: `Tỷ lệ tiết kiệm ${savingsRate}% của bạn ở mức tốt. Tiếp tục duy trì!`,
+        icon: 'trending-up',
+        color: '#10B981',
+      });
+    } else if (totalIncome > 0) {
+      list.push({
+        id: id++,
+        type: 'improve',
+        title: 'Cần cải thiện',
+        description: `Tỷ lệ tiết kiệm hiện tại ${savingsRate}%. Nên đặt mục tiêu ít nhất 20%.`,
+        icon: 'trending-up',
+        color: '#FF6900',
+      });
     }
-  ];
-
-  const financialMetrics: FinancialMetric[] = [
-    {
-      id: 1,
-      label: 'Tỷ lệ tiết kiệm',
-      value: '35.4%',
-      change: '+2.5% so với tháng trước',
-      changeColor: '#10B981',
-      icon: 'account-balance-wallet',
-      iconColor: '#10B981'
-    },
-    {
-      id: 2,
-      label: 'Tài sản ròng',
-      value: formatCurrency(24815000),
-      change: '+4.7%',
-      changeColor: '#10B981',
-      icon: 'attach-money',
-      iconColor: '#51A2FF'
-    },
-    {
-      id: 3,
-      label: 'Thu nhập ròng',
-      value: formatCurrency(19200000),
-      icon: 'trending-up',
-      iconColor: '#FF6900'
-    },
-    {
-      id: 4,
-      label: 'Chi tiêu ròng',
-      value: formatCurrency(18000000),
-      subtitle: '5 tháng chi phí',
-      icon: 'trending-down',
-      iconColor: '#EF4444'
+    if (emergencyMonths < 6 && avgMonthlyExpense > 0) {
+      list.push({
+        id: id++,
+        type: 'improve',
+        title: 'Quỹ khẩn cấp',
+        description: `Quỹ khẩn cấp đủ chi tiêu khoảng ${emergencyMonths} tháng. Mục tiêu nên đạt 6 tháng.`,
+        icon: 'warning',
+        color: '#FF6900',
+      });
     }
-  ];
+    if (expenseChange > 10 && prevExpense > 0) {
+      list.push({
+        id: id++,
+        type: 'potential',
+        title: 'Tiết chế chi tiêu',
+        description: `Chi tiêu tăng ${expenseChange}% so với tháng trước. Cân nhắc cắt giảm chi tiêu không cần thiết.`,
+        icon: 'shopping-cart',
+        color: '#FBBF24',
+      });
+    }
+    if (diff > 0 && prevIncome > 0) {
+      list.push({
+        id: id++,
+        type: 'growth',
+        title: 'Thu nhập dương',
+        description: `Thu nhập vượt chi tiêu ${formatCurrency(diff)} tháng này. Tiếp tục phát huy!`,
+        icon: 'trending-up',
+        color: '#10B981',
+      });
+    }
+    if (list.length === 0) {
+      list.push({
+        id: 1,
+        type: 'info',
+        title: 'Chưa có dữ liệu',
+        description: 'Thêm giao dịch thu/chi để AI đưa ra nhận xét và khuyến nghị.',
+        icon: 'info',
+        color: '#51A2FF',
+      });
+    }
+    return list;
+  }, [savingsRate, emergencyMonths, avgMonthlyExpense, expenseChange, prevExpense, diff, prevIncome]);
 
-  const growthData = [18500000, 20000000, 21500000, 23000000, 24000000, 24815000];
-  const growthLabels = ['1s', '16', '17', '18', '19', 'T10'];
-  const maxGrowthValue = Math.max(...growthData);
-  const growthChange = 24.1;
-  const growthAmount = 6315000;
+  const financialMetrics: FinancialMetric[] = useMemo(() => {
+    const changeStr =
+      prevSavingsRate > 0
+        ? `${savingsRate >= prevSavingsRate ? '+' : ''}${(savingsRate - prevSavingsRate).toFixed(1)}% so với tháng trước`
+        : undefined;
+    return [
+      {
+        id: 1,
+        label: 'Tỷ lệ tiết kiệm',
+        value: `${savingsRate}%`,
+        change: changeStr,
+        changeColor: savingsRate >= prevSavingsRate ? '#10B981' : '#EF4444',
+        icon: 'account-balance-wallet',
+        iconColor: '#10B981',
+      },
+      {
+        id: 2,
+        label: 'Tài sản',
+        value: formatCurrency(totalBalance),
+        icon: 'attach-money',
+        iconColor: '#51A2FF',
+      },
+      {
+        id: 3,
+        label: 'Thu nhập tháng',
+        value: formatCurrency(totalIncome),
+        icon: 'trending-up',
+        iconColor: '#FF6900',
+      },
+      {
+        id: 4,
+        label: 'Chi tiêu tháng',
+        value: formatCurrency(totalExpense),
+        subtitle: emergencyMonths > 0 ? `Quỹ đủ ~${emergencyMonths} tháng` : undefined,
+        icon: 'trending-down',
+        iconColor: '#EF4444',
+      },
+    ];
+  }, [savingsRate, prevSavingsRate, totalBalance, totalIncome, totalExpense, emergencyMonths]);
 
-  const goalProgresses: GoalProgress[] = [
-    { id: 1, name: 'Quỹ khẩn cấp', current: 15000000, target: 20000000, progress: 80, color: '#51A2FF' },
-    { id: 2, name: 'Mua nhà (giao dịch)', current: 50000000, target: 200000000, progress: 24, color: '#51A2FF' },
-    { id: 3, name: 'Dự trữ năm sau', current: 10000000, target: 10000000, progress: 100, color: '#10B981' }
-  ];
+  const growthData = useMemo(() => {
+    if (monthlyDiffs.length !== 6) return totalBalance > 0 ? [totalBalance] : [0];
+    let balance = totalBalance;
+    const out: number[] = [];
+    for (let i = 5; i >= 0; i--) {
+      out.unshift(Math.max(0, Math.round(balance)));
+      if (i > 0) balance -= monthlyDiffs[5 - i];
+    }
+    return out;
+  }, [totalBalance, monthlyDiffs]);
+  const growthLabels = useMemo(() => {
+    const d = new Date();
+    return Array.from({ length: 6 }, (_, i) => {
+      const m = new Date(d.getFullYear(), d.getMonth() - 5 + i, 1);
+      return 'T' + (m.getMonth() + 1);
+    });
+  }, []);
+  const maxGrowthValue = Math.max(...growthData, 1);
+  const growthChange = prevExpense > 0 && totalExpense > 0
+    ? Math.round(((totalExpense - prevExpense) / prevExpense) * 100)
+    : 0;
+  const growthAmount = Math.abs(diff);
 
-  const aiRecommendations: AIRecommendation[] = [
-    {
-      id: 1,
-      title: 'Tăng quỹ khẩn cấp',
-      description: 'Quỹ khẩn cấp hiện tại chỉ đủ 3 tháng. Khuyến nghị tăng lên 6 tháng để đảm bảo an toàn tài chính.',
-      action: 'Tiết kiệm thêm 5 triệu trong 3 tháng tới',
-      icon: 'error',
-      iconColor: '#EF4444',
-      buttonText: 'Tìm hiểu thêm',
-      buttonColor: '#FF6900'
-    },
-    {
-      id: 2,
-      title: 'Bắt đầu đầu tư',
-      description: 'Với tỷ lệ tiết kiệm 35.4%, bạn có thể bắt đầu đầu tư để tăng trưởng tài sản.',
-      action: 'Xem các kênh đầu tư phù hợp',
-      icon: 'attach-money',
-      iconColor: '#FBBF24',
-      buttonText: 'Tìm hiểu thêm',
-      buttonColor: '#FF6900'
-    },
-    {
-      id: 3,
-      title: 'Tiết chế chi tiêu',
-      description: 'Chi tiêu shopping tăng 28% so với tháng trước. Cần kiểm soát tốt hơn.',
-      action: 'Áp dụng quy tắc 24 giờ trước khi mua',
-      icon: 'shopping-cart',
-      iconColor: '#FF6900',
-      buttonText: 'Tìm hiểu thêm',
-      buttonColor: '#FF6900'
-    },
-    {
+  const goalProgresses: GoalProgress[] = useMemo(
+    () =>
+      goals.map((g, i) => {
+        const pct = g.targetAmount > 0
+          ? Math.min(100, Math.round((g.currentAmount / g.targetAmount) * 100))
+          : 0;
+        const colors = ['#51A2FF', '#10B981', '#A78BFA'];
+        return {
+          id: i + 1,
+          name: g.title,
+          current: g.currentAmount,
+          target: g.targetAmount,
+          progress: pct,
+          color: colors[i % colors.length],
+        };
+      }),
+    [goals]
+  );
+
+  const aiRecommendations: AIRecommendation[] = useMemo(() => {
+    const list: AIRecommendation[] = [];
+    if (emergencyMonths < 6 && avgMonthlyExpense > 0) {
+      list.push({
+        id: 1,
+        title: 'Tăng quỹ khẩn cấp',
+        description: `Quỹ khẩn cấp hiện đủ ~${emergencyMonths} tháng. Khuyến nghị đạt 6 tháng để an toàn tài chính.`,
+        action: `Tiết kiệm thêm để đạt ~${formatCurrency(avgMonthlyExpense * Math.max(0, 6 - emergencyMonths))}`,
+        icon: 'error',
+        iconColor: '#EF4444',
+        buttonText: 'Tìm hiểu thêm',
+        buttonColor: '#FF6900',
+      });
+    }
+    if (savingsRate >= 20) {
+      list.push({
+        id: 2,
+        title: 'Bắt đầu đầu tư',
+        description: `Với tỷ lệ tiết kiệm ${savingsRate}%, bạn có thể cân nhắc đầu tư để tăng trưởng.`,
+        action: 'Xem các kênh đầu tư phù hợp',
+        icon: 'attach-money',
+        iconColor: '#FBBF24',
+        buttonText: 'Tìm hiểu thêm',
+        buttonColor: '#FF6900',
+      });
+    }
+    if (expenseChange > 15 && prevExpense > 0) {
+      list.push({
+        id: 3,
+        title: 'Tiết chế chi tiêu',
+        description: `Chi tiêu tăng ${expenseChange}% so tháng trước. Cân nhắc áp dụng quy tắc 24h trước khi mua.`,
+        action: 'Áp dụng quy tắc 24 giờ trước khi mua',
+        icon: 'shopping-cart',
+        iconColor: '#FF6900',
+        buttonText: 'Tìm hiểu thêm',
+        buttonColor: '#FF6900',
+      });
+    }
+    list.push({
       id: 4,
       title: 'Tự động hóa tiết kiệm',
       description: 'Thiết lập chuyển tiền tự động vào tài khoản tiết kiệm mỗi tháng.',
@@ -215,36 +455,43 @@ export default function FinancialAnalysisScreen() {
       icon: 'schedule',
       iconColor: '#10B981',
       buttonText: 'Thiết lập',
-      buttonColor: '#10B981'
-    }
-  ];
+      buttonColor: '#10B981',
+    });
+    return list;
+  }, [emergencyMonths, avgMonthlyExpense, savingsRate, expenseChange, prevExpense]);
 
-  const aiPredictions: AIPrediction[] = [
-    {
-      id: 1,
-      label: 'Tài sản ròng sau 6 tháng',
-      value: formatCurrency(28500000),
-      change: '+8%',
-      confidence: 95
-    },
-    {
-      id: 2,
-      label: 'Tổng tiết kiệm sau 1 năm',
-      value: formatCurrency(81600000),
-      change: '+12%',
-      confidence: 70
-    },
-    {
-      id: 3,
-      label: 'Thời gian đạt quỹ khẩn cấp',
-      value: '6 tháng',
-      confidence: 90
-    }
-  ];
+  const aiPredictions: AIPrediction[] = useMemo(() => {
+    const projected6m = totalBalance + Math.max(0, diff) * 6;
+    const emergencyMonthsGoal = 6;
+    const monthsToEmergency = avgMonthlyExpense > 0 && totalBalance < avgMonthlyExpense * 6
+      ? Math.ceil((avgMonthlyExpense * emergencyMonthsGoal - totalBalance) / Math.max(1, Math.max(0, diff)))
+      : 0;
+    return [
+      {
+        id: 1,
+        label: 'Tài sản ước tính sau 6 tháng',
+        value: formatCurrency(Math.round(projected6m)),
+        change: diff > 0 ? `+${formatCurrency(diff)}/tháng` : undefined,
+        confidence: 70,
+      },
+      {
+        id: 2,
+        label: 'Tổng tài sản hiện tại',
+        value: formatCurrency(totalBalance),
+        confidence: 95,
+      },
+      {
+        id: 3,
+        label: emergencyMonths >= 6 ? 'Đã đạt quỹ khẩn cấp 6 tháng' : 'Thời gian đạt quỹ 6 tháng',
+        value: emergencyMonths >= 6 ? 'Đạt' : monthsToEmergency > 0 ? `~${monthsToEmergency} tháng` : 'Hỏi AI',
+        confidence: emergencyMonths >= 6 ? 100 : 75,
+      },
+    ];
+  }, [totalBalance, diff, avgMonthlyExpense, emergencyMonths]);
 
   const handleLearnMore = (rec: AIRecommendation) => {
     const prompt = `Hãy giải thích chi tiết về "${rec.title}". Mô tả: ${rec.description}. Hành động đề xuất: ${rec.action}.`;
-    openAIModal(prompt, true);
+    openChatbot({ initialMessage: prompt, autoSend: true });
   };
 
   const handleBack = () => {
@@ -256,6 +503,11 @@ export default function FinancialAnalysisScreen() {
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
+      {loading && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center', zIndex: 10 }}>
+          <ActivityIndicator size="large" color="#16a34a" />
+        </View>
+      )}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -368,11 +620,11 @@ export default function FinancialAnalysisScreen() {
         {/* AI Insights */}
         <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }]}>
           <View style={styles.financialAnalysisSectionHeader}>
-            <View style={styles.financialAnalysisSectionTitleRow}>
+            <View style={styles.financialAnalysisPredictionTitleRow}>
               <MaterialIcons name="bolt" size={20} color="#51A2FF" />
               <Text
                 style={[
-                  styles.financialAnalysisSectionTitle,
+                  styles.financialAnalysisPredictionTitle,
                   { color: themeColors.text },
                 ]}>
                 AI Insights
@@ -524,42 +776,87 @@ export default function FinancialAnalysisScreen() {
           ))}
         </View>
 
-        {/* Tăng trưởng tài sản ròng */}
-        <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }]}>
+        {/* Tăng trưởng tài sản ròng - đường biểu diễn với chấm */}
+        <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card, overflow: 'hidden' }]}>
           <Text
             style={[
-              styles.financialAnalysisSectionTitle,
-              { color: themeColors.text },
-            ]}>
+              styles.financialAnalysisPredictionTitle,
+              { color: themeColors.text, marginBottom: 12 },
+            ]}
+            numberOfLines={1}>
             Tăng trưởng tài sản ròng
           </Text>
-          <View style={styles.financialAnalysisGrowthChartContainer}>
-            <View style={styles.financialAnalysisGrowthChart}>
-              {growthData.map((value, index) => {
-                const height = (value / maxGrowthValue) * 100;
-                return (
-                  <View key={index} style={styles.financialAnalysisGrowthChartPoint}>
-                    <View style={[styles.financialAnalysisGrowthChartBar, { height: `${height}%` }]} />
-                    <Text style={styles.financialAnalysisGrowthChartLabel}>{growthLabels[index]}</Text>
+          <View style={localGrowthStyles.chartWrap}>
+            {growthData.length > 0 && maxGrowthValue > 0 ? (() => {
+              const w = CHART_W - PAD.left - PAD.right;
+              const h = CHART_H - PAD.top - PAD.bottom;
+              const points = growthData.map((v, i) => {
+                const x = PAD.left + (growthData.length > 1 ? (i / (growthData.length - 1)) * w : w / 2);
+                const y = PAD.top + h * (1 - v / maxGrowthValue);
+                return { x, y };
+              });
+              const pathD = points.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(' ');
+              return (
+                <>
+                  <Svg width={CHART_W} height={CHART_H}>
+                    <Path
+                      d={pathD}
+                      fill="none"
+                      stroke="#16a34a"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    {points.map((p, i) => (
+                      <Circle
+                        key={i}
+                        cx={p.x}
+                        cy={p.y}
+                        r={4}
+                        fill={i === points.length - 1 ? '#16a34a' : '#22c55e'}
+                        stroke="#16a34a"
+                        strokeWidth={1}
+                      />
+                    ))}
+                  </Svg>
+                  <View style={localGrowthStyles.labelRow}>
+                    {growthLabels.slice(0, growthData.length).map((lb, i) => (
+                      <Text key={i} style={[localGrowthStyles.label, { color: themeColors.textSecondary }]} numberOfLines={1}>
+                        {lb}
+                      </Text>
+                    ))}
                   </View>
-                );
-              })}
-            </View>
-          </View>
-          <View style={styles.financialAnalysisGrowthSummary}>
-            <Text
-              style={[
-                styles.financialAnalysisGrowthSummaryText,
-                { color: themeColors.textSecondary },
-              ]}>
-              Tăng trưởng:{' '}
-              <Text style={styles.financialAnalysisGrowthSummaryValue}>
-                +{growthChange}%
+                </>
+              );
+            })() : (
+              <Text style={[localGrowthStyles.label, { color: themeColors.textSecondary, textAlign: 'center', paddingVertical: 20 }]}>
+                Chưa có dữ liệu
               </Text>
-            </Text>
-            <Text style={[styles.financialAnalysisGrowthSummaryAmount, { color: '#10B981' }]}>
-              +{formatCurrency(growthAmount)}
-            </Text>
+            )}
+          </View>
+          <View style={localGrowthStyles.summary}>
+            <View style={localGrowthStyles.summaryRow}>
+              <Text style={[localGrowthStyles.summaryLabel, { color: themeColors.textSecondary }]}>
+                Thu vượt chi tháng này
+              </Text>
+              <Text
+                style={[localGrowthStyles.summaryValue, { color: diff >= 0 ? '#10B981' : '#EF4444' }]}
+                numberOfLines={1}
+                ellipsizeMode="tail">
+                {diff >= 0 ? '+' : ''}{formatCurrency(diff)}
+              </Text>
+            </View>
+            <View style={localGrowthStyles.summaryRow}>
+              <Text style={[localGrowthStyles.summaryLabel, { color: themeColors.textSecondary }]}>
+                Tài sản hiện tại
+              </Text>
+              <Text
+                style={[localGrowthStyles.summaryValue, { color: themeColors.text }]}
+                numberOfLines={1}
+                ellipsizeMode="tail">
+                {formatCurrency(totalBalance)}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -567,12 +864,12 @@ export default function FinancialAnalysisScreen() {
         <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }]}>
           <Text
             style={[
-              styles.financialAnalysisSectionTitle,
+              styles.financialAnalysisPredictionTitle,
               { color: themeColors.text },
             ]}>
             Tiến độ mục tiêu
           </Text>
-          {goalProgresses.map((goal) => (
+          {goalProgresses.length > 0 ? goalProgresses.map((goal) => (
             <View
               key={goal.id}
               style={[
@@ -624,16 +921,20 @@ export default function FinancialAnalysisScreen() {
                 {formatCurrency(goal.current)} / {formatCurrency(goal.target)}
               </Text>
             </View>
-          ))}
+          )) : (
+            <Text style={{ color: themeColors.textSecondary, textAlign: 'center', paddingVertical: 16 }}>
+              Chưa có mục tiêu. Tạo mục tiêu để theo dõi tiến độ.
+            </Text>
+          )}
         </View>
 
         {/* Khuyến nghị từ AI */}
         <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }]}>
-          <View style={styles.financialAnalysisSectionTitleRow}>
+          <View style={styles.financialAnalysisPredictionTitleRow}>
             <MaterialIcons name="bolt" size={20} color="#51A2FF" />
             <Text
               style={[
-                styles.financialAnalysisSectionTitle,
+                styles.financialAnalysisPredictionTitle,
                 { color: themeColors.text },
               ]}>
               Khuyến nghị từ AI
@@ -672,28 +973,28 @@ export default function FinancialAnalysisScreen() {
                   {recommendation.action}
                 </Text>
               </View>
-              <TouchableOpacity
-                style={[styles.financialAnalysisRecommendationButton, { backgroundColor: recommendation.buttonColor }]}
+              <AIActionButton
+                label={recommendation.buttonText}
+                variant="chip"
+                style={{ marginLeft: 8, marginTop: 4 }}
                 onPress={() => {
                   if (recommendation.buttonText === 'Tìm hiểu thêm') {
                     handleLearnMore(recommendation);
                   }
                 }}
-                activeOpacity={0.8}>
-                <Text style={styles.financialAnalysisRecommendationButtonText}>{recommendation.buttonText}</Text>
-              </TouchableOpacity>
+              />
             </View>
           ))}
         </View>
 
-        {/* Dự đoán AI - AI Smart: mở modal để hỏi AI về dự đoán thu chi */}
+        {/* Dự đoán AI - AI Smart: mở chatbot mới để hỏi AI về dự đoán thu chi */}
         <TouchableOpacity
           activeOpacity={0.9}
           onPress={() => {
-            openAIModal(
-              'Dựa trên dữ liệu tài chính của tôi, hãy dự đoán thu chi 6 tháng tới và đưa ra các khuyến nghị tiết kiệm. Phân tích tài sản ròng, tổng tiết kiệm sau 1 năm, thời gian đạt quỹ khẩn cấp.',
-              true
-            );
+            openChatbot({
+              initialMessage: 'Dựa trên dữ liệu tài chính của tôi, hãy dự đoán thu chi 6 tháng tới và đưa ra các khuyến nghị tiết kiệm. Phân tích tài sản ròng, tổng tiết kiệm sau 1 năm, thời gian đạt quỹ khẩn cấp.',
+              autoSend: true,
+            });
           }}>
         <View style={styles.card}>
           <LinearGradient

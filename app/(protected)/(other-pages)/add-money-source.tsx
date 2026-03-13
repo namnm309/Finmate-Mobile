@@ -1,9 +1,9 @@
+import { useAppAlert } from '@/contexts/app-alert-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -19,6 +19,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useMoneySourceService } from '@/lib/services/moneySourceService';
+import { useTransactionRefresh } from '@/contexts/transaction-refresh-context';
 import { AccountTypeDto, CurrencyDto, IconDto } from '@/lib/types/moneySource';
 
 // Country code to flag emoji mapping
@@ -35,12 +36,13 @@ const getCountryFlag = (countryCode: string): string => {
 
 export default function AddMoneySourceScreen() {
   const router = useRouter();
+  const { showAlert } = useAppAlert();
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
   const isDark = resolvedTheme === 'dark';
   const insets = useSafeAreaInsets();
-  const headerBgColor = isDark ? themeColors.card : themeColors.tint;
-  const headerFgColor = '#FFFFFF';
+  const headerBgColor = isDark ? themeColors.cardGlass : themeColors.tint;
+  const headerFgColor = isDark ? themeColors.text : '#FFFFFF';
   const primaryButtonTextColor = themeColors.primaryButtonText;
   const { 
     getAccountTypes, 
@@ -48,6 +50,7 @@ export default function AddMoneySourceScreen() {
     getIcons, 
     createMoneySource 
   } = useMoneySourceService();
+  const { refreshTransactions } = useTransactionRefresh();
 
   // Data states
   const [accountTypes, setAccountTypes] = useState<AccountTypeDto[]>([]);
@@ -128,16 +131,19 @@ export default function AddMoneySourceScreen() {
   const handleSave = async () => {
     // Validation
     if (!name.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập tên tài khoản');
+      showAlert({ title: 'Lỗi', message: 'Vui lòng nhập tên tài khoản', icon: 'error' });
       return;
     }
 
     if (!selectedAccountType) {
-      Alert.alert('Lỗi', 'Vui lòng chọn loại tài khoản');
+      showAlert({ title: 'Lỗi', message: 'Vui lòng chọn loại tài khoản', icon: 'error' });
       return;
     }
 
-    const balanceNumber = parseFloat(balance.replace(/[^0-9.-]/g, '')) || 0;
+    // Parse số dư: bỏ dấu chấm/phẩy phân cách hàng nghìn (VN: 20.000.000 = 20 triệu)
+    // parseFloat("20.000.000") = 20 (sai!) vì JS coi dấu chấm là thập phân
+    const digitsOnly = balance.replace(/[^0-9]/g, '');
+    const balanceNumber = digitsOnly === '' ? 0 : Number(digitsOnly);
 
     try {
       setSaving(true);
@@ -150,17 +156,22 @@ export default function AddMoneySourceScreen() {
         balance: balanceNumber,
         currency: selectedCurrency?.code || 'VND',
       });
+      refreshTransactions();
 
-      Alert.alert('Thành công', 'Đã tạo tài khoản mới', [
-        {
+      showAlert({
+        title: 'Thành công',
+        message: 'Đã tạo tài khoản mới',
+        icon: 'check-circle',
+        buttons: [{
           text: 'OK',
+          style: 'confirm',
           onPress: () =>
             router.replace({
               pathname: '/(protected)/(tabs)/account',
               params: { __replace: 'pop' },
             } as any),
-        },
-      ]);
+        }],
+      });
     } catch (err) {
       // Log chi tiết lỗi để debug
       console.error('[AddMoneySource] Error creating money source:', {
@@ -194,7 +205,7 @@ export default function AddMoneySourceScreen() {
         }
       }
 
-      Alert.alert('Lỗi', errorMessage);
+      showAlert({ title: 'Lỗi', message: errorMessage, icon: 'error' });
     } finally {
       setSaving(false);
     }
@@ -316,7 +327,7 @@ export default function AddMoneySourceScreen() {
         keyboardShouldPersistTaps="handled">
         
         {/* Balance Input */}
-        <View style={[styles.balanceCard, { backgroundColor: themeColors.card }]}>
+        <View style={[styles.balanceCard, { backgroundColor: isDark ? themeColors.cardGlass : themeColors.card, borderWidth: isDark ? 1 : 0, borderColor: isDark ? 'rgba(34, 197, 94, 0.12)' : 'transparent' }]}>
           <Text style={[styles.balanceLabel, { color: themeColors.textSecondary }]}>Số dư ban đầu</Text>
           <View style={styles.balanceInputContainer}>
             <TextInput
@@ -334,7 +345,7 @@ export default function AddMoneySourceScreen() {
         </View>
 
         {/* Form Fields */}
-        <View style={[styles.formCard, { backgroundColor: themeColors.card }]}>
+        <View style={[styles.formCard, { backgroundColor: isDark ? themeColors.cardGlass : themeColors.card, borderWidth: isDark ? 1 : 0, borderColor: isDark ? 'rgba(34, 197, 94, 0.12)' : 'transparent' }]}>
           {/* Icon + Name Input */}
           <TouchableOpacity 
             style={[styles.formRow, { borderBottomColor: themeColors.border }]}
@@ -396,7 +407,7 @@ export default function AddMoneySourceScreen() {
         </View>
 
         {/* Exclude from Report Toggle */}
-        <View style={[styles.toggleCard, { backgroundColor: themeColors.card }]}>
+        <View style={[styles.toggleCard, { backgroundColor: isDark ? themeColors.cardGlass : themeColors.card, borderWidth: isDark ? 1 : 0, borderColor: isDark ? 'rgba(34, 197, 94, 0.12)' : 'transparent' }]}>
           <View style={styles.toggleRow}>
             <Text style={[styles.toggleLabel, { color: themeColors.text }]}>Không tính vào báo cáo</Text>
             <Switch

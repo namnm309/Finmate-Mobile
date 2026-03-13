@@ -25,6 +25,7 @@ export function DeleteMoneySourceDialog({
   const themeColors = Colors[resolvedTheme];
   const textOnTint = resolvedTheme === 'dark' ? themeColors.background : '#FFFFFF';
 
+  const borderColor = resolvedTheme === 'dark' ? 'rgba(34, 197, 94, 0.35)' : 'rgba(22, 163, 74, 0.25)';
   return (
     <Modal
       visible={visible}
@@ -38,9 +39,16 @@ export function DeleteMoneySourceDialog({
         <TouchableOpacity
           activeOpacity={1}
           onPress={(e) => e.stopPropagation()}
-          style={[styles.dialog, { backgroundColor: themeColors.card }]}>
-          <View style={styles.iconContainer}>
-            <MaterialIcons name="error-outline" size={48} color="#FFFFFF" />
+          style={[
+            styles.dialog,
+            {
+              backgroundColor: themeColors.card,
+              borderWidth: 2,
+              borderColor,
+            },
+          ]}>
+          <View style={[styles.iconContainer, { backgroundColor: resolvedTheme === 'dark' ? 'rgba(239, 68, 68, 0.9)' : '#EF4444' }]}>
+            <MaterialIcons name="error-outline" size={40} color="#FFFFFF" />
           </View>
           <Text style={[styles.title, { color: themeColors.text }]}>Xóa tài khoản</Text>
           <Text style={[styles.message, { color: themeColors.textSecondary }]}>
@@ -48,16 +56,16 @@ export function DeleteMoneySourceDialog({
           </Text>
           <View style={styles.buttonsRow}>
             <TouchableOpacity
-              style={[styles.cancelButton, { backgroundColor: themeColors.border }]}
+              style={[styles.cancelButton, { backgroundColor: themeColors.background, borderColor: themeColors.border }]}
               onPress={onCancel}
               activeOpacity={0.8}>
               <Text style={[styles.cancelButtonText, { color: themeColors.text }]}>Không</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.confirmButton, { backgroundColor: themeColors.primaryButtonBg }]}
+              style={[styles.confirmButton, { backgroundColor: themeColors.tint }]}
               onPress={onConfirm}
               activeOpacity={0.8}>
-              <Text style={[styles.confirmButtonText, { color: themeColors.primaryButtonText }]}>Có</Text>
+              <Text style={[styles.confirmButtonText, { color: '#FFFFFF' }]}>Có</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -75,18 +83,21 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   dialog: {
-    backgroundColor: '#374151',
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 24,
     width: '100%',
     maxWidth: 340,
     alignItems: 'center',
+    shadowColor: '#16a34a',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
   iconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#EF4444',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -112,8 +123,8 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: '#4B5563',
     borderRadius: 12,
+    borderWidth: 1,
     paddingVertical: 14,
     alignItems: 'center',
   },
@@ -124,7 +135,6 @@ const styles = StyleSheet.create({
   },
   confirmButton: {
     flex: 1,
-    backgroundColor: '#51A2FF',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',

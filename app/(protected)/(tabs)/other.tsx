@@ -1,3 +1,4 @@
+import { useAppAlert } from '@/contexts/app-alert-context';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -8,7 +9,6 @@ import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
-    Alert,
     Dimensions,
     ScrollView,
     Text,
@@ -130,6 +130,7 @@ const supportMenuItems = [
 export default function OtherScreen() {
   const { user } = useUser();
   const { signOut, getToken } = useAuth();
+  const { showAlert } = useAppAlert();
   const router = useRouter();
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
@@ -148,7 +149,9 @@ export default function OtherScreen() {
         overflow: 'hidden' as const,
       }
     : {
-        backgroundColor: themeColors.card,
+        backgroundColor: themeColors.cardGlass,
+        borderWidth: 1,
+        borderColor: 'rgba(34, 197, 94, 0.12)',
         borderRadius: 14,
         overflow: 'hidden' as const,
       };
@@ -181,28 +184,26 @@ export default function OtherScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      'Đăng xuất',
-      'Bạn có chắc chắn muốn đăng xuất?',
-      [
-        {
-          text: 'Hủy',
-          style: 'cancel',
-        },
+    showAlert({
+      title: 'Đăng xuất',
+      message: 'Bạn có chắc chắn muốn đăng xuất?',
+      icon: 'warning',
+      buttons: [
+        { text: 'Hủy', style: 'cancel' },
         {
           text: 'Đăng xuất',
-          style: 'destructive',
+          style: 'danger',
           onPress: async () => {
             try {
               await signOut();
             } catch (error) {
               console.error('Error signing out:', error);
-              Alert.alert('Lỗi', 'Không thể đăng xuất. Vui lòng thử lại.');
+              showAlert({ title: 'Lỗi', message: 'Không thể đăng xuất. Vui lòng thử lại.', icon: 'error' });
             }
           },
         },
-      ]
-    );
+      ],
+    });
   };
 
   const handleNavigateToCommunity = () => {
@@ -267,22 +268,13 @@ export default function OtherScreen() {
         const token = await getToken({ template: 'swagger-test' });
         if (token) {
           await Clipboard.setStringAsync(token);
-          Alert.alert(
-            'Đã copy token',
-            'Token đã được copy. Mở Swagger → Authorize → Dán (Bearer token).'
-          );
+          showAlert({ title: 'Đã copy token', message: 'Token đã được copy. Mở Swagger → Authorize → Dán (Bearer token).', icon: 'check-circle' });
         } else {
-          Alert.alert(
-            'Lỗi',
-            'Không lấy được token. Kiểm tra đăng nhập và template Clerk.'
-          );
+          showAlert({ title: 'Lỗi', message: 'Không lấy được token. Kiểm tra đăng nhập và template Clerk.', icon: 'error' });
         }
       } catch (error) {
         console.error('Error getting Swagger token:', error);
-        Alert.alert(
-          'Lỗi',
-          'Không lấy được token. Kiểm tra đăng nhập và template Clerk.'
-        );
+        showAlert({ title: 'Lỗi', message: 'Không lấy được token. Kiểm tra đăng nhập và template Clerk.', icon: 'error' });
       }
     }
     // Các item khác (Trợ giúp, Đánh giá, Chia sẻ ứng dụng, Ngôn ngữ) có thể xử lý sau

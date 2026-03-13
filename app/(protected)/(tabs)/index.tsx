@@ -3,13 +3,10 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useUser } from '@clerk/clerk-expo';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   Modal,
   ScrollView,
@@ -24,10 +21,12 @@ import { useMoneySourceService } from '@/lib/services/moneySourceService';
 import { useReportService } from '@/lib/services/reportService';
 import { OverviewReportDto } from '@/lib/types/report';
 import { SpendingIncomeOverviewCard } from '@/components/SpendingIncomeOverviewCard';
-import { AIChatbotModal } from '@/components/ai-chatbot-modal';
+import { useAppAlert } from '@/contexts/app-alert-context';
+import { useAIChatbot } from '@/contexts/ai-chatbot-context';
 import { useVoiceInput } from '@/lib/hooks/useVoiceInput';
 import { useNotificationBadge } from '@/contexts/notification-badge-context';
 import { useSavingGoal } from '@/contexts/saving-goal-context';
+import { useTransactionRefresh } from '@/contexts/transaction-refresh-context';
 import { computeGoalMetrics } from '@/lib/utils/goalMetrics';
 import type { SavingGoalData } from '@/lib/types/saving-goal';
 
@@ -78,19 +77,19 @@ export default function HomeScreen() {
       }
     : null;
   const [balanceVisible, setBalanceVisible] = useState(true);
-  const [aiChatbotVisible, setAiChatbotVisible] = useState(false);
   const [aiInput, setAiInput] = useState('');
-  const [aiInitialMessage, setAiInitialMessage] = useState('');
-  const [aiAutoSend, setAiAutoSend] = useState(false);
+  const { openChatbot } = useAIChatbot();
   const { hasUnreadAlerts, hasMissingFieldsMessage, setHasMissingFieldsMessage } = useNotificationBadge();
   const { goals } = useSavingGoal();
+  const { transactionRefreshTrigger } = useTransactionRefresh();
   const [activeGoalIndex, setActiveGoalIndex] = useState(0);
   const { isListening, error: voiceError, toggleListening } = useVoiceInput((text) => {
     setAiInput((prev) => (prev ? `${prev} ${text}` : text));
   });
+  const { showAlert } = useAppAlert();
   useEffect(() => {
-    if (voiceError) Alert.alert('Giọng nói', voiceError);
-  }, [voiceError]);
+    if (voiceError) showAlert({ title: 'Giọng nói', message: voiceError, icon: 'error' });
+  }, [voiceError, showAlert]);
   const [totalBalance, setTotalBalance] = useState<number>(0);
   const [balanceLoading, setBalanceLoading] = useState<boolean>(true);
   const { getGroupedMoneySources } = useMoneySourceService();
@@ -102,7 +101,7 @@ export default function HomeScreen() {
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('month');
   const [showPeriodModal, setShowPeriodModal] = useState<boolean>(false);
   const isFetchingRef = useRef<boolean>(false);
-  const fetchOverviewRef = useRef<(period: TimePeriod, forceRefresh?: boolean) => Promise<void>>(() => Promise.resolve());
+  const fetchOverviewRef = useRef<(period: TimePeriod, forceRefresh?: boolean, silent?: boolean) => Promise<void>>(() => Promise.resolve());
   const selectedPeriodRef = useRef<TimePeriod>(selectedPeriod);
   const isFocusedRef = useRef<boolean>(false);
   const lastFetchTimeRef = useRef<number>(0);
@@ -174,7 +173,7 @@ export default function HomeScreen() {
 
 
   // Fetch overview function - dùng ref để tránh dependency issues
-  const fetchOverviewData = useCallback(async (period: TimePeriod, forceRefresh = false) => {
+  const fetchOverviewData = useCallback(async (period: TimePeriod, forceRefresh = false, silent = false) => {
     if (isFetchingRef.current) return;
     // Throttle: tránh gọi lại trong vòng OVERVIEW_FETCH_THROTTLE_MS trừ khi forceRefresh (đổi kỳ)
     if (!forceRefresh && lastFetchTimeRef.current && Date.now() - lastFetchTimeRef.current < OVERVIEW_FETCH_THROTTLE_MS) {
@@ -182,7 +181,7 @@ export default function HomeScreen() {
     }
 
     isFetchingRef.current = true;
-    setOverviewLoading(true);
+    if (!silent) setOverviewLoading(true);
     try {
       const { startDate, endDate } = getDateRange(period);
       const overviewResponse = await getOverview(startDate, endDate);
@@ -199,7 +198,7 @@ export default function HomeScreen() {
         categoryStats: [],
       });
     } finally {
-      if (isFocusedRef.current) setOverviewLoading(false);
+      if (isFocusedRef.current && !silent) setOverviewLoading(false);
       isFetchingRef.current = false;
     }
   }, [getOverview, getDateRange]);
@@ -233,6 +232,18 @@ export default function HomeScreen() {
       };
     }, [])
   );
+
+  // Refetch khi có thay đổi (giao dịch / nguồn tiền) - silent, throttle overview nhưng luôn cập nhật balance
+  useEffect(() => {
+    if (transactionRefreshTrigger === 0) return;
+    const now = Date.now();
+    const skipOverview = now - lastFetchTimeRef.current < OVERVIEW_FETCH_THROTTLE_MS;
+    if (!skipOverview) {
+      lastFetchTimeRef.current = now;
+      fetchOverviewRef.current(selectedPeriodRef.current, true, true);
+    }
+    getGroupedMoneySources().then((r) => setTotalBalance(r.totalBalance ?? 0)).catch(() => {});
+  }, [transactionRefreshTrigger, getGroupedMoneySources]);
 
   // Get period display text
   const getPeriodText = (period: TimePeriod): string => {
@@ -295,23 +306,19 @@ export default function HomeScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 90 + insets.bottom }]}
         showsVerticalScrollIndicator={false}>
         {/* Header với logo FinMate - đồng bộ với trang login */}
-        <View style={[styles.appHeader, { marginBottom: 12 }]}>
+        <View style={[styles.appHeader, { marginBottom: 8 }]}>
           <Image source={logoFinmate} style={styles.appLogo} contentFit="contain" />
           <Text style={[styles.appTitle, { color: themeColors.tint }]}>FinMate</Text>
         </View>
         {/* Top Status Bar with User Info */}
-        <View style={styles.statusBar}>
+        <View style={[styles.statusBar, { marginBottom: 14 }]}>
           {/* User Info Section - Left */}
           <View style={styles.userSection}>
             <View style={styles.avatarContainer}>
-              <View style={styles.avatarBorder}>
-                <LinearGradient
-                  colors={['#16a34a', '#22c55e']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.avatarGradient}>
-                  <Text style={styles.avatarText}>{getUserInitial()}</Text>
-                </LinearGradient>
+              <View style={[styles.avatarBorder, { borderColor: 'rgba(34, 197, 94, 0.25)', backgroundColor: 'rgba(34, 197, 94, 0.08)' }]}>
+                <View style={[styles.avatarGradient, { backgroundColor: 'transparent' }]}>
+                  <Text style={[styles.avatarText, { color: themeColors.tint }]}>{getUserInitial()}</Text>
+                </View>
               </View>
             </View>
             <View style={styles.userInfo}>
@@ -320,29 +327,8 @@ export default function HomeScreen() {
             </View>
           </View>
           
-          {/* Status Bar Icons - Right */}
+          {/* Status Bar Icons - Right (AI chatbot mở qua nút floating góc dưới phải) */}
           <View style={styles.statusBarIcons}>
-            <TouchableOpacity
-              style={styles.statusIconButton}
-              onPress={() => setAiChatbotVisible(true)}
-              activeOpacity={0.8}>
-              <LinearGradient
-                colors={[themeColors.tint, themeColors.success2]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.statusIconGradient}>
-                <MaterialIcons name="auto-awesome" size={18} color="#FFFFFF" />
-              </LinearGradient>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.statusIconButton, lightOutlinedCircle]}
-              onPress={() => { setHasMissingFieldsMessage(false); setAiInitialMessage(''); setAiAutoSend(false); setAiChatbotVisible(true); }}
-              activeOpacity={0.8}>
-              <View>
-                <MaterialIcons name="chat-bubble-outline" size={16} color={themeColors.icon} />
-                {hasMissingFieldsMessage && <View style={styles.notificationDot} />}
-              </View>
-            </TouchableOpacity>
             <TouchableOpacity
               style={[styles.statusIconButton, lightOutlinedCircle]}
               onPress={() => router.push('/(protected)/(other-pages)/notifications')}
@@ -379,44 +365,38 @@ export default function HomeScreen() {
         </View>
 
         {/* AI Assistant Card */}
-        <View style={styles.card}>
-          <LinearGradient
-            colors={['#16a34a', '#22c55e']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.aiCardGradient}>
+        <View style={[styles.card, { backgroundColor: 'rgba(34, 197, 94, 0.06)', borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.12)' }]}>
+          <View style={[styles.aiCardGradient, { padding: 16 }]}>
             <View style={styles.aiCardHeader}>
-              <View style={styles.aiIconContainer}>
-                <MaterialIcons name="auto-awesome" size={22} color="#FFFFFF" />
+              <View style={[styles.aiIconContainer, { backgroundColor: 'rgba(34, 197, 94, 0.1)' }]}>
+                <MaterialIcons name="auto-awesome" size={22} color={themeColors.tint} />
               </View>
               <View style={styles.aiHeaderText}>
-                <Text style={styles.aiTitle}>AI Assistant</Text>
-                <Text style={styles.aiSubtitle}>Nhập liệu tự động</Text>
+                <Text style={[styles.aiTitle, { color: themeColors.text }]}>AI Assistant</Text>
+                <Text style={[styles.aiSubtitle, { color: themeColors.textSecondary }]}>Nhập liệu tự động</Text>
               </View>
             </View>
             <View style={styles.aiInputContainer}>
               <TouchableOpacity
-                style={[styles.aiInputButton, isListening && { backgroundColor: 'rgba(255,255,255,0.4)' }]}
+                style={[styles.aiInputButton, { backgroundColor: 'rgba(34, 197, 94, 0.08)' }, isListening && { backgroundColor: 'rgba(34, 197, 94, 0.25)' }]}
                 onPress={toggleListening}
                 activeOpacity={0.8}>
-                <MaterialIcons name={isListening ? 'stop' : 'mic'} size={16} color="#FFFFFF" />
+                <MaterialIcons name={isListening ? 'stop' : 'mic'} size={16} color={themeColors.tint} />
               </TouchableOpacity>
               <TextInput
-                style={styles.aiInput}
+                style={[styles.aiInput, { backgroundColor: 'rgba(34, 197, 94, 0.06)', color: themeColors.text }]}
                 placeholder="VD: Hôm nay đi chợ hết 100k..."
-                placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                placeholderTextColor={themeColors.textSecondary}
                 value={aiInput}
                 onChangeText={setAiInput}
                 multiline={false}
               />
               <TouchableOpacity
-                style={[styles.aiInputButton, styles.aiSendButton]}
+                style={[styles.aiInputButton, { backgroundColor: themeColors.tint }]}
                 onPress={() => {
                   const text = aiInput.trim();
                   if (text) {
-                    setAiInitialMessage(text);
-                    setAiAutoSend(true);
-                    setAiChatbotVisible(true);
+                    openChatbot({ initialMessage: text, autoSend: true });
                     setAiInput('');
                   }
                 }}
@@ -424,23 +404,19 @@ export default function HomeScreen() {
                 <MaterialIcons name="send" size={16} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
-          </LinearGradient>
+          </View>
         </View>
 
         {/* Today's Suggestions Card */}
-        <View style={styles.card}>
-          <LinearGradient
-            colors={['#FF6900', '#F6339A', '#9810FA']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.suggestionsCardGradient}>
-            <View style={styles.suggestionsHeader}>
-              <View style={styles.suggestionsIconContainer}>
-                <MaterialIcons name="lightbulb-outline" size={20} color="#FFFFFF" />
+        <View style={[styles.card, { backgroundColor: 'rgba(34, 197, 94, 0.06)', borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.12)' }]}>
+          <View style={[styles.suggestionsCardGradient, { padding: 16, minHeight: undefined }]}>
+            <View style={[styles.suggestionsHeader, { marginBottom: 14 }]}>
+              <View style={[styles.suggestionsIconContainer, { backgroundColor: 'rgba(34, 197, 94, 0.1)' }]}>
+                <MaterialIcons name="lightbulb-outline" size={20} color={themeColors.tint} />
               </View>
               <View style={styles.suggestionsHeaderText}>
-                <Text style={styles.suggestionsTitle}>Gợi ý hôm nay</Text>
-                <Text style={styles.suggestionsDate}>{formatDate(today)}</Text>
+                <Text style={[styles.suggestionsTitle, { color: themeColors.text }]}>Gợi ý hôm nay</Text>
+                <Text style={[styles.suggestionsDate, { color: themeColors.textSecondary }]}>{formatDate(today)}</Text>
               </View>
             </View>
 
@@ -449,24 +425,24 @@ export default function HomeScreen() {
               <TouchableOpacity
                 activeOpacity={0.9}
                 onPress={() => router.push('/(protected)/(other-pages)/create-saving-goal')}
-                style={styles.goalBox}>
-                <View style={{ alignItems: 'center', paddingVertical: 12 }}>
-                  <MaterialIcons name="track-changes" size={48} color="rgba(255, 255, 255, 0.9)" />
-                  <Text style={[styles.goalText, { marginTop: 12, textAlign: 'center', fontSize: 14 }]}>
+                style={[styles.goalBox, { backgroundColor: 'rgba(34, 197, 94, 0.05)', borderColor: 'rgba(34, 197, 94, 0.12)' }]}>
+                <View style={{ alignItems: 'center', paddingVertical: 10 }}>
+                  <MaterialIcons name="track-changes" size={40} color={themeColors.tint} />
+                  <Text style={[styles.goalText, { marginTop: 10, textAlign: 'center', fontSize: 14, color: themeColors.text }]}>
                     Đặt mục tiêu để bắt đầu tiết kiệm có kế hoạch!
                   </Text>
-                  <Text style={[styles.suggestionsDate, { marginTop: 8, textAlign: 'center' }]}>
+                  <Text style={[styles.suggestionsDate, { marginTop: 6, textAlign: 'center', color: themeColors.textSecondary }]}>
                     Mục tiêu giúp bạn biết cần tiết kiệm bao nhiêu mỗi ngày
                   </Text>
                   <View
                     style={{
-                      marginTop: 16,
-                      backgroundColor: 'rgba(255, 255, 255, 0.3)',
-                      paddingHorizontal: 24,
-                      paddingVertical: 12,
-                      borderRadius: 12,
+                      marginTop: 12,
+                      backgroundColor: 'rgba(34, 197, 94, 0.08)',
+                      paddingHorizontal: 20,
+                      paddingVertical: 10,
+                      borderRadius: 10,
                     }}>
-                    <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 15 }}>Tạo mục tiêu</Text>
+                    <Text style={{ color: themeColors.text, fontWeight: '600', fontSize: 14 }}>Tạo mục tiêu</Text>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -490,25 +466,25 @@ export default function HomeScreen() {
                       <View
                         key={goal.id}
                         style={{ width: CAROUSEL_ITEM_WIDTH, paddingHorizontal: 24 }}>
-                        <BlurView intensity={4} style={styles.goalBox}>
+                        <View style={[styles.goalBox, { backgroundColor: 'rgba(34, 197, 94, 0.05)', borderColor: 'rgba(34, 197, 94, 0.12)' }]}>
                           <View style={styles.goalHeader}>
-                            <Text style={styles.goalText}>Mục tiêu đang theo đuổi: {goal.title}</Text>
+                            <Text style={[styles.goalText, { color: themeColors.text }]}>Mục tiêu đang theo đuổi: {goal.title}</Text>
                           </View>
                           <View style={styles.goalStats}>
                             <View style={styles.goalStatBox}>
-                              <Text style={styles.goalStatLabel}>Cần tiết kiệm/ngày</Text>
-                              <Text style={styles.goalStatValue}>{formatCurrency(m.dailyAmount)}</Text>
+                              <Text style={[styles.goalStatLabel, { color: themeColors.textSecondary }]}>Cần tiết kiệm/ngày</Text>
+                              <Text style={[styles.goalStatValue, { color: themeColors.text }]}>{formatCurrency(m.dailyAmount)}</Text>
                             </View>
-                            <View style={styles.goalStatBox}>
-                              <Text style={styles.goalStatLabel}>Còn lại</Text>
-                              <Text style={styles.goalStatValue}>{m.daysRemaining} ngày</Text>
+                            <View style={[styles.goalStatBox, { backgroundColor: 'rgba(34, 197, 94, 0.05)' }]}>
+                              <Text style={[styles.goalStatLabel, { color: themeColors.textSecondary }]}>Còn lại</Text>
+                              <Text style={[styles.goalStatValue, { color: themeColors.text }]}>{m.daysRemaining} ngày</Text>
                             </View>
                           </View>
-                          <Text style={styles.goalDescription}>
+                          <Text style={[styles.goalDescription, { color: themeColors.textSecondary }]}>
                             Để mua được {goal.title}, bạn cần tiết kiệm {formatCurrency(m.dailyAmount)}/ngày trong {m.daysRemaining} ngày tới.
                             {m.todaySuggestion > 0 && ` Hôm nay nên chi tối đa ${formatCurrency(m.todaySuggestion)}!`}
                           </Text>
-                        </BlurView>
+                        </View>
                       </View>
                     );
                   })}
@@ -522,7 +498,7 @@ export default function HomeScreen() {
                           width: i === activeGoalIndex ? 10 : 6,
                           height: 6,
                           borderRadius: 3,
-                          backgroundColor: i === activeGoalIndex ? '#FFFFFF' : 'rgba(255, 255, 255, 0.5)',
+                          backgroundColor: i === activeGoalIndex ? themeColors.tint : themeColors.textSecondary + '80',
                         }}
                       />
                     ))}
@@ -533,36 +509,36 @@ export default function HomeScreen() {
 
             {/* Stats Boxes - ẩn khi chưa có mục tiêu */}
             {goals.length > 0 && goalMetrics && (
-              <View style={styles.statsRow}>
-                <BlurView intensity={4} style={styles.statBox}>
-                  <MaterialIcons name="show-chart" size={12} color="rgba(255, 255, 255, 0.6)" />
-                  <Text style={styles.statLabel}>Gợi ý</Text>
-                  <Text style={styles.statValue}>{formatCurrency(goalMetrics.todaySuggestion)}</Text>
-                </BlurView>
-                <BlurView intensity={4} style={styles.statBox}>
-                  <MaterialIcons name="calendar-today" size={12} color="rgba(255, 255, 255, 0.6)" />
-                  <Text style={styles.statLabel}>TB/ngày</Text>
-                  <Text style={styles.statValue}>{formatCurrency(avgDaily)}</Text>
-                </BlurView>
-                <BlurView intensity={4} style={styles.statBox}>
-                  <MaterialIcons name="fiber-manual-record" size={12} color="rgba(255, 255, 255, 0.6)" />
-                  <Text style={styles.statLabel}>Đã chi</Text>
-                  <Text style={styles.statValue}>{formatCurrency(totalSpent)}</Text>
-                </BlurView>
+              <View style={[styles.statsRow, { marginBottom: 14 }]}>
+                <View style={[styles.statBox, { backgroundColor: 'rgba(34, 197, 94, 0.05)' }]}>
+                  <MaterialIcons name="show-chart" size={12} color={themeColors.textSecondary} />
+                  <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>Gợi ý</Text>
+                  <Text style={[styles.statValue, { color: themeColors.text }]}>{formatCurrency(goalMetrics.todaySuggestion)}</Text>
+                </View>
+                <View style={[styles.statBox, { backgroundColor: 'rgba(34, 197, 94, 0.05)' }]}>
+                  <MaterialIcons name="calendar-today" size={12} color={themeColors.textSecondary} />
+                  <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>TB/ngày</Text>
+                  <Text style={[styles.statValue, { color: themeColors.text }]}>{formatCurrency(avgDaily)}</Text>
+                </View>
+                <View style={[styles.statBox, { backgroundColor: 'rgba(34, 197, 94, 0.05)' }]}>
+                  <MaterialIcons name="fiber-manual-record" size={12} color={themeColors.textSecondary} />
+                  <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>Đã chi</Text>
+                  <Text style={[styles.statValue, { color: themeColors.text }]}>{formatCurrency(totalSpent)}</Text>
+                </View>
               </View>
             )}
 
             {/* Tips Section */}
-            <View style={styles.tipsSection}>
-              <Text style={styles.tipsTitle}>💡 Mẹo tiết kiệm:</Text>
+            <View style={[styles.tipsSection, { marginTop: 12 }]}>
+              <Text style={[styles.tipsTitle, { color: themeColors.textSecondary }]}>💡 Mẹo tiết kiệm:</Text>
               {tips.map((tip, index) => (
-                <BlurView key={index} intensity={4} style={styles.tipBox}>
-                  <Text style={styles.tipBullet}>•</Text>
-                  <Text style={styles.tipText}>{tip}</Text>
-                </BlurView>
+                <View key={index} style={[styles.tipBox, { backgroundColor: 'rgba(34, 197, 94, 0.05)', marginBottom: 6 }]}>
+                  <Text style={[styles.tipBullet, { color: themeColors.textSecondary }]}>•</Text>
+                  <Text style={[styles.tipText, { color: themeColors.text }]}>{tip}</Text>
+                </View>
               ))}
             </View>
-          </LinearGradient>
+          </View>
         </View>
 
         {/* Income/Expense Overview Card */}
@@ -576,7 +552,7 @@ export default function HomeScreen() {
         />
 
           {/* Spending Limit Card - sync với mục tiêu tiết kiệm */}
-          <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }, lightCardSurface]}>
+          <View style={[styles.card, styles.darkCard, { backgroundColor: 'rgba(34, 197, 94, 0.06)', borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.12)' }, lightCardSurface]}>
           <View style={styles.limitHeader}>
             <Text style={[styles.limitTitle, { color: themeColors.text }]}>Hạn mức chi tiêu</Text>
             <View style={styles.limitActions}>
@@ -599,19 +575,15 @@ export default function HomeScreen() {
 
           {goals.length > 0 && spendingLimit > 0 ? (
             <>
-              <View style={styles.limitContent}>
-                <LinearGradient
-                  colors={['#FF8904', '#F6339A']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.limitIcon}>
+              <View style={[styles.limitContent, { overflow: 'hidden' }]}>
+                <View style={[styles.limitIcon, { backgroundColor: 'rgba(34, 197, 94, 0.08)' }]}>
                   <Text style={styles.limitEmoji}>🎯</Text>
-                </LinearGradient>
-                <View style={styles.limitInfo}>
-                  <Text style={[styles.limitLabel, { color: themeColors.textSecondary }]}>
+                </View>
+                <View style={[styles.limitInfo, { flex: 1, minWidth: 0 }]}>
+                  <Text style={[styles.limitLabel, { color: themeColors.textSecondary }]} numberOfLines={1} ellipsizeMode="tail">
                     Chi mỗi tháng {activeGoal ? `(${activeGoal.title})` : ''}
                   </Text>
-                  <Text style={[styles.limitDate, { color: themeColors.textSecondary }]}>
+                  <Text style={[styles.limitDate, { color: themeColors.textSecondary }]} numberOfLines={1}>
                     {(() => {
                       const { startDate, endDate } = getDateRange(selectedPeriod);
                       const fmt = (d: Date) =>
@@ -619,7 +591,7 @@ export default function HomeScreen() {
                       return `${fmt(startDate)} - ${fmt(endDate)}`;
                     })()}
                   </Text>
-                  <Text style={[styles.limitAmount, { color: themeColors.text }]}>{formatCurrency(spendingLimit)}</Text>
+                  <Text style={[styles.limitAmount, { color: themeColors.text }]} numberOfLines={1} ellipsizeMode="tail">{formatCurrency(spendingLimit)}</Text>
                 </View>
               </View>
 
@@ -627,15 +599,15 @@ export default function HomeScreen() {
                 <View
                   style={[
                     styles.progressBar,
-                    isLight && { backgroundColor: themeColors.border },
+                    isLight ? { backgroundColor: themeColors.border } : { backgroundColor: 'rgba(34, 197, 94, 0.08)' },
                   ]}>
-                  <LinearGradient
-                    colors={['#FF8904', '#FB2C36']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
+                  <View
                     style={[
                       styles.progressFill,
-                      { width: `${Math.min(100, spendingLimit > 0 ? (spendingUsed / spendingLimit) * 100 : 0)}%` },
+                      {
+                        width: `${Math.min(100, spendingLimit > 0 ? (spendingUsed / spendingLimit) * 100 : 0)}%`,
+                        backgroundColor: themeColors.tint,
+                      },
                     ]}
                   />
                 </View>
@@ -692,10 +664,10 @@ export default function HomeScreen() {
             style={{
               backgroundColor: themeColors.card,
               marginHorizontal: 20,
-              borderRadius: 12,
+              borderRadius: 20,
               paddingVertical: 8,
-              borderWidth: 1,
-              borderColor: themeColors.border,
+              borderWidth: 2,
+              borderColor: resolvedTheme === 'dark' ? 'rgba(34, 197, 94, 0.35)' : 'rgba(22, 163, 74, 0.25)',
             }}>
             {periodOptions.map((option, index) => (
               <TouchableOpacity
@@ -722,17 +694,6 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
-      <AIChatbotModal
-        visible={aiChatbotVisible}
-        onClose={() => {
-          setAiChatbotVisible(false);
-          setAiInitialMessage('');
-          setAiAutoSend(false);
-        }}
-        initialMessage={aiInitialMessage}
-        autoSend={aiAutoSend}
-        onMissingFieldsShown={() => setHasMissingFieldsMessage(true)}
-      />
     </SafeAreaView>
   );
 }

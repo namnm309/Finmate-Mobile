@@ -31,8 +31,7 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
-    paddingTop: 12,
+    paddingTop: 8,
   },
   timeText: {
     fontSize: 11.1,
@@ -137,7 +136,7 @@ export const styles = StyleSheet.create({
     padding: 4,
   },
   card: {
-    marginBottom: 20,
+    marginBottom: 14,
     borderRadius: 14,
     overflow: 'hidden',
   },
@@ -200,13 +199,12 @@ export const styles = StyleSheet.create({
     lineHeight: 16,
   },
   suggestionsCardGradient: {
-    padding: 20,
-    minHeight: 604,
+    padding: 16,
   },
   suggestionsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 14,
   },
   suggestionsIconContainer: {
     width: 40,
@@ -232,12 +230,10 @@ export const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.8)',
   },
   goalBox: {
-    backgroundColor: 'rgba(253, 199, 0, 0.2)',
     borderWidth: 1,
-    borderColor: 'rgba(253, 199, 0, 0.3)',
-    borderRadius: 14,
-    padding: 13,
-    marginBottom: 20,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 14,
   },
   goalHeader: {
     marginBottom: 12,
@@ -278,11 +274,10 @@ export const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 20,
+    marginBottom: 14,
   },
   statBox: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 10,
     padding: 8,
     alignItems: 'center',
@@ -332,8 +327,7 @@ export const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   darkCard: {
-    backgroundColor: '#1A2332',
-    padding: 20,
+    padding: 16,
   },
   overviewHeader: {
     flexDirection: 'row',
@@ -380,6 +374,7 @@ export const styles = StyleSheet.create({
   },
   summaryStat: {
     flex: 1,
+    minWidth: 0,
   },
   summaryLabel: {
     fontSize: 10.9,
@@ -461,6 +456,7 @@ export const styles = StyleSheet.create({
   },
   legend: {
     flex: 1,
+    minWidth: 0,
     marginLeft: 16,
   },
   legendItem: {
@@ -546,6 +542,7 @@ export const styles = StyleSheet.create({
   },
   limitInfo: {
     flex: 1,
+    minWidth: 0,
   },
   limitLabel: {
     fontSize: 15.4,

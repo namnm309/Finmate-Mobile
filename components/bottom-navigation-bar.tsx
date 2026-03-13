@@ -102,8 +102,8 @@ export default function BottomNavigationBar() {
           {
             height: 70 + insets.bottom,
             paddingBottom: insets.bottom,
-            backgroundColor: themeColors.card,
-            borderTopColor: themeColors.border,
+            backgroundColor: isDark ? themeColors.cardGlass : themeColors.card,
+            borderTopColor: isDark ? 'rgba(34, 197, 94, 0.15)' : themeColors.border,
           },
         ]}>
         <TouchableOpacity

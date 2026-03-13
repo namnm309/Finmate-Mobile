@@ -1,3 +1,4 @@
+import { useAppAlert } from '@/contexts/app-alert-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import {
   useLocalSearchParams,
@@ -6,7 +7,6 @@ import {
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   SafeAreaView,
   ScrollView,
@@ -48,6 +48,7 @@ const ICON_CANDIDATES: string[] = [
 
 export default function AddOrEditCategoryScreen() {
   const router = useRouter();
+  const { showAlert } = useAppAlert();
   const params = useLocalSearchParams<Params>();
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
@@ -133,7 +134,7 @@ export default function AddOrEditCategoryScreen() {
       } catch (err) {
         console.error('Error loading category data:', err);
         if (isMounted) {
-          Alert.alert('Lỗi', 'Không thể tải dữ liệu hạng mục.');
+          showAlert({ title: 'Lỗi', message: 'Không thể tải dữ liệu hạng mục.', icon: 'error' });
         }
       } finally {
         if (isMounted) {
@@ -151,7 +152,7 @@ export default function AddOrEditCategoryScreen() {
 
   const handleSave = async () => {
     if (!transactionType && !transactionTypeIdParam) {
-      Alert.alert('Lỗi', 'Thiếu loại giao dịch cho hạng mục.');
+      showAlert({ title: 'Lỗi', message: 'Thiếu loại giao dịch cho hạng mục.', icon: 'error' });
       return;
     }
 
@@ -160,7 +161,7 @@ export default function AddOrEditCategoryScreen() {
 
     const trimmedName = name.trim();
     if (!trimmedName) {
-      Alert.alert('Lỗi', 'Vui lòng nhập tên hạng mục.');
+      showAlert({ title: 'Lỗi', message: 'Vui lòng nhập tên hạng mục.', icon: 'error' });
       return;
     }
 
@@ -190,7 +191,7 @@ export default function AddOrEditCategoryScreen() {
       const message =
         err?.message ??
         (typeof err === 'string' ? err : 'Không thể lưu hạng mục. Vui lòng thử lại.');
-      Alert.alert('Lỗi', message);
+      showAlert({ title: 'Lỗi', message, icon: 'error' });
     } finally {
       setSaving(false);
     }
@@ -199,14 +200,15 @@ export default function AddOrEditCategoryScreen() {
   const handleDelete = async () => {
     if (!isEditMode || !categoryId) return;
 
-    Alert.alert(
-      'Xóa hạng mục',
-      'Bạn có chắc muốn xóa hạng mục này? Các hạng mục con (nếu có) sẽ được đưa về cấp gốc.',
-      [
+    showAlert({
+      title: 'Xóa hạng mục',
+      message: 'Bạn có chắc muốn xóa hạng mục này? Các hạng mục con (nếu có) sẽ được đưa về cấp gốc.',
+      icon: 'warning',
+      buttons: [
         { text: 'Hủy', style: 'cancel' },
         {
           text: 'Xóa',
-          style: 'destructive',
+          style: 'danger',
           onPress: async () => {
             try {
               setSaving(true);
@@ -224,14 +226,14 @@ export default function AddOrEditCategoryScreen() {
                 (typeof err === 'string'
                   ? err
                   : 'Không thể xóa hạng mục. Vui lòng thử lại.');
-              Alert.alert('Lỗi', message);
+              showAlert({ title: 'Lỗi', message, icon: 'error' });
             } finally {
               setSaving(false);
             }
           },
         },
-      ]
-    );
+      ],
+    });
   };
 
   const titlePrefix =

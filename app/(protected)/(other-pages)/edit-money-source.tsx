@@ -1,7 +1,9 @@
+import { useAppAlert } from '@/contexts/app-alert-context';
 import { DeleteMoneySourceDialog } from '@/components/DeleteMoneySourceDialog';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useMoneySourceService } from '@/lib/services/moneySourceService';
+import { useTransactionRefresh } from '@/contexts/transaction-refresh-context';
 import {
   AccountTypeDto,
   CurrencyDto,
@@ -12,7 +14,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -37,6 +38,7 @@ const getCountryFlag = (countryCode: string): string => {
 
 export default function EditMoneySourceScreen() {
   const router = useRouter();
+  const { showAlert } = useAppAlert();
   const { id } = useLocalSearchParams<{ id: string }>();
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
@@ -45,6 +47,7 @@ export default function EditMoneySourceScreen() {
   const serviceRef = useRef(moneySourceService);
   serviceRef.current = moneySourceService;
   const { updateMoneySource, deleteMoneySource } = moneySourceService;
+  const { refreshTransactions } = useTransactionRefresh();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -164,11 +167,11 @@ export default function EditMoneySourceScreen() {
   const handleSave = async () => {
     if (!id) return;
     if (!name.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập tên tài khoản');
+      showAlert({ title: 'Lỗi', message: 'Vui lòng nhập tên tài khoản', icon: 'error' });
       return;
     }
     if (!selectedAccountType) {
-      Alert.alert('Lỗi', 'Vui lòng chọn loại tài khoản');
+      showAlert({ title: 'Lỗi', message: 'Vui lòng chọn loại tài khoản', icon: 'error' });
       return;
     }
 
@@ -177,7 +180,7 @@ export default function EditMoneySourceScreen() {
     const balanceStr = String(balance).trim();
     const digitsOnly = balanceStr.replace(/[^0-9]/g, '');
     if (digitsOnly === '') {
-      Alert.alert('Lỗi', 'Vui lòng nhập số dư');
+      showAlert({ title: 'Lỗi', message: 'Vui lòng nhập số dư', icon: 'error' });
       return;
     }
     // Số lớn: dùng Number() (chính xác tới 15 chữ số); trên 15 chữ số có thể dùng BigInt nếu BE hỗ tr
@@ -195,20 +198,25 @@ export default function EditMoneySourceScreen() {
         balance: balanceToSend,
         currency: selectedCurrency?.code || 'VND',
       });
-      Alert.alert('Thành công', 'Đã cập nhật tài khoản', [
-        {
+      refreshTransactions();
+      showAlert({
+        title: 'Thành công',
+        message: 'Đã cập nhật tài khoản',
+        icon: 'check-circle',
+        buttons: [{
           text: 'OK',
+          style: 'confirm',
           onPress: () => {
             router.replace({
               pathname: '/(protected)/(tabs)/account',
               params: { refresh: String(Date.now()), __replace: 'pop' },
             } as any);
           },
-        },
-      ]);
+        }],
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Không thể cập nhật';
-      Alert.alert('Lỗi', msg);
+      showAlert({ title: 'Lỗi', message: msg, icon: 'error' });
     } finally {
       setSaving(false);
     }
@@ -218,6 +226,7 @@ export default function EditMoneySourceScreen() {
     if (!id) return;
     try {
       await deleteMoneySource(id);
+      refreshTransactions();
       setShowDeleteDialog(false);
       router.replace({
         pathname: '/(protected)/(tabs)/account',
@@ -225,7 +234,7 @@ export default function EditMoneySourceScreen() {
       } as any);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Không thể xóa tài khoản';
-      Alert.alert('Lỗi', msg);
+      showAlert({ title: 'Lỗi', message: msg, icon: 'error' });
     }
   };
 

@@ -3,20 +3,21 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { loadDebtEntries } from '@/lib/storage/debtStorage';
 import { useMoneySourceService } from '@/lib/services/moneySourceService';
 import { useReportService } from '@/lib/services/reportService';
+import { useTransactionRefresh } from '@/contexts/transaction-refresh-context';
 import { MaterialIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
   ScrollView,
+  StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 
-const BAR_MAX_HEIGHT = 120;
+const BAR_MAX_HEIGHT = 88;
 
 const ReportBarChart = React.memo(function ReportBarChart({
   data,
@@ -89,6 +90,28 @@ const formatCurrency = (amount: number): string => {
 };
 
 // Lấy start/end của tháng (offset: 0 = tháng hiện tại, -1 = tháng trước, ...)
+const reportStyles = StyleSheet.create({
+  card: { marginBottom: 12, borderRadius: 12, overflow: 'hidden', backgroundColor: 'rgba(34, 197, 94, 0.06)', borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.12)' },
+  financeInner: { padding: 14, paddingBottom: 12 },
+  financeTitle: { fontSize: 12, marginBottom: 4 },
+  financeBalance: { fontSize: 24, fontWeight: '600', marginBottom: 12 },
+  financeRow: { flexDirection: 'row', gap: 8 },
+  financeBox: { flex: 1, backgroundColor: 'rgba(34, 197, 94, 0.06)', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.1)' },
+  financeLabel: { fontSize: 11, marginBottom: 2 },
+  financeValue: { fontSize: 14, fontWeight: '600' },
+  chartCard: { marginBottom: 12, borderRadius: 12, overflow: 'hidden', backgroundColor: 'rgba(34, 197, 94, 0.06)', borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.12)', padding: 14 },
+  chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
+  chartTitle: { fontSize: 14, fontWeight: '600', marginBottom: 2 },
+  chartSub: { fontSize: 11 },
+  chartBtn: { borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6 },
+  statusBox: { backgroundColor: 'rgba(34, 197, 94, 0.05)', borderRadius: 8, padding: 10, marginTop: 8, borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.1)' },
+  statusText: { fontSize: 11, textAlign: 'center' },
+  funcGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
+  funcCard: { width: '31.5%', borderRadius: 10, padding: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(34, 197, 94, 0.06)', borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.12)' },
+  funcIcon: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginBottom: 6 },
+  funcLabel: { fontSize: 11, textAlign: 'center', fontWeight: '500' },
+});
+
 const getMonthRange = (offset: number): { start: Date; end: Date } => {
   const d = new Date();
   d.setMonth(d.getMonth() + offset);
@@ -104,6 +127,7 @@ export default function ReportScreen() {
   const isLight = resolvedTheme === 'light';
   const { getGroupedMoneySources } = useMoneySourceService();
   const { getOverview } = useReportService();
+  const { transactionRefreshTrigger } = useTransactionRefresh();
   const getGroupedMoneySourcesRef = useRef(getGroupedMoneySources);
   getGroupedMoneySourcesRef.current = getGroupedMoneySources;
 
@@ -200,9 +224,48 @@ export default function ReportScreen() {
     }, [getOverview])
   );
 
+  const refetchReportData = useCallback((silent = false) => {
+    lastOverviewFetchRef.current = 0;
+    lastFetchTimeRef.current = 0;
+    if (!silent) {
+      setOverviewLoading(true);
+      setFinanceLoading(true);
+    }
+    const ranges = [-4, -3, -2, -1, 0].map((offset) => {
+      const { start, end } = getMonthRange(offset);
+      return { start, end, monthIndex: new Date(start).getMonth() };
+    });
+    Promise.all(
+      ranges.map((r) =>
+        getOverview(r.start, r.end).then((ov) => ({
+          month: r.monthIndex,
+          income: ov.totalIncome ?? 0,
+          expense: ov.totalExpense ?? 0,
+        }))
+      )
+    )
+      .then(setMonthlyData)
+      .catch(() => setMonthlyData([]))
+      .finally(() => { if (!silent) setOverviewLoading(false); });
+    Promise.all([
+      getGroupedMoneySources().then((r) => r.totalBalance ?? 0),
+      loadDebtEntries().then((entries) => entries.reduce((sum, e) => sum + e.amount, 0)),
+    ])
+      .then(([assets, debt]) => {
+        setTotalAssets(assets);
+        setTotalDebt(debt);
+      })
+      .catch(() => {})
+      .finally(() => { if (!silent) setFinanceLoading(false); });
+  }, [getOverview, getGroupedMoneySources]);
+
+  useEffect(() => {
+    if (transactionRefreshTrigger > 0) refetchReportData(true);
+  }, [transactionRefreshTrigger, refetchReportData]);
+
   const currentBalance = totalAssets - totalDebt;
 
-  const lightCardSurface = isLight
+  const _lightCardSurface = isLight
     ? {
         borderWidth: 1,
         borderColor: themeColors.border,
@@ -212,7 +275,7 @@ export default function ReportScreen() {
         shadowRadius: 6,
         elevation: 3,
       }
-    : null;
+    : { borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.12)' };
 
   // Dữ liệu 5 tháng từ state (sync API) - memo để tránh re-render chart
   const displayData = useMemo(() => {
@@ -246,75 +309,107 @@ export default function ReportScreen() {
         showsVerticalScrollIndicator={false}>
         
         {/* Header */}
-        <View style={styles.reportHeader}>
-          <Text style={[styles.reportHeaderTitle, { color: themeColors.text }]}>Báo cáo</Text>
+        <View style={{ marginBottom: 12, paddingTop: 4 }}>
+          <Text style={[styles.reportHeaderTitle, { color: themeColors.text, fontSize: 20 }]}>Báo cáo</Text>
         </View>
 
-        {/* Card Tài chính hiện tại - sync Tài khoản & Vay nợ */}
-        <View style={styles.card}>
-          <LinearGradient
-            colors={['#009966', '#008236']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.reportCurrentFinanceCard}>
-            <Text style={[styles.reportCurrentFinanceTitle, { color: '#d0fae5' }]}>Tài chính hiện tại</Text>
+        {/* Card Tài chính hiện tại - glass gọn nhẹ */}
+        <View style={reportStyles.card}>
+          <View style={reportStyles.financeInner}>
+            <Text style={[reportStyles.financeTitle, { color: themeColors.textSecondary }]}>Tài chính hiện tại</Text>
             {financeLoading ? (
-              <ActivityIndicator size="small" color="#FFFFFF" style={{ marginVertical: 8 }} />
+              <ActivityIndicator size="small" color={themeColors.tint} style={{ marginVertical: 6 }} />
             ) : (
-              <Text style={styles.reportCurrentBalance}>{formatCurrency(currentBalance)}</Text>
+              <Text style={[reportStyles.financeBalance, { color: themeColors.text }]}>{formatCurrency(currentBalance)}</Text>
             )}
-            
-            <View style={styles.reportFinanceBoxes}>
-              <TouchableOpacity
-                style={styles.reportFinanceBox}
-                onPress={() => router.push('/(protected)/(tabs)/account')}
-                activeOpacity={0.8}>
-                <View style={styles.reportFinanceBoxContent}>
-                  <Text style={styles.reportFinanceBoxLabel}>Tổng có</Text>
-                  {financeLoading ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.reportFinanceBoxValue}>{formatCurrency(totalAssets)}</Text>
-                  )}
-                </View>
-                <MaterialIcons name="keyboard-arrow-up" size={20} color="#FFFFFF" />
+            <View style={reportStyles.financeRow}>
+              <TouchableOpacity style={reportStyles.financeBox} onPress={() => router.push('/(protected)/(tabs)/account')} activeOpacity={0.8}>
+                <Text style={[reportStyles.financeLabel, { color: themeColors.textSecondary }]}>Tổng có</Text>
+                {financeLoading ? <ActivityIndicator size="small" color={themeColors.tint} /> : <Text style={[reportStyles.financeValue, { color: themeColors.text }]}>{formatCurrency(totalAssets)}</Text>}
               </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.reportFinanceBox}
-                onPress={() => router.push('/(protected)/(other-pages)/debt-tracking')}
-                activeOpacity={0.8}>
-                <View style={styles.reportFinanceBoxContent}>
-                  <Text style={styles.reportFinanceBoxLabel}>Tổng nợ</Text>
-                  {financeLoading ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.reportFinanceBoxValue}>{formatCurrency(totalDebt)}</Text>
-                  )}
-                </View>
-                <MaterialIcons name="keyboard-arrow-up" size={20} color="#FFFFFF" />
+              <TouchableOpacity style={reportStyles.financeBox} onPress={() => router.push('/(protected)/(other-pages)/debt-tracking')} activeOpacity={0.8}>
+                <Text style={[reportStyles.financeLabel, { color: themeColors.textSecondary }]}>Tổng nợ</Text>
+                {financeLoading ? <ActivityIndicator size="small" color={themeColors.tint} /> : <Text style={[reportStyles.financeValue, { color: themeColors.text }]}>{formatCurrency(totalDebt)}</Text>}
               </TouchableOpacity>
             </View>
-          </LinearGradient>
+          </View>
         </View>
+
+        {/*
+            <View
+              colors={['#009966', '#008236']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.reportCurrentFinanceCard}>
+              <Text style={[styles.reportCurrentFinanceTitle, { color: '#d0fae5' }]}>Tài chính hiện tại</Text>
+              {financeLoading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" style={{ marginVertical: 8 }} />
+              ) : (
+                <Text style={styles.reportCurrentBalance}>{formatCurrency(currentBalance)}</Text>
+              )}
+              <View style={styles.reportFinanceBoxes}>
+                <TouchableOpacity style={styles.reportFinanceBox} onPress={() => router.push('/(protected)/(tabs)/account')} activeOpacity={0.8}>
+                  <View style={styles.reportFinanceBoxContent}>
+                    <Text style={styles.reportFinanceBoxLabel}>Tổng có</Text>
+                    {financeLoading ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.reportFinanceBoxValue}>{formatCurrency(totalAssets)}</Text>}
+                  </View>
+                  <MaterialIcons name="keyboard-arrow-up" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.reportFinanceBox} onPress={() => router.push('/(protected)/(other-pages)/debt-tracking')} activeOpacity={0.8}>
+                  <View style={styles.reportFinanceBoxContent}>
+                    <Text style={styles.reportFinanceBoxLabel}>Tổng nợ</Text>
+                    {financeLoading ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.reportFinanceBoxValue}>{formatCurrency(totalDebt)}</Text>}
+                  </View>
+                  <MaterialIcons name="keyboard-arrow-up" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+          ) : (
+            <View style={[styles.reportCurrentFinanceCard, { backgroundColor: themeColors.cardGlass, borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.15)' }]}>
+              <Text style={[styles.reportCurrentFinanceTitle, { color: themeColors.textSecondary }]}>Tài chính hiện tại</Text>
+              {financeLoading ? (
+                <ActivityIndicator size="small" color={themeColors.tint} style={{ marginVertical: 8 }} />
+              ) : (
+                <Text style={[styles.reportCurrentBalance, { color: themeColors.text }]}>{formatCurrency(currentBalance)}</Text>
+              )}
+              <View style={styles.reportFinanceBoxes}>
+                <TouchableOpacity
+                  style={[styles.reportFinanceBox, { backgroundColor: 'rgba(34, 197, 94, 0.08)', borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.12)' }]}
+                  onPress={() => router.push('/(protected)/(tabs)/account')}
+                  activeOpacity={0.8}>
+                  <View style={styles.reportFinanceBoxContent}>
+                    <Text style={[styles.reportFinanceBoxLabel, { color: themeColors.textSecondary }]}>Tổng có</Text>
+                    {financeLoading ? <ActivityIndicator size="small" color={themeColors.tint} /> : <Text style={[styles.reportFinanceBoxValue, { color: themeColors.text }]}>{formatCurrency(totalAssets)}</Text>}
+                  </View>
+                  <MaterialIcons name="keyboard-arrow-up" size={20} color={themeColors.icon} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.reportFinanceBox, { backgroundColor: 'rgba(34, 197, 94, 0.08)', borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.12)' }]}
+                  onPress={() => router.push('/(protected)/(other-pages)/debt-tracking')}
+                  activeOpacity={0.8}>
+                  <View style={styles.reportFinanceBoxContent}>
+                    <Text style={[styles.reportFinanceBoxLabel, { color: themeColors.textSecondary }]}>Tổng nợ</Text>
+                    {financeLoading ? <ActivityIndicator size="small" color={themeColors.tint} /> : <Text style={[styles.reportFinanceBoxValue, { color: themeColors.text }]}>{formatCurrency(totalDebt)}</Text>}
+                  </View>
+                  <MaterialIcons name="keyboard-arrow-up" size={20} color={themeColors.icon} />
+                </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+*/}
 
         {/* Card Tình hình thu chi */}
-        <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }, lightCardSurface]}>
-          <View style={styles.reportIncomeExpenseHeader}>
+        <View style={reportStyles.chartCard}>
+          <View style={reportStyles.chartHeader}>
             <View>
-              <Text style={[styles.reportIncomeExpenseTitle, { color: themeColors.text }]}>Tình hình thu chi</Text>
-              <Text style={[styles.reportIncomeExpenseSubtitle, { color: themeColors.textSecondary }]}>5 tháng gần nhất</Text>
+              <Text style={[reportStyles.chartTitle, { color: themeColors.text }]}>Tình hình thu chi</Text>
+              <Text style={[reportStyles.chartSub, { color: themeColors.textSecondary }]}>5 tháng gần nhất</Text>
             </View>
-            <TouchableOpacity
-              style={styles.reportViewDetailButton}
-              onPress={() => router.push('/(protected)/(other-pages)/expense-analysis')}
-              activeOpacity={0.7}>
-              <Text style={[styles.reportViewDetailText, { color: themeColors.tint }]}>Xem chi tiết</Text>
+            <TouchableOpacity style={[reportStyles.chartBtn, { backgroundColor: themeColors.tint }]} onPress={() => router.push('/(protected)/(other-pages)/expense-analysis')} activeOpacity={0.7}>
+              <Text style={{ fontSize: 11, fontWeight: '500', color: themeColors.primaryButtonText }}>Xem chi tiết</Text>
             </TouchableOpacity>
           </View>
-
-          {/* Biểu đồ cột 5 tháng - dùng pixel height để tránh lag */}
-          <View style={styles.reportBarChartContainer}>
+          <View style={[styles.reportBarChartContainer, { height: 115, marginBottom: 0 }]}>
             <ReportBarChart
               data={displayData}
               hasAnyData={hasAnyData}
@@ -324,17 +419,8 @@ export default function ReportScreen() {
             />
           </View>
 
-          {/* Thông báo trạng thái - sync theo dữ liệu */}
-          <View
-            style={[
-              styles.reportStatusMessage,
-              isLight && {
-                backgroundColor: themeColors.card,
-                borderWidth: 1,
-                borderColor: themeColors.border,
-              },
-            ]}>
-            <Text style={[styles.reportStatusMessageText, { color: themeColors.textSecondary }]}>
+          <View style={reportStyles.statusBox}>
+            <Text style={[reportStyles.statusText, { color: themeColors.textSecondary }]}>
               {!hasAnyData
                 ? 'Chưa có dữ liệu thu chi để hiển thị'
                 : displayData.length >= 2 && displayData[displayData.length - 2].expense === 0
@@ -344,8 +430,7 @@ export default function ReportScreen() {
           </View>
         </View>
 
-        {/* Lưới 6 ô chức năng */}
-        <View style={styles.reportFunctionsGrid}>
+        <View style={reportStyles.funcGrid}>
           {functions.map((func) => {
             const handlePress = () => {
               if (func.id === 1) router.push('/(protected)/(other-pages)/expense-analysis');
@@ -355,16 +440,12 @@ export default function ReportScreen() {
               else if (func.id === 5) router.push('/(protected)/(other-pages)/trip-event');
               else if (func.id === 6) router.push('/(protected)/(other-pages)/financial-analysis');
             };
-            
             return (
-              <TouchableOpacity 
-                key={func.id} 
-                style={[styles.reportFunctionCard, { backgroundColor: themeColors.card }, lightCardSurface]}
-                onPress={handlePress}>
-                <View style={[styles.reportFunctionIconContainer, { backgroundColor: func.color + '20' }]}>
-                  <MaterialIcons name={func.icon as any} size={24} color={func.color} />
+              <TouchableOpacity key={func.id} style={reportStyles.funcCard} onPress={handlePress}>
+                <View style={[reportStyles.funcIcon, { backgroundColor: themeColors.tint + '25' }]}>
+                  <MaterialIcons name={func.icon as any} size={18} color={themeColors.tint} />
                 </View>
-                <Text style={[styles.reportFunctionLabel, { color: isLight ? '#364153' : themeColors.text }]}>{func.label}</Text>
+                <Text style={[reportStyles.funcLabel, { color: themeColors.text }]} numberOfLines={2}>{func.label}</Text>
               </TouchableOpacity>
             );
           })}

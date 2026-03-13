@@ -1,13 +1,15 @@
-import { Colors } from '@/constants/theme';
+import { Colors, GlassCardColors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useReportService } from '@/lib/services/reportService';
 import { useTransactionService } from '@/lib/services/transactionService';
+import { useTransactionRefresh } from '@/contexts/transaction-refresh-context';
 import { CategoryStatDto } from '@/lib/types/report';
 import { styles } from '@/styles/index.styles';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Path } from 'react-native-svg';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     ScrollView,
@@ -19,6 +21,46 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 const WEEKLY_CHART_BAR_MAX = 100;
 const DAYS_LABELS = ['T3', 'T4', 'T5', 'T6', 'T7', 'CN', 'T2'];
+
+/** Biểu đồ tròn có màu theo từng danh mục */
+const PieChart = React.memo(function PieChart({
+  data,
+  size = 100,
+}: {
+  data: { percentage: number; color: string }[];
+  size?: number;
+}) {
+  if (data.length === 0) return null;
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = (size / 2) - 2;
+  const paths = useMemo(() => {
+    const total = data.reduce((s, d) => s + Math.max(0, d.percentage), 0);
+    const scale = total > 0 ? 100 / total : 0;
+    let cumulative = 0;
+    return data.map(({ percentage, color }) => {
+      const p = Math.min(100 - cumulative, Math.max(0, percentage * scale));
+      if (p <= 0) return { d: '', color };
+      const startAngle = (cumulative / 100) * 2 * Math.PI - Math.PI / 2;
+      cumulative += p;
+      const endAngle = (cumulative / 100) * 2 * Math.PI - Math.PI / 2;
+      const x1 = cx + r * Math.cos(startAngle);
+      const y1 = cy + r * Math.sin(startAngle);
+      const x2 = cx + r * Math.cos(endAngle);
+      const y2 = cy + r * Math.sin(endAngle);
+      const largeArc = (endAngle - startAngle) > Math.PI ? 1 : 0;
+      const d = `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+      return { d, color };
+    });
+  }, [data, cx, cy, r]);
+  return (
+    <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      {paths.filter((p) => p.d).map(({ d, color }, i) => (
+        <Path key={i} d={d} fill={color} strokeWidth={0} />
+      ))}
+    </Svg>
+  );
+});
 
 const WeeklyTrendChart = React.memo(function WeeklyTrendChart({
   values,
@@ -146,6 +188,7 @@ export default function ExpenseAnalysisScreen() {
   const [activePeriod, setActivePeriod] = useState<TimePeriod>('month');
   const { getOverview } = useReportService();
   const { getTransactions } = useTransactionService();
+  const { transactionRefreshTrigger } = useTransactionRefresh();
 
   const [loading, setLoading] = useState(true);
   const [currentOverview, setCurrentOverview] = useState<{
@@ -242,6 +285,66 @@ export default function ExpenseAnalysisScreen() {
       return () => { cancelled = true; };
     }, [activePeriod, getOverview, getTransactions])
   );
+
+  useEffect(() => {
+    if (transactionRefreshTrigger > 0) {
+      lastFetchRef.current = 0;
+      loadedOnceRef.current = false;
+      const curr = getPeriodRange(activePeriod, 0);
+      const prev = getPeriodRange(activePeriod, -1);
+      const weekEnd = new Date();
+      const weekStart = new Date(weekEnd);
+      weekStart.setDate(weekStart.getDate() - 6);
+      weekStart.setHours(0, 0, 0, 0);
+      weekEnd.setHours(23, 59, 59, 999);
+      Promise.all([
+        getOverview(curr.start, curr.end),
+        getOverview(prev.start, prev.end),
+      ])
+        .then(([currOv, prevOv]) => {
+          setCurrentOverview({
+            totalExpense: currOv?.totalExpense ?? 0,
+            categoryStats: currOv?.categoryStats ?? [],
+          });
+          setPreviousOverview({
+            totalExpense: prevOv?.totalExpense ?? 0,
+            categoryStats: prevOv?.categoryStats ?? [],
+          });
+        })
+        .catch(() => {
+          setCurrentOverview({ totalExpense: 0, categoryStats: [] });
+          setPreviousOverview({ totalExpense: 0, categoryStats: [] });
+        })
+        .finally(() => {});
+      getTransactions({
+        startDate: weekStart.toISOString(),
+        endDate: weekEnd.toISOString(),
+        pageSize: 500,
+      })
+        .then((res) => {
+          const byDay: Record<string, number> = {};
+          for (let i = 0; i < 7; i++) {
+            const d = new Date(weekStart);
+            d.setDate(d.getDate() + i);
+            byDay[d.toISOString().slice(0, 10)] = 0;
+          }
+          (res?.transactions ?? []).forEach((t) => {
+            if (!t.isIncome) {
+              const key = t.transactionDate.slice(0, 10);
+              if (byDay[key] !== undefined) byDay[key] += t.amount;
+            }
+          });
+          const vals: number[] = [];
+          for (let i = 0; i < 7; i++) {
+            const d = new Date(weekStart);
+            d.setDate(d.getDate() + i);
+            vals.push(byDay[d.toISOString().slice(0, 10)] ?? 0);
+          }
+          setWeeklyTrend(vals);
+        })
+        .catch(() => setWeeklyTrend([0, 0, 0, 0, 0, 0, 0]));
+    }
+  }, [transactionRefreshTrigger, activePeriod, getOverview, getTransactions]);
 
   const totalExpense = currentOverview?.totalExpense ?? 0;
   const prevTotal = previousOverview?.totalExpense ?? 0;
@@ -507,7 +610,7 @@ export default function ExpenseAnalysisScreen() {
         </View>
 
         {/* AI Insights */}
-        <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }]}>
+        <View style={[styles.card, styles.darkCard, { backgroundColor: GlassCardColors.bg, borderWidth: 1, borderColor: GlassCardColors.border }]}>
           <View style={styles.expenseAnalysisSectionHeader}>
             <View style={styles.expenseAnalysisSectionTitleRow}>
               <MaterialIcons name="bolt" size={20} color="#51A2FF" />
@@ -532,7 +635,7 @@ export default function ExpenseAnalysisScreen() {
                   styles.expenseAnalysisInsightCard,
                   { borderLeftColor: insight.color },
                   isLight && {
-                    backgroundColor: themeColors.background,
+                    backgroundColor: GlassCardColors.inner,
                     borderWidth: 1,
                     borderColor: themeColors.border,
                   },
@@ -576,7 +679,7 @@ export default function ExpenseAnalysisScreen() {
         </View>
 
         {/* Phân bố chi tiêu - sync categoryStats */}
-        <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }]}>
+        <View style={[styles.card, styles.darkCard, { backgroundColor: GlassCardColors.bg, borderWidth: 1, borderColor: GlassCardColors.border }]}>
           <Text
             style={[
               styles.expenseAnalysisSectionTitle,
@@ -587,7 +690,10 @@ export default function ExpenseAnalysisScreen() {
           {expenseCategories.length > 0 ? (
             <View style={styles.expenseAnalysisPieChartContainer}>
               <View style={styles.expenseAnalysisPieChartPlaceholder}>
-                <View style={styles.expenseAnalysisPieChartCircle} />
+                <PieChart
+                  data={expenseCategories.map((c) => ({ percentage: c.percentage, color: c.color }))}
+                  size={100}
+                />
               </View>
               <View style={styles.expenseAnalysisLegend}>
                 {expenseCategories.map((category, index) => (
@@ -631,7 +737,7 @@ export default function ExpenseAnalysisScreen() {
         </View>
 
         {/* Xu hướng 7 ngày qua - dùng pixel height để tránh lag */}
-        <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }]}>
+        <View style={[styles.card, styles.darkCard, { backgroundColor: GlassCardColors.bg, borderWidth: 1, borderColor: GlassCardColors.border }]}>
           <Text
             style={[
               styles.expenseAnalysisSectionTitle,
@@ -657,7 +763,7 @@ export default function ExpenseAnalysisScreen() {
         </View>
 
         {/* So sánh kỳ trước - sync từ categoryStats */}
-        <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }]}>
+        <View style={[styles.card, styles.darkCard, { backgroundColor: GlassCardColors.bg, borderWidth: 1, borderColor: GlassCardColors.border }]}>
           <Text
             style={[
               styles.expenseAnalysisSectionTitle,
@@ -730,7 +836,7 @@ export default function ExpenseAnalysisScreen() {
         </View>
 
         {/* Gợi ý tiết kiệm */}
-        <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }]}>
+        <View style={[styles.card, styles.darkCard, { backgroundColor: GlassCardColors.bg, borderWidth: 1, borderColor: GlassCardColors.border }]}>
           <View style={styles.expenseAnalysisSectionTitleRow}>
             <MaterialIcons name="bolt" size={20} color="#51A2FF" />
             <Text
@@ -748,7 +854,7 @@ export default function ExpenseAnalysisScreen() {
                 style={[
                   styles.expenseAnalysisSavingTipCard,
                   isLight && {
-                    backgroundColor: themeColors.background,
+                    backgroundColor: GlassCardColors.inner,
                     borderWidth: 1,
                     borderColor: themeColors.border,
                   },
@@ -785,7 +891,7 @@ export default function ExpenseAnalysisScreen() {
         </View>
 
         {/* Giao dịch bất thường */}
-        <View style={[styles.card, styles.darkCard, { backgroundColor: themeColors.card }]}>
+        <View style={[styles.card, styles.darkCard, { backgroundColor: GlassCardColors.bg, borderWidth: 1, borderColor: GlassCardColors.border }]}>
           <View style={styles.expenseAnalysisSectionTitleRow}>
             <MaterialIcons name="warning" size={20} color="#EF4444" />
             <Text
@@ -803,7 +909,7 @@ export default function ExpenseAnalysisScreen() {
                 style={[
                   styles.expenseAnalysisUnusualTransactionCard,
                   isLight && {
-                    backgroundColor: themeColors.background,
+                    backgroundColor: GlassCardColors.inner,
                   },
                 ]}>
                 <View style={styles.expenseAnalysisUnusualTransactionContent}>

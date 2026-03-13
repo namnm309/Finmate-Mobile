@@ -6,14 +6,15 @@ import { useTransactionService } from '@/lib/services/transactionService';
 import { useTransactionTypeService } from '@/lib/services/transactionTypeService';
 import { MoneySourceDto } from '@/lib/types/moneySource';
 import { CategoryDto, TransactionTypeDto } from '@/lib/types/transaction';
+import { useAppAlert } from '@/contexts/app-alert-context';
 import { useCategorySelection } from '@/contexts/category-selection-context';
+import { useTransactionRefresh } from '@/contexts/transaction-refresh-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     Dimensions,
     KeyboardAvoidingView,
     Modal,
@@ -501,6 +502,8 @@ export default function ManualInputScreen() {
 
   const { pendingSelectedCategory, clearPendingSelectedCategory } =
     useCategorySelection();
+  const { refreshTransactions } = useTransactionRefresh();
+  const { showAlert } = useAppAlert();
 
   // Services
   const { getTransactionTypes } = useTransactionTypeService();
@@ -543,9 +546,9 @@ export default function ManualInputScreen() {
     }
   }, [pendingSelectedCategory, clearPendingSelectedCategory]);
 
-  // Pre-fill từ AI quét hóa đơn (params: amount, date DD/MM/YYYY, description)
+  // Pre-fill từ AI quét hóa đơn (params: amount, date DD/MM/YYYY, description, categoryName)
   useEffect(() => {
-    if (!params?.amount && !params?.date && !params?.description) return;
+    if (!params?.amount && !params?.date && !params?.description && !params?.categoryName) return;
     if (params.amount) {
       const raw = params.amount.replace(/\D/g, '');
       setAmount(raw ? raw.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '');
@@ -559,6 +562,18 @@ export default function ManualInputScreen() {
     }
     if (params.description) setDescription(params.description);
   }, [params?.amount, params?.date, params?.description]);
+
+  // Pre-fill danh mục từ bill (categoryName) khi categories đã load
+  useEffect(() => {
+    const catName = params?.categoryName?.trim();
+    if (!catName || categories.length === 0) return;
+    const n = catName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const match = categories.find((c) => {
+      const cn = (c.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return cn === n || cn.includes(n) || n.includes(cn);
+    });
+    if (match) setSelectedCategory(match);
+  }, [params?.categoryName, categories]);
 
   // Fetch initial data
   const fetchData = useCallback(async () => {
@@ -612,7 +627,7 @@ export default function ManualInputScreen() {
       setCategories(categoriesData);
     } catch (err) {
       console.error('Error fetching categories:', err);
-      Alert.alert('Lỗi', 'Không thể tải danh mục cho loại giao dịch này');
+      showAlert({ title: 'Lỗi', message: 'Không thể tải danh mục cho loại giao dịch này', icon: 'error' });
     }
   };
 
@@ -676,28 +691,28 @@ export default function ManualInputScreen() {
     // Validation
     const digitsOnly = amount.replace(/\D/g, '');
     if (digitsOnly === '') {
-      Alert.alert('Lỗi', 'Vui lòng nhập số tiền');
+      showAlert({ title: 'Lỗi', message: 'Vui lòng nhập số tiền', icon: 'warning' });
       return;
     }
 
     const amountNumber = parseInt(digitsOnly, 10);
     if (isNaN(amountNumber) || amountNumber <= 0) {
-      Alert.alert('Lỗi', 'Số tiền không hợp lệ');
+      showAlert({ title: 'Lỗi', message: 'Số tiền không hợp lệ', icon: 'warning' });
       return;
     }
 
     if (!selectedTransactionType) {
-      Alert.alert('Lỗi', 'Vui lòng chọn loại giao dịch');
+      showAlert({ title: 'Lỗi', message: 'Vui lòng chọn loại giao dịch', icon: 'warning' });
       return;
     }
 
     if (!selectedCategory) {
-      Alert.alert('Lỗi', 'Vui lòng chọn hạng mục');
+      showAlert({ title: 'Lỗi', message: 'Vui lòng chọn hạng mục', icon: 'warning' });
       return;
     }
 
     if (!selectedMoneySource) {
-      Alert.alert('Lỗi', 'Vui lòng chọn tài khoản');
+      showAlert({ title: 'Lỗi', message: 'Vui lòng chọn tài khoản', icon: 'warning' });
       return;
     }
 
@@ -725,13 +740,17 @@ export default function ManualInputScreen() {
         isFee: isFee,
         excludeFromReport: excludeFromReport,
       });
+      refreshTransactions();
 
-      Alert.alert('Thành công', 'Đã lưu giao dịch', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
+      showAlert({
+        title: 'Thành công',
+        message: 'Đã lưu giao dịch',
+        icon: 'check-circle',
+        buttons: [{ text: 'OK', style: 'confirm', onPress: () => router.back() }],
+      });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Không thể lưu giao dịch';
-      Alert.alert('Lỗi', errorMessage);
+      showAlert({ title: 'Lỗi', message: errorMessage, icon: 'error' });
       console.error('Error saving transaction:', err);
     } finally {
       setSaving(false);

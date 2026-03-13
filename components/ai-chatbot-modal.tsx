@@ -6,7 +6,9 @@ import { useReportService } from '@/lib/services/reportService';
 import { useMoneySourceService } from '@/lib/services/moneySourceService';
 import { useCategoryService } from '@/lib/services/categoryService';
 import { useTransactionTypeService } from '@/lib/services/transactionTypeService';
+import { useAppAlert } from '@/contexts/app-alert-context';
 import { useSavingGoal } from '@/contexts/saving-goal-context';
+import { useTransactionRefresh } from '@/contexts/transaction-refresh-context';
 import { buildUserContextForAI } from '@/lib/utils/buildUserContext';
 import type { CategoryDto, TransactionTypeDto } from '@/lib/types/transaction';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -15,11 +17,12 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useCallback, useState, useRef, useEffect, useMemo } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   AppState,
-  Alert,
+  Dimensions,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -32,6 +35,30 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
+import type { FabPosition } from '@/contexts/ai-chatbot-context';
+
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
+const POPOVER_WIDTH = Math.min(SCREEN_W - 24, 380);
+const POPOVER_MAX_HEIGHT = Math.min(SCREEN_H * 0.68, 480);
+const FAB_SIZE = 58;
+
+const POPOVER_DARK = {
+  bg: 'rgba(21, 25, 32, 0.92)',
+  gridOverlay: 'rgba(34, 197, 94, 0.03)',
+  card: 'rgba(30, 35, 46, 0.95)',
+  header: 'rgba(26, 31, 42, 0.95)',
+  text: '#f0f2f5',
+  textSecondary: '#94a3b8',
+  chipBg: '#1e232e',
+  chipBorder: 'rgba(34, 197, 94, 0.45)',
+  inputBg: '#1e232e',
+  inputBorder: 'rgba(34, 197, 94, 0.4)',
+  closeBtnBg: '#2d3548',
+  closeBtnRing: '#22c55e',
+  accent: '#22c55e',
+  sparkleTint: '#f59e0b',
+  border: 'rgba(255,255,255,0.06)',
+};
 
 const getReceiptsCacheDir = () => new Directory(Paths.cache, 'FinMate_receipts');
 
@@ -48,11 +75,12 @@ const clearReceiptsCache = () => {
 
 interface DisplayMessage extends ChatMessage {
   imageUri?: string;
+  quickReplies?: string[];
 }
 
 const SYSTEM_PROMPT_BASE = `Bạn là trợ lý AI tài chính của FinMate. Bạn giúp người dùng:
 1. Ghi chép chi tiêu, phân tích tài chính, đưa lời khuyên tiết kiệm
-2. QUÉT HÓA ĐƠN: CHỈ khi user gửi KÈM ẢNH (có đính kèm hình) — mới đọc ảnh và trích xuất. Khi user CHỈ gửi chữ (text thuần, không có ảnh): KHÔNG BAO GIỜ trả format trích xuất, KHÔNG output [FINMATE_EXTRACT]; trả lời bình thường. Tin nhắn ngắn/khó hiểu (vd: "t", "a"): hỏi "Bạn muốn hỏi gì ạ?" hoặc gợi ý nhẹ.
+2. QUÉT HÓA ĐƠN: CHỈ khi user gửi KÈM ẢNH — mới đọc ảnh và trích xuất. Khi user CHỈ gửi chữ (text thuần) và KHÔNG phải mô tả thu/chi nhanh (xem mục 3): KHÔNG output [FINMATE_EXTRACT]; trả lời bình thường. Tin nhắn ngắn/khó hiểu (vd: "t", "a"): hỏi "Bạn muốn hỏi gì ạ?" hoặc gợi ý nhẹ.
    Khi CÓ ẢNH hóa đơn — trích xuất:
 
    HOÁ ĐƠN ĐIỆN TỬ (từ app, email, ảnh màn hình):
@@ -75,13 +103,17 @@ const SYSTEM_PROMPT_BASE = `Bạn là trợ lý AI tài chính của FinMate. B�
    - Nếu ảnh có nhiều số tiền, chọn số gắn trực tiếp với giao dịch vừa thành công, không chọn số dư còn lại
    - Với ảnh kiểu app banking, amount thường là số to nhất ở card đầu hoặc ở giữa màn hình; ưu tiên số đó hơn các số trong phần chi tiết bên dưới
 
-   BILL CHUYỂN KHOẢN MOMO:
-   - Nhận diện các cụm: "MoMo", "Ví MoMo", "Chuyển tiền thành công", "Giao dịch thành công", "Thanh toán thành công"
-   - ƯU TIÊN amount ở các nhãn: "Số tiền", "Số tiền chuyển", "Tổng tiền", "Giá trị giao dịch"
-   - Nếu không có nhãn "Số tiền", ưu tiên số tiền lớn hiển thị trong card đầu tiên ngay dưới tiêu đề như "CHUYỂN TIỀN", "THANH TOÁN", "NHẬN TIỀN"
-   - Tìm ngày giờ ở các nhãn: "Thời gian", "Thời gian giao dịch", "Ngày giao dịch"
-   - Bỏ qua: "Mã giao dịch", "Mã đơn hàng", "Số dư ví", "Phí", "Nguồn tiền"
-   - Với MoMo, nếu thấy dạng "16:30 - 09/03/2026" thì date phải lấy phần ngày "09/03/2026", bỏ phần giờ
+   BILL CHUYỂN KHOẢN MOMO (Chi Tiết Giao Dịch / màn hình app MoMo):
+   - Nhận diện: "Chi Tiết Giao Dịch", "MoMo", "Ví MoMo", "CHUYỂN TIỀN", "NHẬN TIỀN", "THANH TOÁN"
+   - Loại giao dịch: "CHUYỂN TIỀN" / "THANH TOÁN" = chi tiêu; "NHẬN TIỀN" = thu nhập
+   - Số tiền: tìm số có dấu trừ (vd: -2.939.000₫) hoặc số to trong card đầu. Bỏ dấu âm, output số dương
+   - Thời gian: dạng "16:30 - 09/03/2026" → date lấy "09/03/2026" (DD/MM/YYYY), bỏ giờ
+   - DANH MỤC (quan trọng): tìm trường "Danh mục" — VD: "Nhà cửa", "Ăn uống", "Di chuyển", "Mua sắm"... → đưa vào categoryName để app điền hạng mục thu/chi
+   - Lời nhắn: nội dung "Lời nhắn" (vd: "all tiền tháng 3") có thể dùng cho content
+   - Tên người nhận/chuyển: "Tên Ví MoMo", "Tên danh bạ" — dùng bổ sung cho content nếu cần
+   - Tài khoản: "Sacombank", "Tài khoản/thẻ" — nguồn tiền
+   - Bỏ qua: "Mã giao dịch", "Mã đơn hàng", "Số dư ví", "Phí", "Tổng phí", "Miễn phí"
+   - content: kết hợp "Chuyển khoản MoMo" + lời nhắn hoặc tên người nhận (max 200 ký tự)
 
    BILL CHUYỂN KHOẢN VNPAY / VNPAY QR:
    - Nhận diện các cụm: "VNPAY", "VNPay", "VNPAY QR", "Thanh toán thành công", "Giao dịch thành công", "Chuyển tiền thành công"
@@ -105,29 +137,40 @@ const SYSTEM_PROMPT_BASE = `Bạn là trợ lý AI tài chính của FinMate. B�
    - Nếu thấy các biến thể OCR gần giống như "So tien", "S0 tien", "S6 tien", "Ngay GD", "Thdi gian" thì vẫn hiểu là "Số tiền", "Ngày GD", "Thời gian"
    - Nếu ảnh là màn hình app và amount nằm ở phần header/card đầu còn phần dưới là danh sách chi tiết, luôn ưu tiên amount ở phần header/card đầu
    - Với bill chuyển khoản, content ưu tiên ghi ngắn gọn dạng: "Chuyển khoản", "Chuyển khoản MoMo", "Thanh toán VNPAY", hoặc tên cửa hàng/người nhận nếu đọc rõ
-   - Sau khi đọc xong ảnh và đã có amount + date, hãy hỏi thêm đúng 1 câu xác nhận: "Bạn có muốn lưu số tiền này vào mục chi không?"
+   - Sau khi đọc xong ảnh và đã có amount + date, hỏi: "Bạn có muốn lưu số tiền này vào mục chi không?" Thêm [FINMATE_QUICK_REPLY]Có|Không|Chỉnh sửa[/FINMATE_QUICK_REPLY]
    - CHỈ hỏi xác nhận lưu, KHÔNG nói đã lưu thành công trước khi user xác nhận
    - Format hiển thị:
      💰 Số tiền: [X] VND
      📅 Ngày: [DD/MM/YYYY hoặc ghi "không rõ"]
-     🧾 Nội dung: [tóm tắt ngắn — tên cửa hàng / loại giao dịch]
+     📂 Danh mục: [nếu có — VD: Nhà cửa, Ăn uống]
+     🧾 Nội dung: [tóm tắt ngắn — tên cửa hàng / loại giao dịch / lời nhắn]
    - Sau phần trả lời, BẮT BUỘC thêm 1 dòng để app tự điền form Nhập thủ công:
-     [FINMATE_EXTRACT]{"amount":SỐ_NGUYÊN,"date":"DD/MM/YYYY","content":"chuỗi"}[/FINMATE_EXTRACT]
-     amount=số tiền (VD 125000), date=DD/MM/YYYY (không rõ thì dùng hôm nay), content=tên cửa hàng/loại (max 200 ký tự)
-   - Thiếu field: nếu không đọc được số tiền dùng amount:0; không rõ ngày dùng hôm nay; content để trống nếu không có
+     [FINMATE_EXTRACT]{"amount":SỐ_NGUYÊN,"date":"DD/MM/YYYY","content":"chuỗi","categoryName":"chuỗi"}[/FINMATE_EXTRACT]
+     amount=số tiền (VD 125000), date=DD/MM/YYYY (không rõ thì dùng hôm nay), content=tên cửa hàng/loại/lời nhắn (max 200 ký tự), categoryName=danh mục trong bill (VD: "Nhà cửa", "Ăn uống") — dùng để điền hạng mục thu/chi, để trống nếu không có
+   - Thiếu field: amount:0 nếu không đọc được; date=hôm nay nếu không rõ; content=""; categoryName="" nếu không có
 
-3. Lập lộ trình tiêu dùng: ví dụ user muốn mua iPhone 17 Pro Max 52 triệu, lương 18tr/tháng, mua trong 5 tháng → tính mỗi ngày cần để dành bao nhiêu
-4. Giới thiệu app: FinMate là app quản lý tài chính cá nhân - theo dõi chi tiêu, tiết kiệm, báo cáo, gợi ý mục tiêu
-5. Tư vấn tiết kiệm & tài chính: trả lời mọi câu hỏi về tiết kiệm tiền (50/30/20, quỹ khẩn cấp, đầu tư cơ bản...), quản lý thu chi, nợ, tài chính cá nhân
+3. GHI CHÉP TỪ CHAT (text thuần, KHÔNG có ảnh):
+   - Khi user nói các câu như: "nay ăn cơm hết 30k", "nay mua túi hết 2 triệu", "hôm nay đi xem phim 150k", "chi tiền cafe 50k"...
+   - "nay", "hôm nay", "hom nay" = NGÀY HÔM NAY (local date, DD/MM/YYYY)
+   - Chi tiêu cho bản thân (ăn, uống, mua sắm, giải trí...) → mục CHI (expense). Thu nhập (lương, nhận tiền...) → mục THU.
+   - Parse số tiền: 30k=30000, 2tr=2000000, 2 triệu=2000000, 150k=150000, 50.000đ=50000
+   - Trả lời gọn: tóm tắt số tiền + nội dung (VD: "Đã ghi nhận 30.000đ - ăn cơm, ngày hôm nay.")
+   - Hỏi ngắn: "Bạn có muốn lưu vào mục Chi không?" (nếu chi) hoặc "Bạn có muốn lưu vào mục Thu không?" (nếu thu)
+   - Output [FINMATE_EXTRACT] ngay sau câu hỏi. Thêm [FINMATE_QUICK_REPLY]Có|Không|Chỉnh sửa[/FINMATE_QUICK_REPLY] để app hiện nút chọn (user không cần gõ).
+   - Ưu tiên câu trả lời NGẮN, dùng NÚT thay vì bắt user gõ.
 
-6. Khi được cung cấp DỮ LIỆU THU CHI VÀ MỤC TIÊU TIẾT KIỆM (userContext) bên dưới, BẮT BUỘC dùng dữ liệu đó để:
+4. Lập lộ trình tiêu dùng: ví dụ user muốn mua iPhone 17 Pro Max 52 triệu, lương 18tr/tháng, mua trong 5 tháng → tính mỗi ngày cần để dành bao nhiêu
+5. Giới thiệu app: FinMate là app quản lý tài chính cá nhân - theo dõi chi tiêu, tiết kiệm, báo cáo, gợi ý mục tiêu
+6. Tư vấn tiết kiệm & tài chính: trả lời mọi câu hỏi về tiết kiệm tiền (50/30/20, quỹ khẩn cấp, đầu tư cơ bản...), quản lý thu chi, nợ, tài chính cá nhân
+
+7. Khi được cung cấp DỮ LIỆU THU CHI VÀ MỤC TIÊU TIẾT KIỆM (userContext) bên dưới, BẮT BUỘC dùng dữ liệu đó để:
    - Phân tích, phát hiện chi tiêu bất hợp lý, đưa ra nhận xét và khuyến nghị cụ thể
    - Trả lời chính xác câu hỏi về mục tiêu: VD "tôi đã hoàn thành mấy mục tiêu?" → trả số từ userContext (Đã hoàn thành: X). "có bao nhiêu mục tiêu đang theo đuổi?" → trả số từ userContext
    KHÔNG nói "không có dữ liệu" nếu đã có userContext.
 
-7. TẠO MỤC TIÊU TIẾT KIỆM TỪ HỘI THOẠI:
-   - Khi user mô tả ý định tiết kiệm (VD: "lương 18tr, muốn mua iPhone 52 triệu trong 5 tháng", "tôi lương 15 triệu muốn mua laptop 25 triệu") → AI tóm tắt lại (tên mục tiêu, số tiền, lương, thời gian) và hỏi: "Bạn có muốn lập mục tiêu này không?"
-   - Khi user xác nhận (Yes, Có, Đồng ý, Ok, Lập đi...) → AI trả lời ngắn gọn chúc mừng và THÊM dòng sau (ẩn khỏi nội dung hiển thị):
+8. TẠO MỤC TIÊU TIẾT KIỆM TỪ HỘI THOẠI:
+   - Khi user mô tả ý định tiết kiệm → AI tóm tắt lại và hỏi: "Bạn có muốn lập mục tiêu này không?" Thêm [FINMATE_QUICK_REPLY]Có|Không[/FINMATE_QUICK_REPLY] để app hiện nút.
+   - Khi user xác nhận (Có, Đồng ý...) → AI trả lời chúc mừng và THÊM (ẩn khỏi hiển thị):
      [FINMATE_CREATE_GOAL]{"title":"tên mục tiêu","targetAmount":SỐ_NGUYÊN,"salary":SỐ_NGUYÊN,"daysToAchieve":SỐ_NGUYÊN,"dailyEssential":SỐ_NGUYÊN,"category":"Mua sắm"}[/FINMATE_CREATE_GOAL]
      title=ngắn gọn (VD "iPhone 17 Pro Max"), targetAmount=số tiền mục tiêu, salary=thu nhập/tháng, daysToAchieve=số ngày, dailyEssential=chi thiết yếu/ngày (mặc định 50000 nếu không rõ), category="Mua sắm"|"Du lịch"|"Khác"
 
@@ -140,14 +183,38 @@ QUY TẮC CẤM (KHÔNG VI PHẠM):
 - CHỈ dùng chữ cái alphabet, số, dấu câu thông thường
 - Có thể dùng vài icon minh họa nhẹ (💰 📅 📊 ✅ ⚠️) nhưng không lạm dụng
 - Phân tách: xuống dòng hoặc "——" ngắn
-- Trả lời gọn, rõ ràng, thân thiện bằng tiếng Việt`;
+- Trả lời gọn, rõ ràng, thân thiện bằng tiếng Việt
+
+QUICK REPLY (giống Shopee - ưu tiên nút thay vì gõ):
+- Mọi câu hỏi Có/Không: thêm [FINMATE_QUICK_REPLY]Có|Không[/FINMATE_QUICK_REPLY] hoặc [FINMATE_QUICK_REPLY]Có|Không|Chỉnh sửa[/FINMATE_QUICK_REPLY] để app hiện nút chọn.
+- User ưu tiên ấn nút, hạn chế gõ.`;
 
 
 const FINMATE_EXTRACT_REGEX = /\[FINMATE_EXTRACT\]([\s\S]*?)\[\/FINMATE_EXTRACT\]/;
 const FINMATE_CREATE_GOAL_REGEX = /\[FINMATE_CREATE_GOAL\]([\s\S]*?)\[\/FINMATE_CREATE_GOAL\]/;
+const FINMATE_QUICK_REPLY_REGEX = /\[FINMATE_QUICK_REPLY\]([^\[]*?)\[\/FINMATE_QUICK_REPLY\]/;
 
 function stripCreateGoalTag(text: string): string {
   return text.replace(FINMATE_CREATE_GOAL_REGEX, '').replace(/\s*\n\s*\n/g, '\n\n').trim();
+}
+
+function stripExtractTag(text: string): string {
+  return text.replace(FINMATE_EXTRACT_REGEX, '').replace(/\s*\n\s*\n/g, '\n\n').trim();
+}
+
+function parseQuickReplies(text: string): string[] {
+  const match = text.match(FINMATE_QUICK_REPLY_REGEX);
+  if (!match) return [];
+  const inner = (match[1] || '').trim();
+  return inner.split('|').map((s) => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
+}
+
+function stripQuickReplyTag(text: string): string {
+  return text.replace(FINMATE_QUICK_REPLY_REGEX, '').replace(/\s*\n\s*\n/g, '\n\n').trim();
+}
+
+function stripAllInternalTags(text: string): string {
+  return stripQuickReplyTag(stripExtractTag(stripCreateGoalTag(text)));
 }
 
 function normalizeText(text: string): string {
@@ -239,6 +306,8 @@ interface ReceiptExtractPayload {
   amount: number;
   date: string;
   content: string;
+  /** Danh mục từ bill (VD: Nhà cửa, Ăn uống) — dùng để chọn hạng mục thu/chi */
+  categoryName?: string;
 }
 
 interface PendingReceiptDraft extends ReceiptExtractPayload {
@@ -278,7 +347,8 @@ function parseReceiptExtract(text: string): ReceiptExtractPayload | null {
     const amount = Math.abs(Number.isFinite(rawAmount) ? rawAmount : 0);
     const date = normalizeReceiptDate(String(obj.date || '').trim());
     const content = String(obj.content || '').trim().slice(0, 200);
-    return { amount, date, content };
+    const categoryName = String(obj.categoryName || '').trim().slice(0, 100) || undefined;
+    return { amount, date, content, categoryName: categoryName || undefined };
   } catch {
     return null;
   }
@@ -291,24 +361,33 @@ function pickExpenseType(types: TransactionTypeDto[]): TransactionTypeDto | null
     || null;
 }
 
-function pickReceiptCategory(categories: CategoryDto[], content: string): CategoryDto | null {
+function pickReceiptCategory(categories: CategoryDto[], content: string, billCategoryName?: string): CategoryDto | null {
   if (!categories.length) return null;
 
+  const categoryNorm = (c: CategoryDto) => normalizeText(c.name);
   const normalizedContent = normalizeText(content);
-  const categoryName = (c: CategoryDto) => normalizeText(c.name);
   const includesAny = (text: string, keywords: string[]) => keywords.some((k) => text.includes(k));
+
+  if (billCategoryName && billCategoryName.trim()) {
+    const n = normalizeText(billCategoryName.trim());
+    const exact = categories.find((c) => categoryNorm(c) === n);
+    if (exact) return exact;
+    const contains = categories.find((c) => categoryNorm(c).includes(n) || n.includes(categoryNorm(c)));
+    if (contains) return contains;
+  }
 
   const pickByKeywords = (contentKeywords: string[], categoryKeywords: string[]) => {
     if (!includesAny(normalizedContent, contentKeywords)) return null;
-    return categories.find((c) => includesAny(categoryName(c), categoryKeywords)) || null;
+    return categories.find((c) => includesAny(categoryNorm(c), categoryKeywords)) || null;
   };
 
   return pickByKeywords(['an', 'uong', 'tra sua', 'ca phe', 'com', 'bun', 'pho'], ['an uong', 'do an', 'thuc an', 'do uong'])
     || pickByKeywords(['grab', 'be', 'xang', 'xe', 'di chuyen'], ['di chuyen', 'xang xe', 'giao thong'])
+    || pickByKeywords(['nha cua', 'nha', 'cua'], ['nha cua', 'nha cửa'])
     || pickByKeywords(['dien', 'nuoc', 'internet', 'wifi', 'dien thoai'], ['hoa don', 'dien nuoc', 'dien', 'nuoc', 'internet'])
     || pickByKeywords(['shopee', 'lazada', 'tiki', 'mua', 'shopping'], ['mua sam', 'shopping'])
     || pickByKeywords(['chuyen khoan', 'momo', 'vnpay', 'zalo'], ['chuyen tien', 'khac', 'chi khac'])
-    || categories.find((c) => ['chi khac', 'khac', 'other'].includes(categoryName(c)))
+    || categories.find((c) => ['chi khac', 'khac', 'other'].includes(categoryNorm(c)))
     || categories[0];
 }
 
@@ -321,11 +400,46 @@ interface AIChatbotModalProps {
   autoSend?: boolean;
   /** Nhúng trực tiếp vào màn hình (không dùng modal). Dùng cho tab AI Assistant */
   embedded?: boolean;
+  /** Chế độ popover: cửa sổ nổi bật lên từ FAB, vị trí tự động theo FAB */
+  popoverMode?: boolean;
+  /** Vị trí FAB (dùng khi popoverMode) */
+  fabPosition?: FabPosition;
   /** Gọi khi quét hóa đơn nhưng thiếu field / chưa trích xuất được (để hiện chấm đỏ nút chat) */
   onMissingFieldsShown?: () => void;
 }
 
-export function AIChatbotModal({ visible, onClose, initialMessage, autoSend, embedded, onMissingFieldsShown }: AIChatbotModalProps) {
+const GAP = 10;
+
+/**
+ * Ô chat sát bên FAB, di chuyển theo FAB khi kéo.
+ * Đặt popover cạnh FAB: ưu tiên bên trái-trên nếu FAB ở phải-dưới.
+ */
+function getPopoverPosition(fab: FabPosition, insets: { top: number; bottom: number }) {
+  const pad = 8;
+  const fabCenterX = fab.x + FAB_SIZE / 2;
+  const fabCenterY = fab.y + FAB_SIZE / 2;
+
+  let top: number;
+  let left: number;
+
+  if (fabCenterY > SCREEN_H / 2) {
+    top = fab.y - POPOVER_MAX_HEIGHT - GAP;
+  } else {
+    top = fab.y + FAB_SIZE + GAP;
+  }
+  if (fabCenterX > SCREEN_W / 2) {
+    left = fab.x - POPOVER_WIDTH - GAP;
+  } else {
+    left = fab.x + FAB_SIZE + GAP;
+  }
+
+  top = Math.max(pad + insets.top, Math.min(SCREEN_H - POPOVER_MAX_HEIGHT - pad - insets.bottom - 60, top));
+  left = Math.max(pad, Math.min(SCREEN_W - POPOVER_WIDTH - pad, left));
+
+  return { top, left };
+}
+
+export function AIChatbotModal({ visible, onClose, initialMessage, autoSend, embedded, popoverMode, fabPosition, onMissingFieldsShown }: AIChatbotModalProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const resolvedTheme = useColorScheme();
@@ -337,6 +451,8 @@ export function AIChatbotModal({ visible, onClose, initialMessage, autoSend, emb
   const { getCategories } = useCategoryService();
   const { getTransactionTypes } = useTransactionTypeService();
   const { goals, addGoal } = useSavingGoal();
+  const { refreshTransactions } = useTransactionRefresh();
+  const { showAlert } = useAppAlert();
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<DisplayMessage[]>([
     {
@@ -348,6 +464,8 @@ export function AIChatbotModal({ visible, onClose, initialMessage, autoSend, emb
   const [loading, setLoading] = useState(false);
   const [savingReceipt, setSavingReceipt] = useState(false);
   const [pendingReceipt, setPendingReceipt] = useState<PendingReceiptDraft | null>(null);
+  const [receiptWalletOptions, setReceiptWalletOptions] = useState<{ id: string; name: string }[]>([]);
+  const [receiptSaveStep, setReceiptSaveStep] = useState<'confirm' | 'selectWallet'>('confirm');
   const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const autoSentRef = useRef(false);
@@ -385,7 +503,7 @@ export function AIChatbotModal({ visible, onClose, initialMessage, autoSend, emb
     if (!visible) autoSentRef.current = false;
   }, [visible, initialMessage, autoSend]);
 
-  const buildPendingReceiptDraft = async (extracted: ReceiptExtractPayload): Promise<PendingReceiptDraft | null> => {
+  const buildPendingReceiptDraft = async (extracted: ReceiptExtractPayload): Promise<{ draft: PendingReceiptDraft; wallets: { id: string; name: string }[] } | null> => {
     const [transactionTypes, moneySources] = await Promise.all([
       getTransactionTypes(),
       getMoneySources(),
@@ -395,10 +513,11 @@ export function AIChatbotModal({ visible, onClose, initialMessage, autoSend, emb
     if (!transactionType || !moneySource) return null;
 
     const categories = await getCategories(transactionType.id);
-    const category = pickReceiptCategory(categories, extracted.content);
+    const category = pickReceiptCategory(categories, extracted.content, extracted.categoryName);
     if (!category) return null;
 
-    return {
+    const wallets = moneySources.filter((m) => m.isActive).map((m) => ({ id: m.id, name: m.name }));
+    const draft: PendingReceiptDraft = {
       ...extracted,
       transactionTypeId: transactionType.id,
       transactionTypeName: transactionType.name,
@@ -408,28 +527,35 @@ export function AIChatbotModal({ visible, onClose, initialMessage, autoSend, emb
       categoryName: category.name,
       transactionDateIso: parseReceiptDateToIso(extracted.date),
     };
+    return { draft, wallets };
   };
 
   const openManualInputForReceipt = (draft: ReceiptExtractPayload | PendingReceiptDraft) => {
     setPendingReceipt(null);
+    setReceiptWalletOptions([]);
+    setReceiptSaveStep('confirm');
     if (!embedded) onClose();
+    const params: Record<string, string> = {
+      amount: String(draft.amount),
+      date: draft.date,
+      description: draft.content,
+    };
+    const catName = 'categoryName' in draft ? draft.categoryName : undefined;
+    if (catName && typeof catName === 'string') params.categoryName = catName;
     router.push({
       pathname: '/(protected)/(tabs)/manual-input',
-      params: {
-        amount: String(draft.amount),
-        date: draft.date,
-        description: draft.content,
-      },
+      params,
     });
   };
 
-  const confirmSavePendingReceipt = async () => {
+  const confirmSavePendingReceipt = async (moneySourceId?: string) => {
     if (!pendingReceipt || savingReceipt) return;
+    const sourceId = moneySourceId ?? pendingReceipt.moneySourceId;
     try {
       setSavingReceipt(true);
       await createTransaction({
         transactionTypeId: pendingReceipt.transactionTypeId,
-        moneySourceId: pendingReceipt.moneySourceId,
+        moneySourceId: sourceId,
         categoryId: pendingReceipt.categoryId,
         amount: pendingReceipt.amount,
         transactionDate: pendingReceipt.transactionDateIso,
@@ -438,6 +564,7 @@ export function AIChatbotModal({ visible, onClose, initialMessage, autoSend, emb
         isFee: false,
         excludeFromReport: false,
       });
+      refreshTransactions();
       setMessages((prev) => [
         ...prev,
         {
@@ -446,6 +573,8 @@ export function AIChatbotModal({ visible, onClose, initialMessage, autoSend, emb
         },
       ]);
       setPendingReceipt(null);
+      setReceiptWalletOptions([]);
+      setReceiptSaveStep('confirm');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Không thể lưu giao dịch';
       setMessages((prev) => [
@@ -461,6 +590,8 @@ export function AIChatbotModal({ visible, onClose, initialMessage, autoSend, emb
   const declinePendingReceipt = () => {
     if (!pendingReceipt) return;
     setPendingReceipt(null);
+    setReceiptWalletOptions([]);
+    setReceiptSaveStep('confirm');
     setMessages((prev) => [
       ...prev,
       { role: 'assistant', content: 'Bạn có cần mình giúp gì nữa không?' },
@@ -516,8 +647,9 @@ ${userContext}
         imageBase64: options?.imageBase64,
         imageFormat: options?.imageFormat,
       });
-      const displayContent = stripCreateGoalTag(stripAsterisks(reply));
-      setMessages((prev) => [...prev, { role: 'assistant', content: displayContent }]);
+      const displayContent = stripAllInternalTags(stripAsterisks(reply));
+      const qrFromReply = parseQuickReplies(reply);
+      setMessages((prev) => [...prev, { role: 'assistant', content: displayContent, quickReplies: qrFromReply.length > 0 ? qrFromReply : undefined }]);
 
       const createGoalPayload = parseCreateGoal(reply);
       if (createGoalPayload) {
@@ -530,57 +662,102 @@ ${userContext}
             dailyEssential: createGoalPayload.dailyEssential,
             category: createGoalPayload.category,
           });
-          Alert.alert('Thành công', `Đã thêm mục tiêu "${createGoalPayload.title}" vào danh sách của bạn.`);
+          showAlert({ title: 'Thành công', message: `Đã thêm mục tiêu "${createGoalPayload.title}" vào danh sách của bạn.`, icon: 'check-circle' });
         } catch (e) {
           const msg = e instanceof Error ? e.message : 'Không thể tạo mục tiêu';
-          Alert.alert('Lỗi', msg);
+          showAlert({ title: 'Lỗi', message: msg, icon: 'error' });
         }
       }
 
+      const extracted = parseReceiptExtract(reply);
       if (options?.imageBase64) {
-        const extracted = parseReceiptExtract(reply);
         if (extracted) {
           const missing: string[] = [];
           if (!extracted.amount || extracted.amount <= 0) missing.push('Số tiền');
           if (!extracted.date) missing.push('Ngày');
           if (missing.length > 0) {
             setPendingReceipt(null);
+            setReceiptWalletOptions([]);
+            setReceiptSaveStep('confirm');
             onMissingFieldsShown?.();
-            Alert.alert(
-              'Thiếu thông tin',
-              `Không đọc được: ${missing.join(', ')}. Vui lòng mở Nhập thủ công để điền bổ sung.`,
-              [{ text: 'Nhập thủ công', onPress: () => openManualInputForReceipt(extracted) }, { text: 'Đóng', style: 'cancel' }]
-            );
+            showAlert({
+              title: 'Thiếu thông tin',
+              message: `Không đọc được: ${missing.join(', ')}. Vui lòng mở Nhập thủ công để điền bổ sung.`,
+              icon: 'warning',
+              buttons: [
+                { text: 'Nhập thủ công', style: 'confirm', onPress: () => openManualInputForReceipt(extracted) },
+                { text: 'Đóng', style: 'cancel' },
+              ],
+            });
           } else {
-            const draft = await buildPendingReceiptDraft(extracted);
-            if (draft) {
-              setPendingReceipt(draft);
+            const result = await buildPendingReceiptDraft(extracted);
+            if (result) {
+              setPendingReceipt(result.draft);
+              setReceiptWalletOptions(result.wallets);
+              setReceiptSaveStep('confirm');
               if (!normalizeText(displayContent).includes('luu')) {
                 setMessages((prev) => [
                   ...prev,
-                  {
-                    role: 'assistant',
-                    content: 'Bạn có muốn lưu số tiền này vào mục chi không?',
-                  },
+                  { role: 'assistant', content: 'Bạn có muốn lưu số tiền này vào mục chi không?', quickReplies: ['Có', 'Không', 'Chỉnh sửa'] },
                 ]);
+              } else {
+                setMessages((prev) => {
+                  const next = [...prev];
+                  const last = next[next.length - 1];
+                  if (last?.role === 'assistant') next[next.length - 1] = { ...last, quickReplies: ['Có', 'Không', 'Chỉnh sửa'] };
+                  return next;
+                });
               }
             } else {
               onMissingFieldsShown?.();
-              Alert.alert(
-                'Cần bổ sung thông tin',
-                'Chưa xác định được tài khoản hoặc hạng mục mặc định để lưu tự động. App sẽ mở form đã điền sẵn để bạn kiểm tra lại.',
-                [{ text: 'Mở form', onPress: () => openManualInputForReceipt(extracted) }, { text: 'Đóng', style: 'cancel' }]
-              );
+              showAlert({
+                title: 'Cần bổ sung thông tin',
+                message: 'Chưa xác định được tài khoản hoặc hạng mục mặc định để lưu tự động. App sẽ mở form đã điền sẵn để bạn kiểm tra lại.',
+                icon: 'info',
+                buttons: [
+                  { text: 'Mở form', style: 'confirm', onPress: () => openManualInputForReceipt(extracted) },
+                  { text: 'Đóng', style: 'cancel' },
+                ],
+              });
             }
           }
           return;
         }
         setPendingReceipt(null);
+        setReceiptWalletOptions([]);
+        setReceiptSaveStep('confirm');
         onMissingFieldsShown?.();
-        Alert.alert('Chưa trích xuất được', 'App sẽ mở form Nhập thủ công. Bạn cần chọn Tài khoản và Hạng mục rồi lưu.', [
-          { text: 'Mở form', onPress: () => openManualInputForReceipt({ amount: 0, date: normalizeReceiptDate(''), content: 'Từ ảnh hóa đơn' }) },
-          { text: 'Ở lại', style: 'cancel' },
-        ]);
+        showAlert({
+          title: 'Chưa trích xuất được',
+          message: 'App sẽ mở form Nhập thủ công. Bạn cần chọn Tài khoản và Hạng mục rồi lưu.',
+          icon: 'info',
+          buttons: [
+            { text: 'Mở form', style: 'confirm', onPress: () => openManualInputForReceipt({ amount: 0, date: normalizeReceiptDate(''), content: 'Từ ảnh hóa đơn' }) },
+            { text: 'Ở lại', style: 'cancel' },
+          ],
+        });
+      } else if (extracted && extracted.amount > 0) {
+        const result = await buildPendingReceiptDraft(extracted);
+        if (result) {
+          setPendingReceipt(result.draft);
+          setReceiptWalletOptions(result.wallets);
+          setReceiptSaveStep('confirm');
+          if (!normalizeText(displayContent).includes('luu')) {
+            const txt = normalizeText(displayContent);
+            const isThu = txt.includes('thu') && !txt.includes('chi');
+            setMessages((prev) => [
+              ...prev,
+              { role: 'assistant', content: isThu ? 'Bạn có muốn lưu vào mục Thu không?' : 'Bạn có muốn lưu vào mục Chi không?', quickReplies: ['Có', 'Không', 'Chỉnh sửa'] },
+            ]);
+          } else {
+            setMessages((prev) => {
+              const next = [...prev];
+              const last = next[next.length - 1];
+              if (last?.role === 'assistant') next[next.length - 1] = { ...last, quickReplies: ['Có', 'Không', 'Chỉnh sửa'] };
+              return next;
+            });
+          }
+        }
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Lỗi kết nối. Kiểm tra API và MEGALLM_API_KEY trên Finmate-BE.';
@@ -594,14 +771,18 @@ ${userContext}
     }
   };
 
-  const handleSend = async () => {
-    const text = message.trim();
-    if (!text || loading || savingReceipt) return;
+  const handleQuickReply = useCallback(async (label: string) => {
+    if (loading || savingReceipt) return;
+    const text = label.trim();
+    if (!text) return;
     const userMsg: DisplayMessage = { role: 'user', content: text };
     setMessages((prev) => [...prev, userMsg]);
-    setMessage('');
-    if (pendingReceipt && isReceiptSaveConfirmation(text)) {
-      await confirmSavePendingReceipt();
+    if (pendingReceipt && receiptSaveStep === 'confirm' && isReceiptSaveConfirmation(text)) {
+      setReceiptSaveStep('selectWallet');
+      setMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: 'Bạn muốn lưu vào ví nào?' },
+      ]);
       return;
     }
     if (pendingReceipt && isReceiptEditIntent(text)) {
@@ -617,6 +798,13 @@ ${userContext}
       return;
     }
     await sendChat(userMsg);
+  }, [loading, savingReceipt, pendingReceipt, receiptSaveStep, declinePendingReceipt, openManualInputForReceipt, sendChat]);
+
+  const handleSend = async () => {
+    const text = message.trim();
+    if (!text || loading || savingReceipt) return;
+    setMessage('');
+    await handleQuickReply(text);
   };
 
   const pickImageFromSource = async (source: 'camera' | 'library') => {
@@ -715,69 +903,165 @@ ${userContext}
 
   const handleScanReceipt = () => {
     if (loading) return;
-    Alert.alert(
-      'Quét hóa đơn',
-      'Chọn cách lấy ảnh hóa đơn. Chụp trực tiếp thường rõ hơn và tránh lỗi ảnh iCloud.',
-      [
+    showAlert({
+      title: 'Quét hóa đơn',
+      message: 'Chọn cách lấy ảnh hóa đơn. Chụp trực tiếp thường rõ hơn và tránh lỗi ảnh iCloud.',
+      icon: 'info',
+      buttons: [
         { text: 'Hủy', style: 'cancel' },
-        { text: 'Chụp ảnh', onPress: () => pickImageFromSource('camera') },
-        { text: 'Chọn từ thư viện', onPress: () => pickImageFromSource('library') },
-      ]
-    );
+        { text: 'Chụp ảnh', style: 'confirm', onPress: () => pickImageFromSource('camera') },
+        { text: 'Chọn từ thư viện', style: 'confirm', onPress: () => pickImageFromSource('library') },
+      ],
+    });
   };
 
-  const renderContent = () => (
+  const popoverPos = useMemo(
+    () => (popoverMode && fabPosition ? getPopoverPosition(fabPosition, insets) : { top: 0, left: 0 }),
+    [popoverMode, fabPosition, insets.top, insets.bottom]
+  );
+
+  const popoverAnim = useRef(new Animated.Value(0)).current;
+  const isClosingRef = useRef(false);
+
+  useEffect(() => {
+    if (popoverMode && visible) {
+      isClosingRef.current = false;
+      popoverAnim.setValue(0);
+      Animated.spring(popoverAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 65,
+        friction: 11,
+      }).start();
+    }
+  }, [popoverMode, visible]);
+
+  const handlePopoverClose = useCallback(() => {
+    if (!popoverMode || isClosingRef.current) return;
+    isClosingRef.current = true;
+    Animated.timing(popoverAnim, {
+      toValue: 0,
+      duration: 220,
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished) onClose();
+    });
+  }, [popoverMode, onClose]);
+
+  const renderContent = () => {
+    const isPopover = popoverMode;
+    const bgColor = isPopover ? POPOVER_DARK.bg : themeColors.background;
+    const cardColor = isPopover ? POPOVER_DARK.card : themeColors.card;
+    const textColor = isPopover ? POPOVER_DARK.text : themeColors.text;
+    const textSecColor = isPopover ? POPOVER_DARK.textSecondary : themeColors.textSecondary;
+
+    return (
     <>
-    <View style={[styles.modalOverlay, embedded && styles.embeddedOverlay]}>
+    <View style={[
+      styles.modalOverlay,
+      embedded && styles.embeddedOverlay,
+      isPopover && { position: 'absolute', top: popoverPos.top, left: popoverPos.left, width: POPOVER_WIDTH, maxHeight: POPOVER_MAX_HEIGHT, flex: 0, backgroundColor: 'transparent' },
+    ]}>
+      <Animated.View
+        style={[
+          { flex: 1 },
+          isPopover && {
+            opacity: popoverAnim,
+            transform: [{ scale: popoverAnim.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) }],
+          },
+        ]}>
+      {isPopover && (
+        <TouchableOpacity
+          onPress={handlePopoverClose}
+          style={[styles.popoverCloseBtn, { backgroundColor: POPOVER_DARK.closeBtnBg, borderColor: POPOVER_DARK.closeBtnRing }]}
+          activeOpacity={0.85}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <MaterialIcons name="close" size={20} color="#FFFFFF" />
+        </TouchableOpacity>
+      )}
       <KeyboardAvoidingView
-          style={[styles.keyboardView, embedded && styles.keyboardViewEmbedded]}
+          style={[
+            styles.keyboardView,
+            embedded && styles.keyboardViewEmbedded,
+            isPopover && { height: POPOVER_MAX_HEIGHT, borderRadius: 16, overflow: 'hidden' },
+          ]}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
-          <View style={[styles.modalContent, { backgroundColor: themeColors.background }]}>
-            {/* Header */}
-            <LinearGradient
-              colors={['#16a34a', '#22c55e']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={[styles.header, { paddingTop: insets.top + 8 }]}>
-              <View style={styles.headerInner}>
-                <View style={styles.headerIconWrap}>
-                  <MaterialIcons name="chat-bubble-outline" size={24} color="#FFFFFF" />
+          <View style={[
+            styles.modalContent,
+            { backgroundColor: bgColor },
+            isPopover && styles.popoverContent,
+          ]}>
+            {/* Header: popover = form mẫu | normal = gradient */}
+            {isPopover ? (
+              <View style={[styles.header, styles.popoverHeader, { backgroundColor: POPOVER_DARK.header, paddingTop: 14, paddingBottom: 14 }]}>
+                <View style={styles.headerInner}>
+                  <View style={[styles.popoverHeaderIcon]}>
+                    <LinearGradient colors={['#22c55e', '#16a34a']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' }}>
+                      <MaterialIcons name="auto-awesome" size={20} color="#FFFFFF" />
+                    </LinearGradient>
+                  </View>
+                  <View style={styles.headerTextWrap}>
+                    <Text style={[styles.popoverHeaderTitle]} numberOfLines={1}>Finmate AI</Text>
+                    <Text style={[styles.popoverHeaderSubtitle]} numberOfLines={1}>• Trợ lý tài chính</Text>
+                  </View>
                 </View>
-                <View style={styles.headerTextWrap}>
-                  <Text style={styles.headerTitle}>AI Trợ lý tài chính</Text>
-                  <Text style={styles.headerSubtitle}>FinMate • Luôn sẵn sàng hỗ trợ</Text>
-                </View>
-                <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} activeOpacity={0.7}>
-                  <MaterialIcons name={embedded ? 'arrow-back' : 'close'} size={24} color="#FFFFFF" />
-                </TouchableOpacity>
               </View>
-            </LinearGradient>
+            ) : (
+              <LinearGradient
+                colors={['#16a34a', '#22c55e']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={[styles.header, { paddingTop: insets.top + 8 }]}>
+                <View style={styles.headerInner}>
+                  <View style={styles.headerIconWrap}>
+                    <MaterialIcons name="chat-bubble-outline" size={24} color="#FFFFFF" />
+                  </View>
+                  <View style={styles.headerTextWrap}>
+                    <Text style={styles.headerTitle}>AI Trợ lý tài chính</Text>
+                    <Text style={styles.headerSubtitle}>FinMate • Luôn sẵn sàng hỗ trợ</Text>
+                  </View>
+                  <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} activeOpacity={0.7}>
+                    <MaterialIcons name={embedded ? 'arrow-back' : 'close'} size={24} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              </LinearGradient>
+            )}
 
-            {/* Quick actions (chỉ hiện khi chưa có tin nhắn user) */}
-            {messages.filter((m) => m.role === 'user').length === 0 && (
-              <View style={[styles.quickActions, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
-                <Text style={[styles.quickLabel, { color: themeColors.textSecondary }]}>Gợi ý nhanh</Text>
+            {/* Popover empty state: sparkle + welcome + chips (giống form mẫu) */}
+            {isPopover && messages.filter((m) => m.role === 'user').length === 0 && (
+              <View style={styles.popoverWelcome}>
+                <View style={styles.popoverSparkleWrap}>
+                  <MaterialIcons name="auto-awesome" size={56} color={POPOVER_DARK.sparkleTint} />
+                </View>
+                <Text style={styles.popoverWelcomeTitle}>Xin chào! Tôi là Finmate AI</Text>
+                <Text style={styles.popoverWelcomeSub}>Hỏi tôi bất cứ điều gì về tài chính cá nhân!</Text>
+                <View style={styles.popoverChipsColumn}>
+                  <TouchableOpacity onPress={() => setMessage('Làm sao tiết kiệm hiệu quả?')} style={styles.popoverChipBtn} activeOpacity={0.8}>
+                    <Text style={styles.popoverChipText}>Tiết kiệm hiệu quả</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setMessage('Tôi nên đầu tư gì?')} style={styles.popoverChipBtn} activeOpacity={0.8}>
+                    <Text style={styles.popoverChipText}>Nên đầu tư gì?</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setMessage('Cách lập ngân sách 50/30/20?')} style={styles.popoverChipBtn} activeOpacity={0.8}>
+                    <Text style={styles.popoverChipText}>Ngân sách 50/30/20</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* Quick actions (chỉ khi không phải popover empty) */}
+            {!isPopover && messages.filter((m) => m.role === 'user').length === 0 && (
+              <View style={[styles.quickActions, { backgroundColor: cardColor, borderColor: themeColors.border }]}>
+                <Text style={[styles.quickLabel, { color: textSecColor }]}>Gợi ý nhanh</Text>
                 <View style={styles.quickChips}>
-                  <TouchableOpacity
-                    onPress={() => setMessage('FinMate là gì?')}
-                    style={[styles.chip, { backgroundColor: themeColors.background }]}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    activeOpacity={0.7}>
-                    <Text style={[styles.chipText, { color: themeColors.text }]}>FinMate là gì?</Text>
+                  <TouchableOpacity onPress={() => setMessage('Cách lập ngân sách 50/30/20?')} style={[styles.chip, { backgroundColor: themeColors.background }]} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} activeOpacity={0.7}>
+                    <Text style={[styles.chipText, { color: themeColors.text }]}>Cách lập ngân sách 50/30/20?</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => setMessage('Quy tắc 50/30/20 là gì?')}
-                    style={[styles.chip, { backgroundColor: themeColors.background }]}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    activeOpacity={0.7}>
-                    <Text style={[styles.chipText, { color: themeColors.text }]}>50/30/20</Text>
+                  <TouchableOpacity onPress={() => setMessage('Làm sao tiết kiệm hiệu quả?')} style={[styles.chip, { backgroundColor: themeColors.background }]} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} activeOpacity={0.7}>
+                    <Text style={[styles.chipText, { color: themeColors.text }]}>Làm sao tiết kiệm hiệu quả?</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={handleScanReceipt}
-                    style={[styles.chip, styles.chipPrimary]}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    activeOpacity={0.7}>
+                  <TouchableOpacity onPress={handleScanReceipt} style={[styles.chip, styles.chipPrimary]} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} activeOpacity={0.7}>
                     <MaterialIcons name="receipt-long" size={16} color="#FFFFFF" />
                     <Text style={styles.chipTextPrimary}>Quét hóa đơn</Text>
                   </TouchableOpacity>
@@ -785,21 +1069,151 @@ ${userContext}
               </View>
             )}
 
-            {/* Chat */}
+            {/* Chat (popover: chỉ hiện khi đã có tin nhắn) */}
+            {!(isPopover && messages.filter((m) => m.role === 'user').length === 0) && (
             <ScrollView
               ref={scrollRef}
-              style={[styles.chatArea, { backgroundColor: themeColors.background }]}
-              contentContainerStyle={styles.chatContent}
+              style={[styles.chatArea, { backgroundColor: bgColor }]}
+              contentContainerStyle={[styles.chatContent, isPopover && { padding: 14, paddingBottom: 16 }]}
               showsVerticalScrollIndicator={false}
               onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
-              {messages.map((m, i) => (
+              {messages.map((m, i) => {
+                const dm = m as DisplayMessage;
+                const quickReplies = dm.quickReplies?.length ? dm.quickReplies : undefined;
+                return (
                 <View
                   key={i}
                   style={[
                     styles.messageRow,
                     m.role === 'user' ? styles.userRow : styles.assistantRow,
                   ]}>
-                  {m.role === 'assistant' && (
+                  {m.role === 'assistant' && !isPopover && (
+                    <View style={[styles.avatarSmall, { backgroundColor: 'rgba(22, 163, 74, 0.15)' }]}>
+                      <MaterialIcons name="chat-bubble-outline" size={18} color="#16a34a" />
+                    </View>
+                  )}
+                  <View style={[styles.assistantBubbleWrap, m.role === 'user' && { alignItems: 'flex-end' }]}>
+                    <View
+                      style={[
+                        styles.bubble,
+                        m.role === 'user'
+                          ? [styles.userBubble, styles.bubbleShadow]
+                          : [styles.assistantBubble, { backgroundColor: isPopover ? POPOVER_DARK.card : themeColors.card }],
+                        isPopover && { maxWidth: '88%', paddingHorizontal: 14, paddingVertical: 10 },
+                      ]}>
+                      {dm.imageUri ? (
+                        <>
+                          <TouchableOpacity
+                            style={styles.receiptImageWrap}
+                            onPress={() => setFullscreenImageUri(dm.imageUri!)}
+                            activeOpacity={0.9}>
+                            <Image
+                              source={{ uri: dm.imageUri }}
+                              style={styles.receiptImage}
+                              contentFit="cover"
+                            />
+                          </TouchableOpacity>
+                          <Text
+                            style={[
+                              styles.bubbleText,
+                              styles.receiptCaption,
+                              { color: m.role === 'user' ? 'rgba(255,255,255,0.9)' : textSecColor },
+                            ]}
+                            selectable>
+                            {m.role === 'assistant' ? stripAllInternalTags(stripAsterisks(m.content)) : m.content}
+                          </Text>
+                        </>
+                      ) : (
+                        <Text
+                          style={[
+                            styles.bubbleText,
+                            { color: m.role === 'user' ? '#FFFFFF' : textColor, fontSize: isPopover ? 14 : 15 },
+                          ]}
+                          selectable>
+                          {m.role === 'assistant' ? stripAllInternalTags(stripAsterisks(m.content)) : m.content}
+                        </Text>
+                      )}
+                    </View>
+                    {m.role === 'assistant' && ((quickReplies && quickReplies.length > 0) || (i === messages.length - 1 && pendingReceipt && receiptSaveStep === 'selectWallet')) && (() => {
+                      const isLastAndPending = i === messages.length - 1 && pendingReceipt;
+                      const isSelectWalletStep = isLastAndPending && receiptSaveStep === 'selectWallet';
+                      const isConfirmStep = isLastAndPending && receiptSaveStep === 'confirm';
+                      if (isSelectWalletStep) {
+                        if (receiptWalletOptions.length > 1) {
+                          return (
+                            <View style={{ marginTop: 8, gap: 6 }}>
+                              <View style={[styles.quickReplyRow, { flexWrap: 'wrap' }]}>
+                                {receiptWalletOptions.map((w) => (
+                                  <TouchableOpacity
+                                    key={w.id}
+                                    style={[styles.quickReplyChip, { backgroundColor: '#16a34a', borderColor: '#22c55e' }]}
+                                    onPress={() => confirmSavePendingReceipt(w.id)}
+                                    activeOpacity={0.8}
+                                    disabled={loading || savingReceipt}>
+                                    {savingReceipt ? (
+                                      <ActivityIndicator size="small" color="#FFFFFF" />
+                                    ) : (
+                                      <Text style={[styles.quickReplyChipText, { color: '#FFFFFF' }]}>{w.name}</Text>
+                                    )}
+                                  </TouchableOpacity>
+                                ))}
+                              </View>
+                            </View>
+                          );
+                        }
+                        if (receiptWalletOptions.length === 1) {
+                          const w = receiptWalletOptions[0];
+                          return (
+                            <View style={[styles.quickReplyRow, { marginTop: 8 }]}>
+                              <TouchableOpacity
+                                style={[styles.quickReplyChip, { backgroundColor: '#16a34a', borderColor: '#22c55e' }]}
+                                onPress={() => confirmSavePendingReceipt(w.id)}
+                                activeOpacity={0.8}
+                                disabled={loading || savingReceipt}>
+                                {savingReceipt ? (
+                                  <ActivityIndicator size="small" color="#FFFFFF" />
+                                ) : (
+                                  <Text style={[styles.quickReplyChipText, { color: '#FFFFFF' }]}>Lưu vào {w.name}</Text>
+                                )}
+                              </TouchableOpacity>
+                            </View>
+                          );
+                        }
+                      }
+                      if (isConfirmStep && quickReplies && quickReplies.length > 0) {
+                        return (
+                          <View style={[styles.quickReplyRow, { marginTop: 8 }]}>
+                            {quickReplies.map((label, j) => (
+                              <TouchableOpacity
+                                key={j}
+                                style={[
+                                  styles.quickReplyChip,
+                                  {
+                                    backgroundColor: label === 'Có' ? '#16a34a' : (isPopover ? POPOVER_DARK.chipBg : themeColors.background),
+                                    borderColor: label === 'Có' ? '#22c55e' : (isPopover ? POPOVER_DARK.chipBorder : themeColors.border),
+                                  },
+                                ]}
+                                onPress={() => handleQuickReply(label)}
+                                activeOpacity={0.8}
+                                disabled={loading || savingReceipt}>
+                                {label === 'Có' && savingReceipt ? (
+                                  <ActivityIndicator size="small" color="#FFFFFF" />
+                                ) : (
+                                  <Text style={[styles.quickReplyChipText, { color: label === 'Có' ? '#FFFFFF' : textColor }]}>{label}</Text>
+                                )}
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </View>
+                </View>
+              );})}
+              {loading && (
+                <View style={[styles.messageRow, styles.assistantRow]}>
+                  {!isPopover && (
                     <View style={[styles.avatarSmall, { backgroundColor: 'rgba(22, 163, 74, 0.15)' }]}>
                       <MaterialIcons name="chat-bubble-outline" size={18} color="#16a34a" />
                     </View>
@@ -807,146 +1221,33 @@ ${userContext}
                   <View
                     style={[
                       styles.bubble,
-                      m.role === 'user'
-                        ? [styles.userBubble, styles.bubbleShadow]
-                        : [styles.assistantBubble, { backgroundColor: themeColors.card }],
-                    ]}>
-                    {(m as DisplayMessage).imageUri ? (
-                      <>
-                        <TouchableOpacity
-                          style={styles.receiptImageWrap}
-                          onPress={() => setFullscreenImageUri((m as DisplayMessage).imageUri!)}
-                          activeOpacity={0.9}>
-                          <Image
-                            source={{ uri: (m as DisplayMessage).imageUri }}
-                            style={styles.receiptImage}
-                            contentFit="cover"
-                          />
-                        </TouchableOpacity>
-                        <Text
-                          style={[
-                            styles.bubbleText,
-                            styles.receiptCaption,
-                            { color: m.role === 'user' ? 'rgba(255,255,255,0.9)' : themeColors.textSecondary },
-                          ]}
-                          selectable>
-                          {m.role === 'assistant' ? stripAsterisks(m.content) : m.content}
-                        </Text>
-                      </>
-                    ) : (
-                      <Text
-                        style={[
-                          styles.bubbleText,
-                          { color: m.role === 'user' ? '#FFFFFF' : themeColors.text },
-                        ]}
-                        selectable>
-                        {m.role === 'assistant' ? stripAsterisks(m.content) : m.content}
-                      </Text>
-                    )}
-                  </View>
-                </View>
-              ))}
-              {loading && (
-                <View style={[styles.messageRow, styles.assistantRow]}>
-                  <View style={[styles.avatarSmall, { backgroundColor: 'rgba(22, 163, 74, 0.15)' }]}>
-                    <MaterialIcons name="chat-bubble-outline" size={18} color="#16a34a" />
-                  </View>
-                  <View
-                    style={[
-                      styles.bubble,
                       styles.assistantBubble,
                       styles.loadingBubble,
-                      { backgroundColor: themeColors.card },
+                      { backgroundColor: isPopover ? POPOVER_DARK.card : themeColors.card },
                     ]}>
                     <ActivityIndicator size="small" color="#16a34a" />
-                    <Text style={[styles.bubbleText, { color: themeColors.textSecondary, marginLeft: 10 }]}>
+                    <Text style={[styles.bubbleText, { color: textSecColor, marginLeft: 10 }]}>
                       Đang xử lý...
                     </Text>
                   </View>
                 </View>
               )}
             </ScrollView>
-
-            {pendingReceipt && (
-              <View style={[styles.receiptConfirmWrap, { borderTopColor: themeColors.border, backgroundColor: themeColors.card }]}>
-                <View style={styles.receiptConfirmHeader}>
-                  <View style={styles.receiptConfirmIcon}>
-                    <MaterialIcons name="receipt-long" size={18} color="#16a34a" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.receiptConfirmTitle, { color: themeColors.text }]}>Sẵn sàng lưu giao dịch</Text>
-                    <Text style={[styles.receiptConfirmSubtitle, { color: themeColors.textSecondary }]}>
-                      FinMate sẽ lưu nhanh bằng cấu hình mặc định. Bạn chỉ cần chọn Có hoặc Không ngay trong chat.
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={[styles.receiptSummaryCard, { backgroundColor: themeColors.background, borderColor: themeColors.border }]}>
-                  <Text style={styles.receiptAmount}>{formatCurrency(pendingReceipt.amount)}</Text>
-                  <Text style={[styles.receiptSummaryText, { color: themeColors.text }]}>Lưu vào mục chi ngày {pendingReceipt.date}</Text>
-                  <Text style={[styles.receiptSummaryText, { color: themeColors.textSecondary }]}>
-                    Nội dung: {pendingReceipt.content || 'Từ ảnh hóa đơn'}
-                  </Text>
-                  <Text style={[styles.receiptSummaryMeta, { color: themeColors.textSecondary }]}>
-                    Tài khoản mặc định: {pendingReceipt.moneySourceName}
-                  </Text>
-                  <Text style={[styles.receiptSummaryMeta, { color: themeColors.textSecondary }]}>
-                    Hạng mục mặc định: {pendingReceipt.categoryName}
-                  </Text>
-                </View>
-
-                <View style={styles.receiptActionRow}>
-                  <TouchableOpacity
-                    style={[styles.receiptSecondaryBtn, { borderColor: themeColors.border, backgroundColor: themeColors.background }]}
-                    onPress={() => {
-                      setMessages((prev) => [...prev, { role: 'user', content: 'Không' }]);
-                      declinePendingReceipt();
-                    }}
-                    activeOpacity={0.7}
-                    disabled={savingReceipt}>
-                    <Text style={[styles.receiptSecondaryBtnText, { color: themeColors.text }]}>Không</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.receiptPrimaryBtn, savingReceipt && { opacity: 0.7 }]}
-                    onPress={async () => {
-                      setMessages((prev) => [...prev, { role: 'user', content: 'Có' }]);
-                      await confirmSavePendingReceipt();
-                    }}
-                    activeOpacity={0.85}
-                    disabled={savingReceipt}>
-                    <LinearGradient
-                      colors={['#16a34a', '#22c55e']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.receiptPrimaryBtnGradient}>
-                      {savingReceipt ? (
-                        <ActivityIndicator size="small" color="#FFFFFF" />
-                      ) : (
-                        <>
-                          <MaterialIcons name="check-circle-outline" size={18} color="#FFFFFF" />
-                          <Text style={styles.receiptPrimaryBtnText}>Có</Text>
-                        </>
-                      )}
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </View>
-              </View>
             )}
 
             {/* Input */}
-            <View style={[styles.inputBar, { backgroundColor: themeColors.card, borderTopColor: themeColors.border }]}>
+            <View style={[styles.inputBar, { backgroundColor: isPopover ? POPOVER_DARK.card : themeColors.card, borderTopColor: isPopover ? POPOVER_DARK.border : themeColors.border }]}>
               <TouchableOpacity
-                style={[styles.scanBtn, { backgroundColor: themeColors.background }]}
+                style={[styles.scanBtn, { backgroundColor: isPopover ? POPOVER_DARK.inputBg : themeColors.background }]}
                 onPress={handleScanReceipt}
                 disabled={loading || savingReceipt}
                 activeOpacity={0.7}>
                 <MaterialIcons name="receipt-long" size={22} color="#16a34a" />
               </TouchableOpacity>
               <TextInput
-                style={[styles.textInput, { backgroundColor: themeColors.background, color: themeColors.text }]}
-                placeholder="Nhập tin nhắn..."
-                placeholderTextColor={themeColors.textSecondary}
+                style={[styles.textInput, { backgroundColor: isPopover ? POPOVER_DARK.inputBg : themeColors.background, color: textColor }, isPopover && { borderWidth: 1, borderColor: POPOVER_DARK.inputBorder }]}
+                placeholder={isPopover ? "Nhập câu hỏi..." : "Nhập tin nhắn..."}
+                placeholderTextColor={textSecColor}
                 value={message}
                 onChangeText={setMessage}
                 multiline
@@ -969,6 +1270,7 @@ ${userContext}
             </View>
           </View>
         </KeyboardAvoidingView>
+      </Animated.View>
       </View>
 
       {/* Fullscreen xem ảnh hóa đơn */}
@@ -992,8 +1294,20 @@ ${userContext}
       </Modal>
     </>
   );
+  };
 
   if (embedded) return renderContent();
+  if (popoverMode) {
+    if (!visible) return null;
+    return (
+      <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+        <Animated.View style={[styles.popoverBackdrop, styles.popoverBackdropOverlay, { opacity: popoverAnim }]}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={handlePopoverClose} />
+        </Animated.View>
+        {renderContent()}
+      </View>
+    );
+  }
   return (
     <Modal
       visible={visible}
@@ -1010,6 +1324,138 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
+  },
+  popoverBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
+  },
+  popoverBackdropOverlay: {
+    backgroundColor: 'rgba(0,0,0,0.2)',
+  },
+  popoverContent: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    elevation: 16,
+  },
+  popoverHeader: {
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  popoverHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#f0f2f5',
+  },
+  popoverHeaderSubtitle: {
+    fontSize: 12,
+    color: '#94a3b8',
+    marginTop: 1,
+  },
+  popoverChip: {
+    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(34, 197, 94, 0.3)',
+    paddingVertical: 10,
+  },
+  popoverCloseBtn: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 8,
+  },
+  popoverHeaderIcon: {
+    marginRight: 12,
+  },
+  popoverWelcome: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 14,
+  },
+  popoverSparkleWrap: {
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  popoverWelcomeTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#f0f2f5',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  popoverWelcomeSub: {
+    fontSize: 13,
+    color: '#94a3b8',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  popoverChipsColumn: {
+    gap: 8,
+  },
+  popoverChipBtn: {
+    backgroundColor: 'rgba(30, 35, 46, 0.95)',
+    borderWidth: 1,
+    borderColor: 'rgba(34, 197, 94, 0.4)',
+    borderRadius: 10,
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+  },
+  popoverChipText: {
+    fontSize: 13,
+    color: '#f0f2f5',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  inlineConfirmRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.06)',
+    minHeight: 44,
+  },
+  inlineConfirmBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+    minWidth: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inlineConfirmBtnNo: {
+    backgroundColor: 'rgba(30, 35, 46, 0.6)',
+  },
+  inlineConfirmBtnYes: {
+    backgroundColor: '#16a34a',
+    borderColor: '#22c55e',
+  },
+  inlineConfirmText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  inlineConfirmTextYes: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   embeddedOverlay: {
     backgroundColor: 'transparent',
@@ -1090,6 +1536,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+    marginTop: 4,
   },
   chip: {
     flexDirection: 'row',
@@ -1129,6 +1576,30 @@ const styles = StyleSheet.create({
   },
   assistantRow: {
     justifyContent: 'flex-start',
+  },
+  assistantBubbleWrap: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    maxWidth: '80%',
+  },
+  quickReplyRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    alignSelf: 'flex-start',
+  },
+  quickReplyChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    minHeight: 40,
+    justifyContent: 'center',
+  },
+  quickReplyChipText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   avatarSmall: {
     width: 32,
@@ -1283,7 +1754,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderTopWidth: 1,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 16,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 14,
   },
   scanBtn: {
     width: 46,

@@ -1,4 +1,4 @@
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuth } from '@/hooks/use-auth';
 import { useEffect, useRef } from 'react';
 import * as signalR from '@microsoft/signalr';
 import { API_BASE_URL } from '@/lib/api';
@@ -26,6 +26,12 @@ export const useTransactionHub = (
       if (connectionRef.current) return;
 
       try {
+        const token = await getToken();
+        if (!token || !token.trim()) {
+          if (__DEV__) console.warn('[SignalR] No auth token, skip connection');
+          return;
+        }
+
         const baseUrl = API_BASE_URL.replace(/\/api\/?$/, '');
 
         const connection = new signalR.HubConnectionBuilder()

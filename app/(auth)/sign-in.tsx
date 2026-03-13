@@ -7,7 +7,6 @@ import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   KeyboardAvoidingView,
   Platform,
@@ -20,6 +19,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useAppAlert } from '@/contexts/app-alert-context';
 import { useUserService } from '@/lib/services/userService';
 
 // Warm up the browser for OAuth - QUAN TRỌNG cho Android
@@ -59,6 +59,7 @@ export default function SignInScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { getUserProfile } = useUserService();
+  const { showAlert } = useAppAlert();
 
   const syncUserProfile = useCallback(async () => {
     try {
@@ -203,11 +204,11 @@ export default function SignInScreen() {
           return;
         } else if (signUp.status === "missing_requirements") {
           // Trường hợp cần thêm thông tin (ví dụ: phone_number, username)
-          Alert.alert(
-            "Cần cấu hình Clerk",
-            `Clerk đang yêu cầu thêm thông tin: ${signUp.missingFields?.join(", ")}.\n\nHãy vào Clerk Dashboard → Configure → Email, Phone, Username và tắt các field không cần thiết (chỉ giữ Email là required).`,
-            [{ text: "OK" }]
-          );
+          showAlert({
+            title: "Cần cấu hình Clerk",
+            message: `Clerk đang yêu cầu thêm thông tin: ${signUp.missingFields?.join(", ")}.\n\nHãy vào Clerk Dashboard → Configure → Email, Phone, Username và tắt các field không cần thiết (chỉ giữ Email là required).`,
+            icon: "info",
+          });
           return;
         } else if (signUp.status === "abandoned") {
           setError("Quá trình đăng ký đã bị hủy. Vui lòng thử lại.");

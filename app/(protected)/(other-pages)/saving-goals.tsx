@@ -4,7 +4,6 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   Text,
   TextInput,
@@ -12,8 +11,9 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '@/constants/theme';
+import { Colors, GlassCardColors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useAppAlert } from '@/contexts/app-alert-context';
 import { useSavingGoal } from '@/contexts/saving-goal-context';
 import { computeGoalMetrics } from '@/lib/utils/goalMetrics';
 import { styles } from '@/styles/index.styles';
@@ -38,6 +38,7 @@ export default function SavingGoalsScreen() {
   const themeColors = Colors[resolvedTheme];
   const insets = useSafeAreaInsets();
   const { goals, isLoading, error, refetch, addContribution, deleteGoal } = useSavingGoal();
+  const { showAlert } = useAppAlert();
   const [addAmount, setAddAmount] = useState<Record<string, string>>({});
   const [contributingId, setContributingId] = useState<string | null>(null);
 
@@ -62,7 +63,7 @@ export default function SavingGoalsScreen() {
     if (!g || !raw.trim()) return;
     const amount = parseAmount(raw);
     if (amount <= 0) {
-      Alert.alert('Lỗi', 'Vui lòng nhập số tiền hợp lệ.');
+      showAlert({ title: 'Lỗi', message: 'Vui lòng nhập số tiền hợp lệ.', icon: 'warning' });
       return;
     }
     setContributingId(id);
@@ -70,10 +71,11 @@ export default function SavingGoalsScreen() {
       await addContribution(id, amount);
       setAddAmount((prev) => ({ ...prev, [id]: '' }));
     } catch (err) {
-      Alert.alert(
-        'Lỗi',
-        err instanceof Error ? err.message : 'Không thể thêm tiền. Vui lòng thử lại.'
-      );
+      showAlert({
+        title: 'Lỗi',
+        message: err instanceof Error ? err.message : 'Không thể thêm tiền. Vui lòng thử lại.',
+        icon: 'error',
+      });
     } finally {
       setContributingId(null);
     }
@@ -82,27 +84,29 @@ export default function SavingGoalsScreen() {
   const handleDelete = (id: string) => {
     const g = goals.find((x) => x.id === id);
     if (!g) return;
-    Alert.alert(
-      'Xóa mục tiêu',
-      `Bạn có chắc muốn xóa "${g.title}"?`,
-      [
+    showAlert({
+      title: 'Xóa mục tiêu',
+      message: `Bạn có chắc muốn xóa "${g.title}"?`,
+      icon: 'warning',
+      buttons: [
         { text: 'Hủy', style: 'cancel' },
         {
           text: 'Xóa',
-          style: 'destructive',
+          style: 'danger',
           onPress: async () => {
             try {
               await deleteGoal(id);
             } catch (err) {
-              Alert.alert(
-                'Lỗi',
-                err instanceof Error ? err.message : 'Không thể xóa mục tiêu. Vui lòng thử lại.'
-              );
+              showAlert({
+                title: 'Lỗi',
+                message: err instanceof Error ? err.message : 'Không thể xóa mục tiêu. Vui lòng thử lại.',
+                icon: 'error',
+              });
             }
           },
         },
-      ]
-    );
+      ],
+    });
   };
 
   if (isLoading && goals.length === 0) {
@@ -211,11 +215,11 @@ export default function SavingGoalsScreen() {
 
         {/* Summary Stats */}
         <View style={styles.savingGoalsSummaryStats}>
-          <View style={styles.savingGoalsSummaryCard}>
+          <View style={[styles.savingGoalsSummaryCard, { backgroundColor: GlassCardColors.bg, borderWidth: 1, borderColor: GlassCardColors.border }]}>
             <Text style={styles.savingGoalsSummaryLabel}>Tổng mục tiêu</Text>
             <Text style={styles.savingGoalsSummaryValue}>{totalGoals}</Text>
           </View>
-          <View style={styles.savingGoalsSummaryCard}>
+          <View style={[styles.savingGoalsSummaryCard, { backgroundColor: GlassCardColors.bg, borderWidth: 1, borderColor: GlassCardColors.border }]}>
             <Text style={styles.savingGoalsSummaryLabel}>Đang theo đuổi</Text>
             <Text style={styles.savingGoalsSummaryValue}>{activeGoals}</Text>
           </View>
@@ -227,7 +231,7 @@ export default function SavingGoalsScreen() {
 
           return (
             <View key={goal.id}>
-              <View style={styles.savingGoalCard}>
+              <View style={[styles.savingGoalCard, { backgroundColor: GlassCardColors.bg, borderWidth: 1, borderColor: GlassCardColors.border }]}>
                 <View style={styles.savingGoalCardHeader}>
                   <View style={styles.savingGoalCardHeaderLeft}>
                     <Text style={styles.savingGoalCardTitle}>{goal.title}</Text>
@@ -248,7 +252,7 @@ export default function SavingGoalsScreen() {
                   <View style={styles.savingGoalProgressBar}>
                     <View style={styles.savingGoalProgressBarTrack}>
                       <LinearGradient
-                        colors={['#51A2FF', '#155DFC']}
+                        colors={['#16a34a', '#22c55e']}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                         style={[styles.savingGoalProgressBarFill, { width: `${progress}%` }]}
@@ -262,12 +266,12 @@ export default function SavingGoalsScreen() {
                 </View>
 
                 <View style={styles.savingGoalMetrics}>
-                  <View style={styles.savingGoalMetricCard}>
+                  <View style={[styles.savingGoalMetricCard, { backgroundColor: GlassCardColors.inner }]}>
                     <MaterialIcons name="calendar-today" size={20} color="#51A2FF" />
                     <Text style={styles.savingGoalMetricLabel}>Còn lại</Text>
                     <Text style={styles.savingGoalMetricValue}>{daysRemaining} ngày</Text>
                   </View>
-                  <View style={styles.savingGoalMetricCard}>
+                  <View style={[styles.savingGoalMetricCard, { backgroundColor: GlassCardColors.inner }]}>
                     <MaterialIcons name="trending-up" size={20} color="#00D492" />
                     <Text style={styles.savingGoalMetricLabel}>Mỗi ngày</Text>
                     <Text style={styles.savingGoalMetricValue}>{formatCurrency(dailyAmount)}</Text>
@@ -280,7 +284,7 @@ export default function SavingGoalsScreen() {
                     <TextInput
                       style={{
                         flex: 1,
-                        backgroundColor: themeColors.background,
+                        backgroundColor: GlassCardColors.inner,
                         color: themeColors.text,
                         fontSize: 16,
                         paddingVertical: 10,
@@ -295,7 +299,7 @@ export default function SavingGoalsScreen() {
                     />
                     <TouchableOpacity
                       style={{
-                        backgroundColor: contributingId === goal.id ? '#99A1AF' : '#155DFC',
+                        backgroundColor: contributingId === goal.id ? '#99A1AF' : themeColors.tint,
                         paddingVertical: 10,
                         paddingHorizontal: 16,
                         borderRadius: 8,
@@ -318,7 +322,7 @@ export default function SavingGoalsScreen() {
               {/* Nút Xem plan AI */}
               <TouchableOpacity
                 style={{
-                  backgroundColor: themeColors.card,
+                  backgroundColor: GlassCardColors.bg,
                   paddingVertical: 14,
                   borderRadius: 12,
                   flexDirection: 'row',
@@ -328,12 +332,12 @@ export default function SavingGoalsScreen() {
                   marginTop: 12,
                   marginBottom: 24,
                   borderWidth: 1,
-                  borderColor: '#155DFC',
+                  borderColor: GlassCardColors.border,
                 }}
                 onPress={() => handleViewPlan(goal.id)}
                 activeOpacity={0.8}>
-                <MaterialIcons name="auto-awesome" size={20} color="#155DFC" />
-                <Text style={{ color: '#155DFC', fontWeight: '600', fontSize: 15 }}>Xem plan AI</Text>
+                <MaterialIcons name="auto-awesome" size={20} color={themeColors.tint} />
+                <Text style={{ color: themeColors.tint, fontWeight: '600', fontSize: 15 }}>Xem plan AI</Text>
               </TouchableOpacity>
             </View>
           );

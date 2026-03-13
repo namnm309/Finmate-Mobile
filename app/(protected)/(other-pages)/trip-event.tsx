@@ -1,5 +1,7 @@
-import { useAIModal } from '@/contexts/ai-modal-context';
-import { Colors } from '@/constants/theme';
+import { AIActionButton } from '@/components/AIActionButton';
+import { useAppAlert } from '@/contexts/app-alert-context';
+import { useAIChatbot } from '@/contexts/ai-chatbot-context';
+import { Colors, GlassCardColors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
   addTripEvent,
@@ -17,7 +19,6 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -64,7 +65,8 @@ export default function TripEventScreen() {
   const insets = useSafeAreaInsets();
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
-  const { openAIModal } = useAIModal();
+  const { openChatbot } = useAIChatbot();
+  const { showAlert } = useAppAlert();
 
   const [trips, setTrips] = useState<TripEvent[]>([]);
   const [expensesByTrip, setExpensesByTrip] = useState<Record<string, number>>({});
@@ -130,11 +132,11 @@ export default function TripEventScreen() {
 
   const handleSave = async () => {
     if (!name.trim()) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập tên chuyến đi/sự kiện.');
+      showAlert({ title: 'Thiếu thông tin', message: 'Vui lòng nhập tên chuyến đi/sự kiện.', icon: 'warning' });
       return;
     }
     if (endDate < startDate) {
-      Alert.alert('Lỗi', 'Ngày kết thúc phải sau ngày bắt đầu.');
+      showAlert({ title: 'Lỗi', message: 'Ngày kết thúc phải sau ngày bắt đầu.', icon: 'error' });
       return;
     }
 
@@ -156,28 +158,33 @@ export default function TripEventScreen() {
       setType('du_lich');
       await load();
     } catch (e) {
-      Alert.alert('Lỗi', 'Không thể lưu. Vui lòng thử lại.');
+      showAlert({ title: 'Lỗi', message: 'Không thể lưu. Vui lòng thử lại.', icon: 'error' });
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = (trip: TripEvent) => {
-    Alert.alert('Xóa', `Bạn có chắc muốn xóa "${trip.name}"?`, [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Xóa',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteTripEvent(trip.id);
-            await load();
-          } catch {
-            Alert.alert('Lỗi', 'Không thể xóa.');
-          }
+    showAlert({
+      title: 'Xóa',
+      message: `Bạn có chắc muốn xóa "${trip.name}"?`,
+      icon: 'warning',
+      buttons: [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa',
+          style: 'danger',
+          onPress: async () => {
+            try {
+              await deleteTripEvent(trip.id);
+              await load();
+            } catch {
+              showAlert({ title: 'Lỗi', message: 'Không thể xóa.', icon: 'error' });
+            }
+          },
         },
-      },
-    ]);
+      ],
+    });
   };
 
   const handleViewDetail = (trip: TripEvent) => {
@@ -188,7 +195,7 @@ export default function TripEventScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background, flex: 1 }]} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent', flex: 1 }]} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -215,12 +222,12 @@ export default function TripEventScreen() {
           </View>
 
           {/* Form thêm mới */}
-          <View style={[localStyles.card, { backgroundColor: themeColors.card }]}>
+          <View style={[localStyles.card, { backgroundColor: GlassCardColors.bg, borderWidth: 1, borderColor: GlassCardColors.border }]}>
             <Text style={[localStyles.cardTitle, { color: themeColors.text }]}>Thêm chuyến đi/sự kiện</Text>
 
             <Text style={[localStyles.label, { color: themeColors.textSecondary }]}>Tên</Text>
             <TextInput
-              style={[localStyles.textInput, { backgroundColor: themeColors.background, borderColor: themeColors.border, color: themeColors.text }]}
+              style={[localStyles.textInput, { backgroundColor: GlassCardColors.inner, borderColor: GlassCardColors.border, color: themeColors.text }]}
               placeholder="VD: Du lịch Đà Lạt 2025, Đám cưới bạn A..."
               placeholderTextColor={themeColors.textSecondary}
               value={name}
@@ -229,7 +236,7 @@ export default function TripEventScreen() {
 
             <Text style={[localStyles.label, { color: themeColors.textSecondary }]}>Loại</Text>
             <TouchableOpacity
-              style={[localStyles.inputRow, { backgroundColor: themeColors.background, borderColor: themeColors.border }]}
+              style={[localStyles.inputRow, { backgroundColor: GlassCardColors.inner, borderColor: GlassCardColors.border }]}
               onPress={() => setShowTypeModal(true)}
               activeOpacity={0.7}>
               <MaterialIcons name={TYPE_ICONS[type] as any} size={20} color={themeColors.tint} />
@@ -239,7 +246,7 @@ export default function TripEventScreen() {
 
             <Text style={[localStyles.label, { color: themeColors.textSecondary }]}>Ngày bắt đầu</Text>
             <TouchableOpacity
-              style={[localStyles.inputRow, { backgroundColor: themeColors.background, borderColor: themeColors.border }]}
+              style={[localStyles.inputRow, { backgroundColor: GlassCardColors.inner, borderColor: GlassCardColors.border }]}
               onPress={() => setShowStartPicker(true)}
               activeOpacity={0.7}>
               <MaterialIcons name="calendar-today" size={20} color={themeColors.tint} />
@@ -259,7 +266,7 @@ export default function TripEventScreen() {
 
             <Text style={[localStyles.label, { color: themeColors.textSecondary }]}>Ngày kết thúc</Text>
             <TouchableOpacity
-              style={[localStyles.inputRow, { backgroundColor: themeColors.background, borderColor: themeColors.border }]}
+              style={[localStyles.inputRow, { backgroundColor: GlassCardColors.inner, borderColor: GlassCardColors.border }]}
               onPress={() => setShowEndPicker(true)}
               activeOpacity={0.7}>
               <MaterialIcons name="event" size={20} color={themeColors.tint} />
@@ -280,7 +287,7 @@ export default function TripEventScreen() {
 
             <Text style={[localStyles.label, { color: themeColors.textSecondary }]}>Ngân sách dự kiến (VNĐ, tùy chọn)</Text>
             <TextInput
-              style={[localStyles.textInput, { backgroundColor: themeColors.background, borderColor: themeColors.border, color: themeColors.text }]}
+              style={[localStyles.textInput, { backgroundColor: GlassCardColors.inner, borderColor: GlassCardColors.border, color: themeColors.text }]}
               placeholder="0 = không giới hạn"
               placeholderTextColor={themeColors.textSecondary}
               value={budget}
@@ -290,7 +297,7 @@ export default function TripEventScreen() {
 
             <Text style={[localStyles.label, { color: themeColors.textSecondary }]}>Ghi chú</Text>
             <TextInput
-              style={[localStyles.textInput, localStyles.notesInput, { backgroundColor: themeColors.background, borderColor: themeColors.border, color: themeColors.text }]}
+              style={[localStyles.textInput, localStyles.notesInput, { backgroundColor: GlassCardColors.inner, borderColor: GlassCardColors.border, color: themeColors.text }]}
               placeholder="VD: Khách sạn, địa điểm..."
               placeholderTextColor={themeColors.textSecondary}
               value={notes}
@@ -315,7 +322,7 @@ export default function TripEventScreen() {
           </View>
 
           {/* Danh sách chuyến đi/sự kiện */}
-          <View style={[localStyles.card, { backgroundColor: themeColors.card }]}>
+          <View style={[localStyles.card, { backgroundColor: GlassCardColors.bg, borderWidth: 1, borderColor: GlassCardColors.border }]}>
             <Text style={[localStyles.cardTitle, { color: themeColors.text }]}>Chuyến đi & sự kiện</Text>
             {loading ? (
               <ActivityIndicator size="small" color={themeColors.tint} style={{ marginVertical: 24 }} />
@@ -331,7 +338,7 @@ export default function TripEventScreen() {
                 return (
                   <TouchableOpacity
                     key={trip.id}
-                    style={[localStyles.tripCard, { backgroundColor: themeColors.background, borderColor: themeColors.border }]}
+                    style={[localStyles.tripCard, { backgroundColor: GlassCardColors.inner, borderColor: GlassCardColors.border }]}
                     onPress={() => handleViewDetail(trip)}
                     activeOpacity={0.8}>
                     <View style={localStyles.tripCardHeader}>
@@ -380,25 +387,30 @@ export default function TripEventScreen() {
           </View>
 
           {/* Nút hỏi AI */}
-          <TouchableOpacity
-            style={localStyles.aiButton}
+          <AIActionButton
+            label="Hỏi AI"
             onPress={() =>
-              openAIModal(
-                'Giúp tôi theo dõi và phân tích chi tiêu theo chuyến đi, sự kiện. Đưa ra gợi ý tiết kiệm và quản lý ngân sách khi đi du lịch, dự tiệc, đám cưới.',
-                true
-              )
+              openChatbot({
+                initialMessage: 'Giúp tôi theo dõi và phân tích chi tiêu theo chuyến đi, sự kiện. Đưa ra gợi ý tiết kiệm và quản lý ngân sách khi đi du lịch, dự tiệc, đám cưới.',
+                autoSend: true,
+              })
             }
-            activeOpacity={0.8}>
-            <MaterialIcons name="auto-awesome" size={20} color="#FFFFFF" />
-            <Text style={localStyles.aiButtonText}>Hỏi AI</Text>
-          </TouchableOpacity>
+          />
         </ScrollView>
       </KeyboardAvoidingView>
 
       {/* Modal chọn loại */}
       <Modal visible={showTypeModal} transparent animationType="fade">
         <TouchableOpacity style={localStyles.modalOverlay} activeOpacity={1} onPress={() => setShowTypeModal(false)}>
-          <View style={[localStyles.modalContent, { backgroundColor: themeColors.card }]}>
+          <View
+            style={[
+              localStyles.modalContent,
+              {
+                backgroundColor: themeColors.card,
+                borderWidth: 2,
+                borderColor: resolvedTheme === 'dark' ? 'rgba(34, 197, 94, 0.35)' : 'rgba(22, 163, 74, 0.25)',
+              },
+            ]}>
             <Text style={[localStyles.modalTitle, { color: themeColors.text }]}>Chọn loại</Text>
             {TRIP_TYPES.map((t) => (
               <TouchableOpacity
@@ -465,7 +477,7 @@ const localStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#51A2FF',
+    backgroundColor: '#16a34a',
     paddingVertical: 14,
     borderRadius: 12,
   },
@@ -488,17 +500,6 @@ const localStyles = StyleSheet.create({
   progressFill: { height: '100%', borderRadius: 3 },
   tripTapHint: { fontSize: 12, marginTop: 4 },
   emptyText: { fontSize: 15, textAlign: 'center', marginVertical: 20 },
-  aiButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#16a34a',
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 12,
-  },
-  aiButtonText: { color: '#FFFFFF', fontWeight: '600', fontSize: 16 },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
