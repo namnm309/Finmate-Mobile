@@ -466,6 +466,7 @@ export function AIChatbotModal({ visible, onClose, initialMessage, autoSend, emb
   const [pendingReceipt, setPendingReceipt] = useState<PendingReceiptDraft | null>(null);
   const [receiptWalletOptions, setReceiptWalletOptions] = useState<{ id: string; name: string }[]>([]);
   const [receiptSaveStep, setReceiptSaveStep] = useState<'confirm' | 'selectWallet'>('confirm');
+  const [lastExtractedFromChat, setLastExtractedFromChat] = useState<ReceiptExtractPayload | null>(null);
   const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const autoSentRef = useRef(false);
@@ -739,6 +740,7 @@ ${userContext}
       } else if (extracted && extracted.amount > 0) {
         const result = await buildPendingReceiptDraft(extracted);
         if (result) {
+          setLastExtractedFromChat(null);
           setPendingReceipt(result.draft);
           setReceiptWalletOptions(result.wallets);
           setReceiptSaveStep('confirm');
@@ -757,6 +759,8 @@ ${userContext}
               return next;
             });
           }
+        } else {
+          setLastExtractedFromChat(extracted);
         }
       }
     } catch (err: unknown) {
@@ -797,8 +801,27 @@ ${userContext}
       declinePendingReceipt();
       return;
     }
+    if (lastExtractedFromChat && !pendingReceipt) {
+      if (isReceiptSaveConfirmation(text)) {
+        setMessages((prev) => [...prev, { role: 'assistant', content: 'Cần chọn tài khoản và hạng mục. Mở form Nhập thủ công.' }]);
+        openManualInputForReceipt(lastExtractedFromChat);
+        setLastExtractedFromChat(null);
+        return;
+      }
+      if (isReceiptEditIntent(text)) {
+        setMessages((prev) => [...prev, { role: 'assistant', content: 'Mình sẽ mở form để bạn điền và lưu.' }]);
+        openManualInputForReceipt(lastExtractedFromChat);
+        setLastExtractedFromChat(null);
+        return;
+      }
+      if (isReceiptCancelIntent(text)) {
+        setLastExtractedFromChat(null);
+        setMessages((prev) => [...prev, { role: 'assistant', content: 'Đã hủy lưu.' }]);
+        return;
+      }
+    }
     await sendChat(userMsg);
-  }, [loading, savingReceipt, pendingReceipt, receiptSaveStep, declinePendingReceipt, openManualInputForReceipt, sendChat]);
+  }, [loading, savingReceipt, pendingReceipt, receiptSaveStep, lastExtractedFromChat, declinePendingReceipt, openManualInputForReceipt, sendChat]);
 
   const handleSend = async () => {
     const text = message.trim();
@@ -908,9 +931,9 @@ ${userContext}
       message: 'Chọn cách lấy ảnh hóa đơn. Chụp trực tiếp thường rõ hơn và tránh lỗi ảnh iCloud.',
       icon: 'info',
       buttons: [
-        { text: 'Hủy', style: 'cancel' },
         { text: 'Chụp ảnh', style: 'confirm', onPress: () => pickImageFromSource('camera') },
         { text: 'Chọn từ thư viện', style: 'confirm', onPress: () => pickImageFromSource('library') },
+        { text: 'Hủy', style: 'cancel' },
       ],
     });
   };
@@ -1136,8 +1159,9 @@ ${userContext}
                     </View>
                     {m.role === 'assistant' && ((quickReplies && quickReplies.length > 0) || (i === messages.length - 1 && pendingReceipt && receiptSaveStep === 'selectWallet')) && (() => {
                       const isLastAndPending = i === messages.length - 1 && pendingReceipt;
+                      const isLastWithExtracted = i === messages.length - 1 && lastExtractedFromChat;
                       const isSelectWalletStep = isLastAndPending && receiptSaveStep === 'selectWallet';
-                      const isConfirmStep = isLastAndPending && receiptSaveStep === 'confirm';
+                      const isConfirmStep = (isLastAndPending && receiptSaveStep === 'confirm') || isLastWithExtracted;
                       if (isSelectWalletStep) {
                         if (receiptWalletOptions.length > 1) {
                           return (
