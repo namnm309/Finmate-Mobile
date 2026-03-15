@@ -3,8 +3,10 @@ import { DeleteMoneySourceDialog } from '@/components/DeleteMoneySourceDialog';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useMoneySourceService } from '@/lib/services/moneySourceService';
+import { useSavingsBookService } from '@/lib/services/savingsBookService';
 import { useTransactionRefresh } from '@/contexts/transaction-refresh-context';
 import { MoneySourceDto, MoneySourceGroupedDto, MoneySourceGroupedResponseDto } from '@/lib/types/moneySource';
+import { SavingsBookDto } from '@/lib/types/savingsBook';
 import { styles } from '@/styles/index.styles';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -76,29 +78,25 @@ export default function AccountScreen() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const { getGroupedMoneySources, updateMoneySource, deleteMoneySource } = useMoneySourceService();
+  const { getSavingsBooks, deleteSavingsBook } = useSavingsBookService();
   const { transactionRefreshTrigger } = useTransactionRefresh();
   const lastTriggerFetchRef = useRef(0);
+
+  const [savingsData, setSavingsData] = useState<SavingsBookDto[]>([]);
+  const [loadingSavings, setLoadingSavings] = useState(false);
+  const [expandedBanks, setExpandedBanks] = useState<string[]>([]);
+  const [selectedSavings, setSelectedSavings] = useState<SavingsBookDto | null>(null);
+  const [showSavingsMenu, setShowSavingsMenu] = useState(false);
+  const [showDeleteSavingsDialog, setShowDeleteSavingsDialog] = useState(false);
 
   // Navigate to add money source screen
   const handleAddMoneySource = () => {
     router.push('/(protected)/(other-pages)/add-money-source');
   };
 
-  // Refresh data when screen comes into focus (e.g., after adding a new account)
-  useFocusEffect(
-    useCallback(() => {
-      fetchData();
-    }, [])
-  );
-
-  const TRIGGER_THROTTLE_MS = 2000;
-  useEffect(() => {
-    if (transactionRefreshTrigger <= 0) return;
-    const now = Date.now();
-    if (now - lastTriggerFetchRef.current < TRIGGER_THROTTLE_MS) return;
-    lastTriggerFetchRef.current = now;
-    fetchData(false, true);
-  }, [transactionRefreshTrigger, fetchData]);
+  const handleAddSavingsBook = () => {
+    router.push('/(protected)/(other-pages)/add-savings-book');
+  };
 
   const fetchData = useCallback(async (isRefresh = false, silent = false) => {
     try {
@@ -111,7 +109,6 @@ export default function AccountScreen() {
       const response = await getGroupedMoneySources();
       setData(response);
       
-      // Expand all categories by default
       if (response.groups.length > 0) {
         setExpandedCategories(response.groups.map(g => g.accountTypeId));
       }
@@ -127,20 +124,54 @@ export default function AccountScreen() {
     }
   }, []);
 
+  const fetchSavingsData = useCallback(async (silent = false) => {
+    try {
+      if (!silent) setLoadingSavings(true);
+      const list = await getSavingsBooks();
+      setSavingsData(list);
+      const bankIds = [...new Set(list.map(s => s.bankId))];
+      setExpandedBanks(bankIds);
+    } catch (err) {
+      console.error('Error fetching savings books:', err);
+      if (!silent) setError(err instanceof Error ? err.message : 'Không thể tải sổ tiết kiệm');
+    } finally {
+      if (!silent) setLoadingSavings(false);
+    }
+  // getSavingsBooks từ useSavingsBookService() đổi reference mỗi render → nếu để trong deps sẽ gây useFocusEffect chạy lại liên tục
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+      fetchSavingsData(true);
+    }, [fetchData, fetchSavingsData])
+  );
+
+  const TRIGGER_THROTTLE_MS = 2000;
+  useEffect(() => {
+    if (transactionRefreshTrigger <= 0) return;
+    const now = Date.now();
+    if (now - lastTriggerFetchRef.current < TRIGGER_THROTTLE_MS) return;
+    lastTriggerFetchRef.current = now;
+    fetchData(false, true);
+  }, [transactionRefreshTrigger, fetchData]);
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Refetch khi quay lại từ màn sửa (có param refresh) để thấy số dư mới
+  // Refetch khi quay lại từ màn sửa/thêm (có param refresh) để thấy số dư mới
   useEffect(() => {
     if (refresh) {
       fetchData(true);
+      fetchSavingsData();
     }
-  }, [refresh]);
+  }, [refresh, fetchData, fetchSavingsData]);
 
   const onRefresh = useCallback(() => {
     fetchData(true);
-  }, [fetchData]);
+    fetchSavingsData(true);
+  }, [fetchData, fetchSavingsData]);
 
   const toggleCategory = (categoryId: string) => {
     setExpandedCategories(prev => 
@@ -263,6 +294,67 @@ export default function AccountScreen() {
 
   const totalBalance = data?.totalBalance ?? 0;
   const accountCategories = data?.groups ?? [];
+  const savingsTotal = savingsData
+    .filter(s => s.status === 'Active' && !s.excludeFromReports)
+    .reduce((sum, s) => sum + s.currentBalance, 0);
+  const savingsCount = savingsData.filter(s => s.status === 'Active').length;
+  const savingsByBank = savingsData.reduce<Record<string, SavingsBookDto[]>>((acc, s) => {
+    if (!acc[s.bankId]) acc[s.bankId] = [];
+    acc[s.bankId].push(s);
+    return acc;
+  }, {});
+  const bankGroups = Object.entries(savingsByBank).map(([bankId, books]) => ({
+    bankId,
+    bankName: books[0]?.bankName ?? '',
+    total: books.reduce((sum, b) => sum + b.currentBalance, 0),
+    books,
+  }));
+
+  const openSavingsMenu = (savings: SavingsBookDto) => {
+    setSelectedSavings(savings);
+    setShowSavingsMenu(true);
+  };
+
+  const closeSavingsMenu = () => {
+    setShowSavingsMenu(false);
+    setSelectedSavings(null);
+  };
+
+  const handleSavingsDetail = () => {
+    if (!selectedSavings) return;
+    closeSavingsMenu();
+    router.push({ pathname: '/(protected)/(other-pages)/savings-book-detail', params: { id: selectedSavings.id } });
+  };
+
+  const handleSavingsEdit = () => {
+    if (!selectedSavings) return;
+    closeSavingsMenu();
+    router.push({ pathname: '/(protected)/(other-pages)/edit-savings-book', params: { id: selectedSavings.id } });
+  };
+
+  const handleSavingsSettle = () => {
+    if (!selectedSavings) return;
+    closeSavingsMenu();
+    router.push({ pathname: '/(protected)/(other-pages)/settle-savings-book', params: { id: selectedSavings.id } });
+  };
+
+  const handleSavingsDelete = () => {
+    setShowSavingsMenu(false);
+    setShowDeleteSavingsDialog(true);
+  };
+
+  const handleConfirmDeleteSavings = async () => {
+    if (!selectedSavings) return;
+    try {
+      await deleteSavingsBook(selectedSavings.id);
+      setShowDeleteSavingsDialog(false);
+      setSelectedSavings(null);
+      fetchSavingsData();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Không thể xóa sổ';
+      showAlert({ title: 'Lỗi', message: msg, icon: 'error' });
+    }
+  };
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent', flex: 1, width: SCREEN_WIDTH, minWidth: SCREEN_WIDTH }]} edges={['top', 'bottom']}>
@@ -341,72 +433,159 @@ export default function AccountScreen() {
               : { backgroundColor: 'rgba(34, 197, 94, 0.15)', borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.2)', shadowColor: 'transparent' },
             { shadowOffset: { width: 0, height: 6 }, shadowOpacity: isLight ? 0.3 : 0, shadowRadius: 10, elevation: 6 },
           ]}>
-          <Text style={[styles.accountTotalLabel, { color: isLight ? 'rgba(255,255,255,0.9)' : themeColors.textSecondary }]}>Tổng tiền</Text>
-          <Text style={[styles.accountTotalAmount, { color: isLight ? '#ffffff' : themeColors.text }]}>{formatCurrency(totalBalance)}</Text>
+          <Text style={[styles.accountTotalLabel, { color: isLight ? 'rgba(255,255,255,0.9)' : themeColors.textSecondary }]}>
+            {activeTab === 'savings' ? `Tổng tiền (${savingsCount} sổ)` : 'Tổng tiền'}
+          </Text>
+          <Text style={[styles.accountTotalAmount, { color: isLight ? '#ffffff' : themeColors.text }]}>
+            {formatCurrency(activeTab === 'savings' ? savingsTotal : totalBalance)}
+          </Text>
         </View>
 
-        {/* Account Categories Section */}
-        <View style={styles.accountCategoriesSection}>
-          <Text style={[styles.accountCategoriesLabel, { color: themeColors.text }]}>Đang sử dụng</Text>
-          
-          {accountCategories.length === 0 ? (
-            <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-              <MaterialIcons name="account-balance-wallet" size={48} color={themeColors.icon} />
-              <Text style={{ color: themeColors.textSecondary, marginTop: 12, textAlign: 'center', marginBottom: 20 }}>
-                Chưa có tài khoản nào.{'\n'}Hãy thêm tài khoản để bắt đầu quản lý tài chính.
-              </Text>
-              <TouchableOpacity
-                style={[localStyles.addAccountButton, { backgroundColor: addButtonColor }]}
-                onPress={handleAddMoneySource}
-                activeOpacity={0.8}>
-                <MaterialIcons name="add" size={20} color="#FFFFFF" />
-                <Text style={localStyles.addAccountButtonText}>Thêm tài khoản</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            accountCategories.map((category: MoneySourceGroupedDto) => (
-              <View key={category.accountTypeId} style={styles.accountCategory}>
-                {/* Category Header */}
+        {/* Content by Tab */}
+        {activeTab === 'accounts' && (
+          <View style={styles.accountCategoriesSection}>
+            <Text style={[styles.accountCategoriesLabel, { color: themeColors.text }]}>Đang sử dụng</Text>
+            {accountCategories.length === 0 ? (
+              <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+                <MaterialIcons name="account-balance-wallet" size={48} color={themeColors.icon} />
+                <Text style={{ color: themeColors.textSecondary, marginTop: 12, textAlign: 'center', marginBottom: 20 }}>
+                  Chưa có tài khoản nào.{'\n'}Hãy thêm tài khoản để bắt đầu quản lý tài chính.
+                </Text>
                 <TouchableOpacity
-                  style={styles.accountCategoryHeader}
-                  onPress={() => toggleCategory(category.accountTypeId)}
-                  activeOpacity={0.7}>
-                  <Text style={[styles.accountCategoryName, { color: isLight ? themeColors.tint : themeColors.text }]}>
-                    {category.accountTypeName} ({formatCurrency(category.totalBalance)})
-                  </Text>
-                  <MaterialIcons
-                    name={expandedCategories.includes(category.accountTypeId) ? 'keyboard-arrow-down' : 'keyboard-arrow-right'}
-                    size={24}
-                    color={themeColors.tint}
-                  />
+                  style={[localStyles.addAccountButton, { backgroundColor: addButtonColor }]}
+                  onPress={handleAddMoneySource}
+                  activeOpacity={0.8}>
+                  <MaterialIcons name="add" size={20} color="#FFFFFF" />
+                  <Text style={localStyles.addAccountButtonText}>Thêm tài khoản</Text>
                 </TouchableOpacity>
-
-                {/* Account Items */}
-                {expandedCategories.includes(category.accountTypeId) && (
-                  <View style={styles.accountItemsContainer}>
-                    {category.moneySources.map((account) => (
-                      <View key={account.id} style={[styles.accountItem, lightCardSurface]}>
-                        <View style={[styles.accountItemIcon, { backgroundColor: account.color || '#51A2FF' }]}>
-                          <MaterialIcons name={(account.icon || 'account-balance-wallet') as any} size={20} color="#FFFFFF" />
-                        </View>
-                        <View style={styles.accountItemInfo}>
-                          <Text style={[styles.accountItemName, { color: themeColors.text }]}>{account.name}</Text>
-                          <Text style={[styles.accountItemAmount, { color: themeColors.textSecondary }]}>{formatCurrency(account.balance)}</Text>
-                        </View>
-                        <TouchableOpacity
-                          style={styles.accountItemMenu}
-                          onPress={() => openAccountMenu(account)}
-                          activeOpacity={0.7}>
-                          <MaterialIcons name="more-vert" size={20} color={themeColors.icon} />
-                        </TouchableOpacity>
-                      </View>
-                    ))}
-                  </View>
-                )}
               </View>
-            ))
-          )}
-        </View>
+            ) : (
+              accountCategories.map((category: MoneySourceGroupedDto) => (
+                <View key={category.accountTypeId} style={styles.accountCategory}>
+                  <TouchableOpacity
+                    style={styles.accountCategoryHeader}
+                    onPress={() => toggleCategory(category.accountTypeId)}
+                    activeOpacity={0.7}>
+                    <Text style={[styles.accountCategoryName, { color: isLight ? themeColors.tint : themeColors.text }]}>
+                      {category.accountTypeName} ({formatCurrency(category.totalBalance)})
+                    </Text>
+                    <MaterialIcons
+                      name={expandedCategories.includes(category.accountTypeId) ? 'keyboard-arrow-down' : 'keyboard-arrow-right'}
+                      size={24}
+                      color={themeColors.tint}
+                    />
+                  </TouchableOpacity>
+                  {expandedCategories.includes(category.accountTypeId) && (
+                    <View style={styles.accountItemsContainer}>
+                      {category.moneySources.map((account) => (
+                        <View key={account.id} style={[styles.accountItem, lightCardSurface]}>
+                          <View style={[styles.accountItemIcon, { backgroundColor: account.color || '#51A2FF' }]}>
+                            <MaterialIcons name={(account.icon || 'account-balance-wallet') as any} size={20} color="#FFFFFF" />
+                          </View>
+                          <View style={styles.accountItemInfo}>
+                            <Text style={[styles.accountItemName, { color: themeColors.text }]}>{account.name}</Text>
+                            <Text style={[styles.accountItemAmount, { color: themeColors.textSecondary }]}>{formatCurrency(account.balance)}</Text>
+                          </View>
+                          <TouchableOpacity
+                            style={styles.accountItemMenu}
+                            onPress={() => openAccountMenu(account)}
+                            activeOpacity={0.7}>
+                            <MaterialIcons name="more-vert" size={20} color={themeColors.icon} />
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              ))
+            )}
+          </View>
+        )}
+
+        {activeTab === 'savings' && (
+          <View style={styles.accountCategoriesSection}>
+            {loadingSavings ? (
+              <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+                <ActivityIndicator size="large" color={themeColors.tint} />
+                <Text style={{ color: themeColors.textSecondary, marginTop: 12 }}>Đang tải sổ tiết kiệm...</Text>
+              </View>
+            ) : savingsData.length === 0 ? (
+              <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+                <MaterialIcons name="savings" size={64} color={themeColors.icon} />
+                <Text style={{ color: themeColors.text, marginTop: 16, fontSize: 16, textAlign: 'center' }}>Bạn chưa có sổ tiết kiệm nào!</Text>
+                <TouchableOpacity
+                  style={[localStyles.addAccountButton, { backgroundColor: addButtonColor, marginTop: 24 }]}
+                  onPress={handleAddSavingsBook}
+                  activeOpacity={0.8}>
+                  <MaterialIcons name="add" size={20} color="#FFFFFF" />
+                  <Text style={localStyles.addAccountButtonText}>Thêm sổ tiết kiệm</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              bankGroups.map((group) => (
+                <View key={group.bankId} style={styles.accountCategory}>
+                  <TouchableOpacity
+                    style={styles.accountCategoryHeader}
+                    onPress={() => setExpandedBanks(prev => prev.includes(group.bankId) ? prev.filter(b => b !== group.bankId) : [...prev, group.bankId])}
+                    activeOpacity={0.7}>
+                    <Text style={[styles.accountCategoryName, { color: isLight ? themeColors.tint : themeColors.text }]}>
+                      {group.bankName} ({formatCurrency(group.total)})
+                    </Text>
+                    <MaterialIcons
+                      name={expandedBanks.includes(group.bankId) ? 'keyboard-arrow-down' : 'keyboard-arrow-right'}
+                      size={24}
+                      color={themeColors.tint}
+                    />
+                  </TouchableOpacity>
+                  {expandedBanks.includes(group.bankId) && (
+                    <View style={styles.accountItemsContainer}>
+                      {group.books.filter(b => b.status === 'Active').map((book) => (
+                        <TouchableOpacity
+                          key={book.id}
+                          style={[styles.accountItem, lightCardSurface]}
+                          onPress={() => router.push({ pathname: '/(protected)/(other-pages)/savings-book-detail', params: { id: book.id } })}
+                          activeOpacity={0.7}>
+                          <View style={[styles.accountItemIcon, { backgroundColor: '#2196F3' }]}>
+                            <MaterialIcons name="savings" size={20} color="#FFFFFF" />
+                          </View>
+                          <View style={styles.accountItemInfo}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                              <Text style={[styles.accountItemName, { color: themeColors.text }]}>{book.name}</Text>
+                              <View style={{ backgroundColor: '#F97316', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                                <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '600' }}>{book.interestRate}%</Text>
+                              </View>
+                            </View>
+                            <Text style={[styles.accountItemAmount, { color: themeColors.textSecondary }]}>{formatCurrency(book.currentBalance)}</Text>
+                            <Text style={{ color: themeColors.textSecondary, fontSize: 12, marginTop: 2 }}>
+                              Đáo hạn: {new Date(book.maturityDate).toLocaleDateString('vi-VN')}
+                            </Text>
+                          </View>
+                          <TouchableOpacity
+                            style={styles.accountItemMenu}
+                            onPress={(e) => { e.stopPropagation(); openSavingsMenu(book); }}
+                            activeOpacity={0.7}>
+                            <MaterialIcons name="more-vert" size={20} color={themeColors.icon} />
+                          </TouchableOpacity>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              ))
+            )}
+          </View>
+        )}
+
+        {activeTab === 'accumulation' && (
+          <View style={styles.accountCategoriesSection}>
+            <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+              <MaterialIcons name="flag" size={48} color={themeColors.icon} />
+              <Text style={{ color: themeColors.textSecondary, marginTop: 12, textAlign: 'center' }}>
+                Tính năng Tích lũy đang phát triển.
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Bottom spacing */}
         <View style={styles.bottomSpacing} />
@@ -415,7 +594,7 @@ export default function AccountScreen() {
       {/* Floating Action Button */}
       <TouchableOpacity
         style={[localStyles.fab, { backgroundColor: addButtonColor }]}
-        onPress={handleAddMoneySource}
+        onPress={activeTab === 'savings' ? handleAddSavingsBook : handleAddMoneySource}
         activeOpacity={0.8}>
         <MaterialIcons name="add" size={28} color="#FFFFFF" />
       </TouchableOpacity>
@@ -471,6 +650,73 @@ export default function AccountScreen() {
           setSelectedAccount(null);
         }}
       />
+
+      {/* Savings action sheet */}
+      <Modal
+        visible={showSavingsMenu}
+        transparent
+        animationType="slide"
+        onRequestClose={closeSavingsMenu}>
+        <TouchableOpacity
+          style={localStyles.sheetOverlay}
+          activeOpacity={1}
+          onPress={closeSavingsMenu}>
+          <TouchableOpacity
+            style={[localStyles.sheetContent, { backgroundColor: isLight ? themeColors.card : themeColors.cardGlass, borderTopWidth: 1, borderTopColor: isLight ? 'transparent' : 'rgba(34, 197, 94, 0.15)' }]}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}>
+            <View style={[localStyles.sheetHandle, { backgroundColor: themeColors.textSecondary }]} />
+            <TouchableOpacity style={localStyles.sheetItem} onPress={handleSavingsDetail}>
+              <MaterialIcons name="visibility" size={24} color={themeColors.text} />
+              <Text style={[localStyles.sheetItemText, { color: themeColors.text }]}>Xem chi tiết</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={localStyles.sheetItem} onPress={() => { const id = selectedSavings?.id; closeSavingsMenu(); id && router.push({ pathname: '/(protected)/(other-pages)/deposit-savings-book', params: { id } }); }}>
+              <MaterialIcons name="add-circle-outline" size={24} color={themeColors.text} />
+              <Text style={[localStyles.sheetItemText, { color: themeColors.text }]}>Gửi thêm</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={localStyles.sheetItem} onPress={() => { const id = selectedSavings?.id; closeSavingsMenu(); id && router.push({ pathname: '/(protected)/(other-pages)/withdraw-savings-book', params: { id } }); }}>
+              <MaterialIcons name="remove-circle-outline" size={24} color={themeColors.text} />
+              <Text style={[localStyles.sheetItemText, { color: themeColors.text }]}>Rút một phần</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={localStyles.sheetItem} onPress={handleSavingsSettle}>
+              <MaterialIcons name="check-circle-outline" size={24} color={themeColors.text} />
+              <Text style={[localStyles.sheetItemText, { color: themeColors.text }]}>Tất toán</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={localStyles.sheetItem} onPress={handleSavingsEdit}>
+              <MaterialIcons name="edit" size={24} color={themeColors.text} />
+              <Text style={[localStyles.sheetItemText, { color: themeColors.text }]}>Sửa</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={localStyles.sheetItem} onPress={handleSavingsDelete}>
+              <MaterialIcons name="delete" size={24} color={themeColors.text} />
+              <Text style={[localStyles.sheetItemText, { color: themeColors.text }]}>Xóa</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Delete savings dialog */}
+      <Modal
+        visible={showDeleteSavingsDialog}
+        transparent
+        animationType="fade">
+        <TouchableOpacity
+          style={localStyles.sheetOverlay}
+          activeOpacity={1}
+          onPress={() => { setShowDeleteSavingsDialog(false); setSelectedSavings(null); }}>
+          <View style={[localStyles.sheetContent, { margin: 24, borderRadius: 16, backgroundColor: isLight ? themeColors.card : themeColors.cardGlass }]}>
+            <Text style={[styles.accountCategoriesLabel, { color: themeColors.text, marginBottom: 8 }]}>Xóa sổ tiết kiệm?</Text>
+            <Text style={{ color: themeColors.textSecondary, marginBottom: 16 }}>Hành động này không thể hoàn tác.</Text>
+            <View style={{ flexDirection: 'row', gap: 12, justifyContent: 'flex-end' }}>
+              <TouchableOpacity onPress={() => { setShowDeleteSavingsDialog(false); setSelectedSavings(null); }}>
+                <Text style={{ color: themeColors.textSecondary }}>Hủy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleConfirmDeleteSavings}>
+                <Text style={{ color: '#EF4444', fontWeight: '600' }}>Xóa</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }

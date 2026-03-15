@@ -142,8 +142,8 @@ export const useApiClient = () => {
   }, [getToken]);
 
   // Convenience methods - memoize để đảm bảo stable
-  const get = useCallback((url: string, options?: ApiClientOptions) =>
-    apiCall(url, { ...options, method: 'GET' }), [apiCall]);
+  const get = useCallback(<T = any>(url: string, options?: ApiClientOptions) =>
+    apiCall<T>(url, { ...options, method: 'GET' }), [apiCall]);
 
   const post = useCallback((url: string, body?: any, options?: ApiClientOptions) =>
     apiCall(url, {
