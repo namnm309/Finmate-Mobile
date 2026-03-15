@@ -88,11 +88,11 @@ export function ThemedConfirmDialog({
           </View>
           <Text style={[styles.title, { color: themeColors.text }]}>{title}</Text>
           <Text style={[styles.message, { color: themeColors.textSecondary }]}>{message}</Text>
-          <View style={styles.buttonsRow}>
+          <View style={[styles.buttonsRow, buttons.length >= 3 && styles.buttonsRowStacked]}>
             {buttons.map((btn, i) => (
               <TouchableOpacity
                 key={i}
-                style={[styles.button, getButtonStyle(btn)]}
+                style={[styles.button, buttons.length >= 3 && styles.buttonStacked, getButtonStyle(btn)]}
                 onPress={btn.onPress}
                 activeOpacity={0.8}>
                 <Text
@@ -159,11 +159,18 @@ const styles = StyleSheet.create({
     gap: 12,
     width: '100%',
   },
+  buttonsRowStacked: {
+    flexDirection: 'column',
+  },
   button: {
     flex: 1,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
+  },
+  buttonStacked: {
+    flex: 0,
+    width: '100%',
   },
   buttonText: {
     fontSize: 16,
