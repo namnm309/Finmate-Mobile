@@ -1,7 +1,7 @@
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useUser } from '@clerk/clerk-expo';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -55,14 +55,9 @@ export default function HomeScreen() {
   const isLight = resolvedTheme === 'light';
   const lightOutlinedCircle = isLight
     ? {
-        backgroundColor: themeColors.card,
+        backgroundColor: 'rgba(34, 197, 94, 0.18)',
         borderWidth: 1,
-        borderColor: themeColors.border,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.06,
-        shadowRadius: 3,
-        elevation: 2,
+        borderColor: 'rgba(34, 197, 94, 0.36)',
       }
     : { backgroundColor: themeColors.card };
   const lightCardSurface = isLight
@@ -334,7 +329,7 @@ export default function HomeScreen() {
               onPress={() => router.push('/(protected)/(other-pages)/notifications')}
               activeOpacity={0.8}>
               <View>
-                <MaterialIcons name="notifications-none" size={16} color={themeColors.icon} />
+                <Ionicons name="notifications-outline" size={20} color={themeColors.icon} />
                 {hasUnreadAlerts && <View style={styles.notificationDot} />}
               </View>
             </TouchableOpacity>

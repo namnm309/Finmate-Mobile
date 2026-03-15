@@ -5,7 +5,6 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { styles } from '@/styles/index.styles';
 import { useUser } from '@clerk/clerk-expo';
 import { MaterialIcons } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
@@ -74,12 +73,6 @@ const utilityMenuItems = [
     color: '#00D492',
   },
   {
-    id: 4,
-    title: 'Quản lý thẻ',
-    icon: 'credit-card',
-    color: '#9810FA',
-  },
-  {
     id: 5,
     title: 'Chia sẻ ngân sách',
     icon: 'people',
@@ -107,29 +100,17 @@ const supportMenuItems = [
     color: '#FF6900',
   },
   {
-    id: 3,
-    title: 'Chia sẻ ứng dụng',
-    icon: 'share',
-    color: '#00D492',
-  },
-  {
     id: 4,
     title: 'Ngôn ngữ',
     icon: 'language',
     color: '#9810FA',
     subtext: 'Tiếng Việt',
   },
-  {
-    id: 5,
-    title: 'Lấy token Swagger',
-    icon: 'code',
-    color: '#22D3EE',
-  },
 ];
 
 export default function OtherScreen() {
   const { user } = useUser();
-  const { signOut, getToken } = useAuth();
+  const { signOut } = useAuth();
   const { showAlert } = useAppAlert();
   const router = useRouter();
   const resolvedTheme = useColorScheme();
@@ -137,21 +118,16 @@ export default function OtherScreen() {
   const isLight = resolvedTheme === 'light';
   const groupCardStyle = isLight
     ? {
-        backgroundColor: themeColors.card,
+        backgroundColor: 'rgba(34, 197, 94, 0.18)',
         borderWidth: 1,
-        borderColor: themeColors.border,
+        borderColor: 'rgba(34, 197, 94, 0.36)',
         borderRadius: 14,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.08,
-        shadowRadius: 6,
-        elevation: 3,
         overflow: 'hidden' as const,
       }
     : {
         backgroundColor: themeColors.cardGlass,
         borderWidth: 1,
-        borderColor: 'rgba(34, 197, 94, 0.12)',
+        borderColor: 'rgba(34, 197, 94, 0.36)',
         borderRadius: 14,
         overflow: 'hidden' as const,
       };
@@ -262,22 +238,7 @@ export default function OtherScreen() {
       router.push('/(protected)/(other-pages)/help');
       return;
     }
-    if (itemId === 5) {
-      // Lấy token Swagger
-      try {
-        const token = await getToken({ template: 'swagger-test' });
-        if (token) {
-          await Clipboard.setStringAsync(token);
-          showAlert({ title: 'Đã copy token', message: 'Token đã được copy. Mở Swagger → Authorize → Dán (Bearer token).', icon: 'check-circle' });
-        } else {
-          showAlert({ title: 'Lỗi', message: 'Không lấy được token. Kiểm tra đăng nhập và template Clerk.', icon: 'error' });
-        }
-      } catch (error) {
-        console.error('Error getting Swagger token:', error);
-        showAlert({ title: 'Lỗi', message: 'Không lấy được token. Kiểm tra đăng nhập và template Clerk.', icon: 'error' });
-      }
-    }
-    // Các item khác (Trợ giúp, Đánh giá, Chia sẻ ứng dụng, Ngôn ngữ) có thể xử lý sau
+    // Các item khác (Đánh giá ứng dụng, Ngôn ngữ) sẽ được xử lý sau
   };
 
   return (
@@ -294,26 +255,54 @@ export default function OtherScreen() {
 
         {/* User Info Card */}
         <TouchableOpacity style={styles.otherUserCard} activeOpacity={0.8}>
-          <LinearGradient
-            colors={resolvedTheme === 'light' ? ['#15803d', '#16a34a'] : ['#15803d', '#22c55e']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.otherUserCardGradient}>
-            <View style={styles.otherUserInfo}>
-              <View style={styles.avatarContainer}>
-                <View style={[styles.avatarBorder, { borderColor: 'rgba(255,255,255,0.9)', overflow: 'hidden' }]}>
-                  <View style={[styles.avatarGradient, { backgroundColor: 'rgba(255,255,255,0.95)' }]}>
-                    <Text style={[styles.avatarText, { color: '#15803d', fontWeight: '700' }]}>{getUserInitial()}</Text>
+          {isLight ? (
+            <View
+              style={[
+                styles.otherUserCardGradient,
+                {
+                  backgroundColor: 'rgba(34, 197, 94, 0.18)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(34, 197, 94, 0.36)',
+                  borderRadius: 14,
+                },
+              ]}>
+              <View style={styles.otherUserInfo}>
+                <View style={styles.avatarContainer}>
+                  <View style={[styles.avatarBorder, { borderColor: themeColors.tint, overflow: 'hidden' }]}>
+                    <View style={[styles.avatarGradient, { backgroundColor: themeColors.tint }]}>
+                      <Text style={[styles.avatarText, { color: '#FFFFFF', fontWeight: '700' }]}>{getUserInitial()}</Text>
+                    </View>
                   </View>
                 </View>
+                <View style={styles.userInfo}>
+                  <Text style={[styles.userNameText, { color: themeColors.text, fontWeight: '600' }]}>{getUserName()}</Text>
+                  <Text style={[styles.greetingText, { color: themeColors.textSecondary }]}>{getUserEmail()}</Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={24} color={themeColors.icon} />
               </View>
-              <View style={styles.userInfo}>
-                <Text style={[styles.userNameText, { color: '#FFFFFF', fontWeight: '600' }]}>{getUserName()}</Text>
-                <Text style={[styles.greetingText, { color: 'rgba(255,255,255,0.95)' }]}>{getUserEmail()}</Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={24} color="#FFFFFF" />
             </View>
-          </LinearGradient>
+          ) : (
+            <LinearGradient
+              colors={['#15803d', '#22c55e']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.otherUserCardGradient}>
+              <View style={styles.otherUserInfo}>
+                <View style={styles.avatarContainer}>
+                  <View style={[styles.avatarBorder, { borderColor: 'rgba(255,255,255,0.9)', overflow: 'hidden' }]}>
+                    <View style={[styles.avatarGradient, { backgroundColor: 'rgba(255,255,255,0.95)' }]}>
+                      <Text style={[styles.avatarText, { color: '#15803d', fontWeight: '700' }]}>{getUserInitial()}</Text>
+                    </View>
+                  </View>
+                </View>
+                <View style={styles.userInfo}>
+                  <Text style={[styles.userNameText, { color: '#FFFFFF', fontWeight: '600' }]}>{getUserName()}</Text>
+                  <Text style={[styles.greetingText, { color: 'rgba(255,255,255,0.95)' }]}>{getUserEmail()}</Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={24} color="#FFFFFF" />
+              </View>
+            </LinearGradient>
+          )}
         </TouchableOpacity>
 
         {/* Account Section */}
@@ -396,7 +385,16 @@ export default function OtherScreen() {
 
         {/* Logout Button */}
         <TouchableOpacity
-          style={[styles.otherLogoutButton, { backgroundColor: themeColors.card }]}
+          style={[
+            styles.otherLogoutButton,
+            isLight
+              ? {
+                  backgroundColor: 'rgba(34, 197, 94, 0.18)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(34, 197, 94, 0.36)',
+                }
+              : { backgroundColor: themeColors.card },
+          ]}
           onPress={handleLogout}
           activeOpacity={0.7}>
           <View style={styles.otherLogoutButtonContent}>
