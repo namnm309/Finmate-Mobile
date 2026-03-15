@@ -37,24 +37,6 @@ export const SpendingIncomeOverviewCard: React.FC<SpendingIncomeOverviewCardProp
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
   const isLight = resolvedTheme === 'light';
-  const lightCardSurface = isLight
-    ? {
-        borderWidth: 1,
-        borderColor: themeColors.border,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.08,
-        shadowRadius: 6,
-        elevation: 3,
-      }
-    : null;
-  const lightSmallButton = isLight
-    ? {
-        backgroundColor: themeColors.background,
-        borderWidth: 1,
-        borderColor: themeColors.border,
-      }
-    : { backgroundColor: themeColors.background };
 
   const { incomeHeight, expenseHeight } = useMemo(() => {
     if (!overviewData || (overviewData.totalIncome === 0 && overviewData.totalExpense === 0)) {
@@ -157,14 +139,14 @@ export const SpendingIncomeOverviewCard: React.FC<SpendingIncomeOverviewCardProp
   }));
 
   return (
-    <View style={[styles.card, styles.darkCard, { backgroundColor: resolvedTheme === 'dark' ? 'rgba(34, 197, 94, 0.06)' : themeColors.card, borderWidth: resolvedTheme === 'dark' ? 1 : 0, borderColor: 'rgba(34, 197, 94, 0.12)' }, lightCardSurface]}>
+    <View style={[styles.card, { backgroundColor: 'rgba(34, 197, 94, 0.18)', borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.36)', borderRadius: 12, padding: 14, overflow: 'hidden', marginBottom: 14 }]}>
       <View style={styles.overviewHeader}>
-        <Text style={[styles.overviewTitle, { color: themeColors.text }]}>Tình hình thu chi</Text>
+        <Text style={[styles.overviewTitle, { color: themeColors.text, fontSize: 14, fontWeight: '600' }]}>Tình hình thu chi</Text>
         <View style={styles.overviewActions}>
-          <TouchableOpacity style={[styles.overviewButton, lightSmallButton]}>
+          <TouchableOpacity style={[styles.overviewButton, { backgroundColor: themeColors.background }]}>
             <MaterialIcons name="settings" size={16} color={themeColors.icon} />
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.overviewDropdown, lightSmallButton]} onPress={onOpenPeriodModal}>
+          <TouchableOpacity style={[styles.overviewDropdown, { backgroundColor: themeColors.background }]} onPress={onOpenPeriodModal}>
             <Text style={[styles.overviewDropdownText, { color: themeColors.textSecondary }]}>{periodLabel}</Text>
             <MaterialIcons name="keyboard-arrow-down" size={16} color={themeColors.icon} />
           </TouchableOpacity>

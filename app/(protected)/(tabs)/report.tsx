@@ -91,23 +91,23 @@ const formatCurrency = (amount: number): string => {
 
 // Lấy start/end của tháng (offset: 0 = tháng hiện tại, -1 = tháng trước, ...)
 const reportStyles = StyleSheet.create({
-  card: { marginBottom: 12, borderRadius: 12, overflow: 'hidden', backgroundColor: 'rgba(34, 197, 94, 0.06)', borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.12)' },
+  card: { marginBottom: 12, borderRadius: 12, overflow: 'hidden', backgroundColor: 'rgba(34, 197, 94, 0.18)', borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.36)' },
   financeInner: { padding: 14, paddingBottom: 12 },
   financeTitle: { fontSize: 12, marginBottom: 4 },
   financeBalance: { fontSize: 24, fontWeight: '600', marginBottom: 12 },
   financeRow: { flexDirection: 'row', gap: 8 },
-  financeBox: { flex: 1, backgroundColor: 'rgba(34, 197, 94, 0.06)', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.1)' },
+  financeBox: { flex: 1, backgroundColor: 'rgba(34, 197, 94, 0.24)', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.54)' },
   financeLabel: { fontSize: 11, marginBottom: 2 },
   financeValue: { fontSize: 14, fontWeight: '600' },
-  chartCard: { marginBottom: 12, borderRadius: 12, overflow: 'hidden', backgroundColor: 'rgba(34, 197, 94, 0.06)', borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.12)', padding: 14 },
+  chartCard: { marginBottom: 12, borderRadius: 12, overflow: 'hidden', backgroundColor: 'rgba(34, 197, 94, 0.18)', borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.36)', padding: 14 },
   chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
   chartTitle: { fontSize: 14, fontWeight: '600', marginBottom: 2 },
   chartSub: { fontSize: 11 },
   chartBtn: { borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6 },
-  statusBox: { backgroundColor: 'rgba(34, 197, 94, 0.05)', borderRadius: 8, padding: 10, marginTop: 8, borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.1)' },
+  statusBox: { backgroundColor: 'rgba(34, 197, 94, 0.24)', borderRadius: 8, padding: 10, marginTop: 8, borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.54)' },
   statusText: { fontSize: 11, textAlign: 'center' },
   funcGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
-  funcCard: { width: '31.5%', borderRadius: 10, padding: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(34, 197, 94, 0.06)', borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.12)' },
+  funcCard: { width: '31.5%', borderRadius: 10, padding: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(34, 197, 94, 0.18)', borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.36)' },
   funcIcon: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginBottom: 6 },
   funcLabel: { fontSize: 11, textAlign: 'center', fontWeight: '500' },
 });
@@ -275,7 +275,7 @@ export default function ReportScreen() {
         shadowRadius: 6,
         elevation: 3,
       }
-    : { borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.12)' };
+    : { borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.22)' };
 
   // Dữ liệu 5 tháng từ state (sync API) - memo để tránh re-render chart
   const displayData = useMemo(() => {
@@ -365,7 +365,7 @@ export default function ReportScreen() {
               </View>
             </LinearGradient>
           ) : (
-            <View style={[styles.reportCurrentFinanceCard, { backgroundColor: themeColors.cardGlass, borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.15)' }]}>
+            <View style={[styles.reportCurrentFinanceCard, { backgroundColor: themeColors.cardGlass, borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.25)' }]}>
               <Text style={[styles.reportCurrentFinanceTitle, { color: themeColors.textSecondary }]}>Tài chính hiện tại</Text>
               {financeLoading ? (
                 <ActivityIndicator size="small" color={themeColors.tint} style={{ marginVertical: 8 }} />
@@ -374,7 +374,7 @@ export default function ReportScreen() {
               )}
               <View style={styles.reportFinanceBoxes}>
                 <TouchableOpacity
-                  style={[styles.reportFinanceBox, { backgroundColor: 'rgba(34, 197, 94, 0.08)', borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.12)' }]}
+                  style={[styles.reportFinanceBox, { backgroundColor: 'rgba(34, 197, 94, 0.08)', borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.18)' }]}
                   onPress={() => router.push('/(protected)/(tabs)/account')}
                   activeOpacity={0.8}>
                   <View style={styles.reportFinanceBoxContent}>
@@ -384,7 +384,7 @@ export default function ReportScreen() {
                   <MaterialIcons name="keyboard-arrow-up" size={20} color={themeColors.icon} />
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.reportFinanceBox, { backgroundColor: 'rgba(34, 197, 94, 0.08)', borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.12)' }]}
+                  style={[styles.reportFinanceBox, { backgroundColor: 'rgba(34, 197, 94, 0.08)', borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.18)' }]}
                   onPress={() => router.push('/(protected)/(other-pages)/debt-tracking')}
                   activeOpacity={0.8}>
                   <View style={styles.reportFinanceBoxContent}>

@@ -26,9 +26,14 @@ export function useVoiceInput(onResult?: (text: string) => void) {
   onResultRef.current = onResult;
 
   useSpeechRecognitionEvent('result', (event: unknown) => {
-    const e = event as { results?: Array<{ transcript?: string }> };
-    const transcript = e?.results?.[0]?.transcript;
-    if (transcript) onResultRef.current?.(transcript);
+    const e = event as { isFinal?: boolean; results?: Array<{ transcript: string }> };
+    const results = e?.results ?? [];
+    const transcript = results.length > 0
+      ? results.map((r) => r.transcript).join(' ').trim()
+      : '';
+    if (transcript && e?.isFinal) {
+      onResultRef.current?.(transcript);
+    }
   });
   useSpeechRecognitionEvent('error', (event: unknown) => {
     const e = event as { message?: string; error?: string };
@@ -41,7 +46,9 @@ export function useVoiceInput(onResult?: (text: string) => void) {
   const startListening = useCallback(async () => {
     setError(null);
     if (!ExpoSpeechRecognitionModule) {
-      setError('Nhận diện giọng nói chưa khả dụng. Cần build native (npx expo run:ios/android).');
+      setError(
+        'Nhận giọng nói chỉ chạy trên bản app cài máy (không chạy trên Expo Go). Mở terminal trong thư mục project, chạy: npx expo run:android (hoặc npx expo run:ios), sau đó mở app từ bản build đó.'
+      );
       return false;
     }
     try {
