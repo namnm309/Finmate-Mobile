@@ -1,4 +1,5 @@
 import { useAppAlert } from '@/contexts/app-alert-context';
+import { useTransactionRefresh } from '@/contexts/transaction-refresh-context';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useMoneySourceService } from '@/lib/services/moneySourceService';
@@ -21,6 +22,7 @@ export default function WithdrawSavingsBookScreen() {
 
   const { getSavingsBookById, withdrawSavingsBook } = useSavingsBookService();
   const { getGroupedMoneySources } = useMoneySourceService();
+  const { refreshTransactions } = useTransactionRefresh();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -69,6 +71,7 @@ export default function WithdrawSavingsBookScreen() {
         destinationMoneySourceId: destId,
         date: new Date().toISOString().split('T')[0],
       });
+      refreshTransactions();
       showAlert({
         title: 'Thành công',
         message: 'Đã rút tiền vào tài khoản',

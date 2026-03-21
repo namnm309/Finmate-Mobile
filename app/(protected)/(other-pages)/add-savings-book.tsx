@@ -1,4 +1,5 @@
 import { useAppAlert } from '@/contexts/app-alert-context';
+import { useTransactionRefresh } from '@/contexts/transaction-refresh-context';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useBankService } from '@/lib/services/bankService';
@@ -38,6 +39,7 @@ export default function AddSavingsBookScreen() {
   const { getAll: getBanks } = useBankService();
   const { getGroupedMoneySources, getCurrencies } = useMoneySourceService();
   const { createSavingsBook } = useSavingsBookService();
+  const { refreshTransactions } = useTransactionRefresh();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -128,6 +130,7 @@ export default function AddSavingsBookScreen() {
         initialBalance: parseAmount(initialBalance),
       };
       await createSavingsBook(req);
+      refreshTransactions();
       showAlert({
         title: 'Thành công',
         message: 'Đã tạo sổ tiết kiệm',

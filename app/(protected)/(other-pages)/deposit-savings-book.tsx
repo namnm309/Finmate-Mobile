@@ -1,4 +1,5 @@
 import { useAppAlert } from '@/contexts/app-alert-context';
+import { useTransactionRefresh } from '@/contexts/transaction-refresh-context';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useMoneySourceService } from '@/lib/services/moneySourceService';
@@ -23,6 +24,7 @@ export default function DepositSavingsBookScreen() {
 
   const { getSavingsBookById, depositSavingsBook } = useSavingsBookService();
   const { getGroupedMoneySources } = useMoneySourceService();
+  const { refreshTransactions } = useTransactionRefresh();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -65,6 +67,7 @@ export default function DepositSavingsBookScreen() {
         sourceMoneySourceId: sourceId || undefined,
         date: new Date().toISOString().split('T')[0],
       });
+      refreshTransactions();
       showAlert({
         title: 'Thành công',
         message: 'Đã gửi thêm vào sổ',

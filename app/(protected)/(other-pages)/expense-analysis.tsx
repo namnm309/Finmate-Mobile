@@ -30,7 +30,6 @@ const PieChart = React.memo(function PieChart({
   data: { percentage: number; color: string }[];
   size?: number;
 }) {
-  if (data.length === 0) return null;
   const cx = size / 2;
   const cy = size / 2;
   const r = (size / 2) - 2;
@@ -53,6 +52,7 @@ const PieChart = React.memo(function PieChart({
       return { d, color };
     });
   }, [data, cx, cy, r]);
+  if (data.length === 0) return null;
   return (
     <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       {paths.filter((p) => p.d).map(({ d, color }, i) => (

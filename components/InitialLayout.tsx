@@ -20,7 +20,7 @@ export default function InitialLayout() {
       router.replace("/(auth)/sign-in");
     } else if (isSignedIn && inAuthScreen) {
       router.replace("/(protected)/(tabs)");
-    } else if (isSignedIn && inProtectedScreen && segments.length === 1) {
+    } else if (isSignedIn && inProtectedScreen && (segments as string[]).length === 1) {
       router.replace("/(protected)/(tabs)");
     }
   }, [isLoaded, isSignedIn, segments, router]);

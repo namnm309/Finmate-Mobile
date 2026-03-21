@@ -52,86 +52,62 @@ export default function SelectCategoryScreen() {
 
   const [searchText, setSearchText] = useState('');
 
-  // Load lại mỗi khi màn được focus (và lần đầu mở)
-  useFocusEffect(
-    useCallback(() => {
-      let isMounted = true;
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-      const loadData = async () => {
-        try {
-          setLoading(true);
-          setError(null);
+      const types = await getTransactionTypes();
+      setTransactionTypes(types);
 
-          const types = await getTransactionTypes();
-          if (!isMounted) return;
+      const expenseType = types.find((t) => t.name === 'Chi tiêu');
+      const incomeType = types.find((t) => t.name === 'Thu tiền');
+      const loanType = types.find((t) => t.name === 'Cho vay');
+      const borrowType = types.find((t) => t.name === 'Đi vay');
 
-          setTransactionTypes(types);
+      setExpenseTypeId(expenseType?.id ?? null);
+      setIncomeTypeId(incomeType?.id ?? null);
+      setLoanTypeId(loanType?.id ?? null);
+      setBorrowTypeId(borrowType?.id ?? null);
 
-          const expenseType = types.find((t) => t.name === 'Chi tiêu');
-          const incomeType = types.find((t) => t.name === 'Thu tiền');
-          const loanType = types.find((t) => t.name === 'Cho vay');
-          const borrowType = types.find((t) => t.name === 'Đi vay');
+      const paramTypeId = params.transactionTypeId;
+      if (paramTypeId && incomeType && paramTypeId === incomeType.id) {
+        setActiveTab('income');
+      } else if (
+        paramTypeId &&
+        ((loanType && paramTypeId === loanType.id) ||
+          (borrowType && paramTypeId === borrowType.id))
+      ) {
+        setActiveTab('debt');
+      } else {
+        setActiveTab('expense');
+      }
 
-          setExpenseTypeId(expenseType?.id ?? null);
-          setIncomeTypeId(incomeType?.id ?? null);
-          setLoanTypeId(loanType?.id ?? null);
-          setBorrowTypeId(borrowType?.id ?? null);
+      if (expenseType) {
+        const cats = await getCategories(expenseType.id);
+        setCategoriesForType(expenseType.id, cats);
+      }
+      if (incomeType) {
+        const cats = await getCategories(incomeType.id);
+        setCategoriesForType(incomeType.id, cats);
+      }
+      if (loanType) {
+        const cats = await getCategories(loanType.id);
+        setCategoriesForType(loanType.id, cats);
+      }
+      if (borrowType) {
+        const cats = await getCategories(borrowType.id);
+        setCategoriesForType(borrowType.id, cats);
+      }
+    } catch (err) {
+      console.error('Error loading categories:', err);
+      setError('Không thể tải hạng mục. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
+  }, [params.transactionTypeId, getTransactionTypes, getCategories, setCategoriesForType]);
 
-          // Determine initial tab from params
-          const paramTypeId = params.transactionTypeId;
-          if (paramTypeId && incomeType && paramTypeId === incomeType.id) {
-            setActiveTab('income');
-          } else if (
-            paramTypeId &&
-            ((loanType && paramTypeId === loanType.id) ||
-              (borrowType && paramTypeId === borrowType.id))
-          ) {
-            setActiveTab('debt');
-          } else {
-            setActiveTab('expense');
-          }
-
-          if (expenseType) {
-            const cats = await getCategories(expenseType.id);
-            if (!isMounted) return;
-            setCategoriesForType(expenseType.id, cats);
-          }
-
-          if (incomeType) {
-            const cats = await getCategories(incomeType.id);
-            if (!isMounted) return;
-            setCategoriesForType(incomeType.id, cats);
-          }
-
-          if (loanType) {
-            const cats = await getCategories(loanType.id);
-            if (!isMounted) return;
-            setCategoriesForType(loanType.id, cats);
-          }
-          if (borrowType) {
-            const cats = await getCategories(borrowType.id);
-            if (!isMounted) return;
-            setCategoriesForType(borrowType.id, cats);
-          }
-        } catch (err) {
-          console.error('Error loading categories:', err);
-          if (isMounted) {
-            setError('Không thể tải hạng mục. Vui lòng thử lại.');
-          }
-        } finally {
-          if (isMounted) {
-            setLoading(false);
-          }
-        }
-      };
-
-      loadData();
-
-      return () => {
-        isMounted = false;
-      };
-    }, [params.transactionTypeId])
-  );
+  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   const handleSelectCategory = (category: CategoryDto) => {
     // Lưu lựa chọn để màn nhập chi tiêu đọc lại

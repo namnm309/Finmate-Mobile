@@ -494,7 +494,7 @@ function CategoryPicker({
 
 export default function ManualInputScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ amount?: string; date?: string; description?: string }>();
+  const params = useLocalSearchParams<{ amount?: string; date?: string; description?: string; categoryName?: string }>();
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
   const isDark = resolvedTheme === 'dark';

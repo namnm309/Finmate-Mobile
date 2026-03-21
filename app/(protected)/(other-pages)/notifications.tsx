@@ -3,12 +3,18 @@ import { useAIChatbot } from '@/contexts/ai-chatbot-context';
 import { useNotificationBadge } from '@/contexts/notification-badge-context';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { loadDeductionNotifications, markDeductionNotificationsRead } from '@/lib/storage/monthlyExpenseStorage';
+import type { MonthlyExpenseNotification } from '@/lib/types/monthlyExpense';
 import { MaterialIcons } from '@expo/vector-icons';
-import React, { useEffect } from 'react';
-import { useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from '@/styles/index.styles';
+
+const formatCurrency = (amount: number): string => {
+  return new Intl.NumberFormat('vi-VN').format(amount) + ' ₫';
+};
 
 // Mẹo tiết kiệm chung - không dùng dữ liệu giả của user
 const SAVING_TIPS = [
@@ -53,10 +59,19 @@ export default function NotificationsScreen() {
   const router = useRouter();
   const resolvedTheme = useColorScheme();
   const { markAlertsRead } = useNotificationBadge();
-  useEffect(() => { markAlertsRead(); }, [markAlertsRead]);
   const themeColors = Colors[resolvedTheme];
   const { openChatbot } = useAIChatbot();
   const isLight = resolvedTheme === 'light';
+  const [deductionNotifs, setDeductionNotifs] = useState<MonthlyExpenseNotification[]>([]);
+
+  const loadDeductions = useCallback(async () => {
+    const list = await loadDeductionNotifications();
+    setDeductionNotifs(list);
+  }, []);
+
+  useFocusEffect(useCallback(() => { loadDeductions(); }, [loadDeductions]));
+  useEffect(() => { markAlertsRead(); }, [markAlertsRead]);
+  useEffect(() => { markDeductionNotificationsRead(); }, []);
 
   const handleBack = () => {
     router.back();
@@ -80,9 +95,49 @@ export default function NotificationsScreen() {
         style={localStyles.scroll}
         contentContainerStyle={localStyles.scrollContent}
         showsVerticalScrollIndicator={false}>
-        <Text style={[localStyles.sectionTitle, { color: themeColors.text }]}>
-          Mẹo hay để tiết kiệm
-        </Text>
+        {deductionNotifs.length > 0 && (
+          <>
+            <Text style={[localStyles.sectionTitle, { color: themeColors.text }]}>
+              Chi phí hàng tháng đã trừ
+            </Text>
+            {deductionNotifs.map((n) => (
+              <View
+                key={n.id}
+                style={[
+                  localStyles.tipCard,
+                  {
+                    backgroundColor: isLight ? '#f0fdf4' : '#134e4a',
+                    borderLeftColor: '#16a34a',
+                    borderColor: isLight ? themeColors.border : 'rgba(255,255,255,0.12)',
+                  },
+                ]}>
+                <View style={[localStyles.tipIcon, { backgroundColor: 'rgba(22, 163, 74, 0.3)' }]}>
+                  <MaterialIcons name="account-balance-wallet" size={24} color="#16a34a" />
+                </View>
+                <View style={localStyles.tipContent}>
+                  <Text style={[localStyles.tipTitle, { color: isLight ? '#166534' : '#ffffff' }]}>{n.message}</Text>
+                  <Text style={[localStyles.tipMessage, { color: isLight ? '#15803d' : '#99f6e4' }]}>
+                    {new Date(n.processedAt).toLocaleDateString('vi-VN')}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => router.push('/(protected)/(tabs)/account')}
+                    style={{ marginTop: 8, alignSelf: 'flex-start' }}>
+                    <Text style={{ color: '#16a34a', fontWeight: '600', fontSize: 14 }}>Xem tài khoản</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+            <Text style={[localStyles.sectionTitle, { color: themeColors.text, marginTop: 24 }]}>
+              Mẹo hay để tiết kiệm
+            </Text>
+          </>
+        )}
+
+        {deductionNotifs.length === 0 && (
+          <Text style={[localStyles.sectionTitle, { color: themeColors.text }]}>
+            Mẹo hay để tiết kiệm
+          </Text>
+        )}
 
         {SAVING_TIPS.map((tip) => (
           <View

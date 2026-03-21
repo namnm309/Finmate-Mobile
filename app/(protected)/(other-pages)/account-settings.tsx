@@ -17,8 +17,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
-import MapView, { Marker } from 'react-native-maps';
 import { Colors, GlassCardColors } from '@/constants/theme';
+
+// react-native-maps không hỗ trợ web - chỉ load trên native
+let MapView: typeof import('react-native-maps').default | null = null;
+let Marker: typeof import('react-native-maps').Marker | null = null;
+if (Platform.OS !== 'web') {
+  const Maps = require('react-native-maps');
+  MapView = Maps.default;
+  Marker = Maps.Marker;
+}
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { styles } from '@/styles/index.styles';
 import { useAppAlert } from '@/contexts/app-alert-context';
@@ -1162,22 +1170,36 @@ export default function AccountSettingsScreen() {
                       ) : null}
                       <View style={{ height: 1, backgroundColor: isLight ? themeColors.border : 'rgba(255,255,255,0.2)', marginBottom: 12 }} />
                       <View style={{ height: 240, borderRadius: 12, overflow: 'hidden' }}>
-                        <MapView
-                          style={{ width: '100%', height: '100%' }}
-                          initialRegion={{
-                            latitude: mapCoords.latitude,
-                            longitude: mapCoords.longitude,
-                            latitudeDelta: 0.01,
-                            longitudeDelta: 0.01,
-                          }}
-                        >
-                          <Marker
-                            coordinate={mapCoords}
-                            title="Vị trí của bạn"
-                            description={editValue || 'Đã ghim vị trí'}
-                            pinColor="#1976D2"
-                          />
-                        </MapView>
+                        {MapView && Marker ? (
+                          <MapView
+                            style={{ width: '100%', height: '100%' }}
+                            initialRegion={{
+                              latitude: mapCoords.latitude,
+                              longitude: mapCoords.longitude,
+                              latitudeDelta: 0.01,
+                              longitudeDelta: 0.01,
+                            }}
+                          >
+                            <Marker
+                              coordinate={mapCoords}
+                              title="Vị trí của bạn"
+                              description={editValue || 'Đã ghim vị trí'}
+                              pinColor="#1976D2"
+                            />
+                          </MapView>
+                        ) : (
+                          <View style={{
+                            flex: 1,
+                            backgroundColor: isLight ? '#E5E7EB' : '#374151',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}>
+                            <MaterialIcons name="map" size={48} color={isLight ? '#9CA3AF' : '#6B7280'} />
+                            <Text style={{ color: themeColors.textSecondary, fontSize: 14, marginTop: 12 }}>
+                              Bản đồ chỉ khả dụng trên ứng dụng
+                            </Text>
+                          </View>
+                        )}
                       </View>
                     </>
                   ) : (
@@ -1193,7 +1215,7 @@ export default function AccountSettingsScreen() {
                     }}>
                       <MaterialIcons name="map" size={48} color={isLight ? '#9CA3AF' : '#6B7280'} />
                       <Text style={{ color: themeColors.textSecondary, fontSize: 14, marginTop: 12, textAlign: 'center', paddingHorizontal: 16 }}>
-                        Nhập tọa độ hoặc bấm "Lấy vị trí hiện tại"{'\n'}để xem bản đồ
+                        Nhập tọa độ hoặc bấm &quot;Lấy vị trí hiện tại&quot;{'\n'}để xem bản đồ
                       </Text>
                     </View>
                   )}

@@ -145,22 +145,22 @@ export const useApiClient = () => {
   const get = useCallback(<T = any>(url: string, options?: ApiClientOptions) =>
     apiCall<T>(url, { ...options, method: 'GET' }), [apiCall]);
 
-  const post = useCallback((url: string, body?: any, options?: ApiClientOptions) =>
-    apiCall(url, {
+  const post = useCallback(<T = any>(url: string, body?: any, options?: ApiClientOptions) =>
+    apiCall<T>(url, {
       ...options,
       method: 'POST',
       body: body ? JSON.stringify(body) : undefined,
     }), [apiCall]);
 
-  const put = useCallback((url: string, body?: any, options?: ApiClientOptions) =>
-    apiCall(url, {
+  const put = useCallback(<T = any>(url: string, body?: any, options?: ApiClientOptions) =>
+    apiCall<T>(url, {
       ...options,
       method: 'PUT',
       body: body ? JSON.stringify(body) : undefined,
     }), [apiCall]);
 
-  const del = useCallback((url: string, options?: ApiClientOptions) =>
-    apiCall(url, { ...options, method: 'DELETE' }), [apiCall]);
+  const del = useCallback(<T = any>(url: string, options?: ApiClientOptions) =>
+    apiCall<T>(url, { ...options, method: 'DELETE' }), [apiCall]);
 
   return useMemo(() => ({
     apiCall,

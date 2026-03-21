@@ -27,6 +27,7 @@ type Params = {
 export default function EditCategoriesScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<Params>();
+  const insets = useSafeAreaInsets();
   const resolvedTheme = useColorScheme();
   const themeColors = Colors[resolvedTheme];
   const textOnTint = resolvedTheme === 'dark' ? themeColors.background : '#ffffff';

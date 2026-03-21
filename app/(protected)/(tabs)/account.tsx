@@ -1,5 +1,6 @@
 import { useAppAlert } from '@/contexts/app-alert-context';
 import { DeleteMoneySourceDialog } from '@/components/DeleteMoneySourceDialog';
+import { useMonthlyExpenseProcessor } from '@/lib/hooks/useMonthlyExpenseProcessor';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useMoneySourceService } from '@/lib/services/moneySourceService';
@@ -81,6 +82,7 @@ export default function AccountScreen() {
   const { getSavingsBooks, deleteSavingsBook } = useSavingsBookService();
   const { transactionRefreshTrigger } = useTransactionRefresh();
   const lastTriggerFetchRef = useRef(0);
+  const { processIfNeeded } = useMonthlyExpenseProcessor();
 
   const [savingsData, setSavingsData] = useState<SavingsBookDto[]>([]);
   const [loadingSavings, setLoadingSavings] = useState(false);
@@ -144,7 +146,8 @@ export default function AccountScreen() {
     useCallback(() => {
       fetchData();
       fetchSavingsData(true);
-    }, [fetchData, fetchSavingsData])
+      processIfNeeded();
+    }, [fetchData, fetchSavingsData, processIfNeeded])
   );
 
   const TRIGGER_THROTTLE_MS = 2000;
@@ -154,7 +157,8 @@ export default function AccountScreen() {
     if (now - lastTriggerFetchRef.current < TRIGGER_THROTTLE_MS) return;
     lastTriggerFetchRef.current = now;
     fetchData(false, true);
-  }, [transactionRefreshTrigger, fetchData]);
+    fetchSavingsData(true);
+  }, [transactionRefreshTrigger, fetchData, fetchSavingsData]);
 
   useEffect(() => {
     fetchData();
@@ -498,6 +502,25 @@ export default function AccountScreen() {
                   )}
                 </View>
               ))
+            )}
+
+            {/* Chi phí hàng tháng - chỉ hiện khi đã có tài khoản */}
+            {accountCategories.length > 0 && (
+              <TouchableOpacity
+                style={[styles.accountItem, lightCardSurface, { marginTop: 20 }]}
+                onPress={() => router.push('/(protected)/(other-pages)/monthly-expenses' as any)}
+                activeOpacity={0.7}>
+                <View style={[styles.accountItemIcon, { backgroundColor: '#F59E0B' }]}>
+                  <MaterialIcons name="calendar-month" size={20} color="#FFFFFF" />
+                </View>
+                <View style={styles.accountItemInfo}>
+                  <Text style={[styles.accountItemName, { color: themeColors.text }]}>Chi phí hàng tháng</Text>
+                  <Text style={[styles.accountItemAmount, { color: themeColors.textSecondary }]}>
+                    Tự động trừ đầu tháng
+                  </Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={24} color={themeColors.icon} />
+              </TouchableOpacity>
             )}
           </View>
         )}

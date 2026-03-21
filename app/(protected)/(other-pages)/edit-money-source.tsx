@@ -25,7 +25,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const getCountryFlag = (countryCode: string): string => {
   if (!countryCode || countryCode.length < 2) return '🏳️';

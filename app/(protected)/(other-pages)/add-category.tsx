@@ -22,6 +22,7 @@ import { useCategoryService } from '@/lib/services/categoryService';
 import { useTransactionTypeService } from '@/lib/services/transactionTypeService';
 import { CategoryDto, TransactionTypeDto } from '@/lib/types/transaction';
 import { useCategorySelection } from '@/contexts/category-selection-context';
+import { useTransactionRefresh } from '@/contexts/transaction-refresh-context';
 
 type Params = {
   categoryId?: string;
@@ -59,6 +60,7 @@ export default function AddOrEditCategoryScreen() {
   const { getTransactionTypeById } = useTransactionTypeService();
   const { upsertCategory, removeCategory, setCategoriesForType } =
     useCategorySelection();
+  const { refreshTransactions } = useTransactionRefresh();
 
   const [transactionType, setTransactionType] = useState<TransactionTypeDto | null>(null);
   const [category, setCategory] = useState<CategoryDto | null>(null);
@@ -184,7 +186,7 @@ export default function AddOrEditCategoryScreen() {
         });
         upsertCategory(created);
       }
-
+      refreshTransactions();
       router.back();
     } catch (err: any) {
       console.error('Error saving category:', err);
@@ -218,6 +220,7 @@ export default function AddOrEditCategoryScreen() {
               if (finalTransactionTypeId) {
                 removeCategory(finalTransactionTypeId, categoryId);
               }
+              refreshTransactions();
               router.back();
             } catch (err: any) {
               console.error('Error deleting category:', err);

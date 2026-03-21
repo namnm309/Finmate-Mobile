@@ -1,4 +1,5 @@
 import { useAppAlert } from '@/contexts/app-alert-context';
+import { useTransactionRefresh } from '@/contexts/transaction-refresh-context';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useBankService } from '@/lib/services/bankService';
@@ -36,6 +37,7 @@ export default function EditSavingsBookScreen() {
   const { getAll: getBanks } = useBankService();
   const { getGroupedMoneySources } = useMoneySourceService();
   const { getSavingsBookById, updateSavingsBook } = useSavingsBookService();
+  const { refreshTransactions } = useTransactionRefresh();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -127,6 +129,7 @@ export default function EditSavingsBookScreen() {
         excludeFromReports,
       };
       await updateSavingsBook(id, req);
+      refreshTransactions();
       showAlert({
         title: 'Thành công',
         message: 'Đã cập nhật sổ',
