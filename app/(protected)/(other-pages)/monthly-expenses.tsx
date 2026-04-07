@@ -76,7 +76,8 @@ export default function MonthlyExpensesScreen() {
     } finally {
       setLoading(false);
     }
-  }, [getMoneySources]);
+  // getMoneySources từ useMoneySourceService() đổi reference mỗi render → nếu để trong deps sẽ gây useFocusEffect chạy lại liên tục
+  }, []);
 
   useFocusEffect(
     useCallback(() => {

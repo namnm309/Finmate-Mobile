@@ -1,4 +1,9 @@
-import { API_BASE_URL, useApiClient } from '@/lib/api';
+/**
+ * Category Service — Offline-First
+ * Reads/writes to local SQLite, sync engine handles server communication.
+ */
+import { useAuth } from '@/hooks/use-auth';
+import * as categoryRepo from '@/lib/db/repositories/categoryRepository';
 import { CategoryDto } from '@/lib/types/transaction';
 
 export interface CreateCategoryRequest {
@@ -15,34 +20,37 @@ export interface UpdateCategoryRequest {
 }
 
 export const useCategoryService = () => {
-  const { get, post, put, delete: del } = useApiClient();
+  const { userId } = useAuth();
 
-  // Lấy danh sách categories (có thể filter theo transactionTypeId)
+  // Lấy danh sách categories — từ LOCAL
   const getCategories = async (transactionTypeId?: string): Promise<CategoryDto[]> => {
-    const url = transactionTypeId
-      ? `${API_BASE_URL}/api/categories?transactionTypeId=${transactionTypeId}`
-      : `${API_BASE_URL}/api/categories`;
-    return get<CategoryDto[]>(url);
+    return categoryRepo.getAllCategories(transactionTypeId);
   };
 
-  // Lấy chi tiết category
+  // Lấy chi tiết category — từ LOCAL
   const getCategoryById = async (id: string): Promise<CategoryDto> => {
-    return get<CategoryDto>(`${API_BASE_URL}/api/categories/${id}`);
+    const result = await categoryRepo.getCategoryById(id);
+    if (!result) throw new Error('Không tìm thấy danh mục');
+    return result;
   };
 
-  // Tạo category mới
+  // Tạo category — LOCAL first
   const createCategory = async (data: CreateCategoryRequest): Promise<CategoryDto> => {
-    return post<CategoryDto>(`${API_BASE_URL}/api/categories`, data);
+    if (!userId) throw new Error('Chưa đăng nhập');
+    return categoryRepo.createCategory(data, userId);
   };
 
-  // Cập nhật category
+  // Cập nhật category — LOCAL first
   const updateCategory = async (id: string, data: UpdateCategoryRequest): Promise<CategoryDto> => {
-    return put<CategoryDto>(`${API_BASE_URL}/api/categories/${id}`, data);
+    const result = await categoryRepo.updateCategory(id, data);
+    if (!result) throw new Error('Không tìm thấy danh mục');
+    return result;
   };
 
-  // Xóa category
+  // Xóa category — LOCAL first
   const deleteCategory = async (id: string): Promise<{ message: string }> => {
-    return del<{ message: string }>(`${API_BASE_URL}/api/categories/${id}`);
+    await categoryRepo.deleteCategory(id);
+    return { message: 'Đã xóa danh mục' };
   };
 
   return {

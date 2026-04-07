@@ -1,4 +1,10 @@
-import { useApiClient, API_BASE_URL } from '@/lib/api';
+/**
+ * Money Source Service — Offline-First
+ * Reads/writes to local SQLite, sync engine handles server communication.
+ */
+import { useAuth } from '@/hooks/use-auth';
+import * as moneySourceRepo from '@/lib/db/repositories/moneySourceRepository';
+import * as refDataRepo from '@/lib/db/repositories/referenceDataRepository';
 import {
   MoneySourceDto,
   MoneySourceGroupedResponseDto,
@@ -8,53 +14,79 @@ import {
   CreateMoneySourceRequest,
   UpdateMoneySourceRequest,
 } from '@/lib/types/moneySource';
+import { useApiClient, API_BASE_URL } from '@/lib/api';
+import { isOnline } from '@/lib/sync/networkMonitor';
 
 export const useMoneySourceService = () => {
-  const { get, post, put, delete: del } = useApiClient();
+  const { userId } = useAuth();
+  const { get } = useApiClient();
 
-  // Lấy danh sách nguồn tiền đã group theo AccountType (cho màn Account)
+  // Lấy danh sách nguồn tiền đã group — từ LOCAL
   const getGroupedMoneySources = async (): Promise<MoneySourceGroupedResponseDto> => {
-    return get<MoneySourceGroupedResponseDto>(`${API_BASE_URL}/api/money-sources/grouped`);
+    return moneySourceRepo.getGroupedMoneySources();
   };
 
-  // Lấy danh sách nguồn tiền (flat list)
+  // Lấy danh sách nguồn tiền flat — từ LOCAL
   const getMoneySources = async (): Promise<MoneySourceDto[]> => {
-    return get<MoneySourceDto[]>(`${API_BASE_URL}/api/money-sources`);
+    return moneySourceRepo.getAllMoneySources();
   };
 
-  // Lấy chi tiết nguồn tiền
+  // Lấy chi tiết nguồn tiền — từ LOCAL
   const getMoneySourceById = async (id: string): Promise<MoneySourceDto> => {
-    return get<MoneySourceDto>(`${API_BASE_URL}/api/money-sources/${id}`);
+    const result = await moneySourceRepo.getMoneySourceById(id);
+    if (!result) throw new Error('Không tìm thấy nguồn tiền');
+    return result;
   };
 
-  // Tạo nguồn tiền mới
+  // Tạo nguồn tiền — LOCAL first
   const createMoneySource = async (data: CreateMoneySourceRequest): Promise<MoneySourceDto> => {
-    return post<MoneySourceDto>(`${API_BASE_URL}/api/money-sources`, data);
+    if (!userId) throw new Error('Chưa đăng nhập');
+    return moneySourceRepo.createMoneySource(data, userId);
   };
 
-  // Cập nhật nguồn tiền
+  // Cập nhật nguồn tiền — LOCAL first
   const updateMoneySource = async (id: string, data: UpdateMoneySourceRequest): Promise<MoneySourceDto> => {
-    return put<MoneySourceDto>(`${API_BASE_URL}/api/money-sources/${id}`, data);
+    const result = await moneySourceRepo.updateMoneySource(id, data);
+    if (!result) throw new Error('Không tìm thấy nguồn tiền');
+    return result;
   };
 
-  // Xóa nguồn tiền
+  // Xóa nguồn tiền — LOCAL first
   const deleteMoneySource = async (id: string): Promise<{ message: string }> => {
-    return del<{ message: string }>(`${API_BASE_URL}/api/money-sources/${id}`);
+    await moneySourceRepo.deleteMoneySource(id);
+    return { message: 'Đã xóa nguồn tiền' };
   };
 
-  // Lấy danh sách loại tài khoản (AccountType)
+  // Reference data — từ local cache, fallback API
   const getAccountTypes = async (): Promise<AccountTypeDto[]> => {
-    return get<AccountTypeDto[]>(`${API_BASE_URL}/api/account-types`);
+    const local = await refDataRepo.getAllAccountTypes();
+    if (local.length > 0) return local;
+    // Fallback: fetch from API and cache
+    if (isOnline()) {
+      const remote = await get<AccountTypeDto[]>(`${API_BASE_URL}/api/account-types`);
+      await refDataRepo.upsertAccountTypes(remote);
+      return remote;
+    }
+    return [];
   };
 
-  // Lấy danh sách tiền tệ
   const getCurrencies = async (): Promise<CurrencyDto[]> => {
-    return get<CurrencyDto[]>(`${API_BASE_URL}/api/currencies`);
+    const local = await refDataRepo.getAllCurrencies();
+    if (local.length > 0) return local;
+    if (isOnline()) {
+      const remote = await get<CurrencyDto[]>(`${API_BASE_URL}/api/currencies`);
+      await refDataRepo.upsertCurrencies(remote);
+      return remote;
+    }
+    return [];
   };
 
-  // Lấy danh sách icon có sẵn
+  // Icons vẫn từ API (static, ít thay đổi)
   const getIcons = async (): Promise<IconDto[]> => {
-    return get<IconDto[]>(`${API_BASE_URL}/api/money-sources/icons`);
+    if (isOnline()) {
+      return get<IconDto[]>(`${API_BASE_URL}/api/money-sources/icons`);
+    }
+    return [];
   };
 
   return {

@@ -5,6 +5,7 @@ import { CategorySelectionProvider } from '@/contexts/category-selection-context
 import { NotificationBadgeProvider } from '@/contexts/notification-badge-context';
 import { SavingGoalProvider } from '@/contexts/saving-goal-context';
 import { TransactionRefreshProvider } from '@/contexts/transaction-refresh-context';
+import { SyncProvider } from '@/contexts/sync-context';
 import { ClerkLoaded, ClerkProvider } from '@clerk/clerk-expo';
 import { tokenCache } from '@clerk/clerk-expo/token-cache';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -26,6 +27,7 @@ export default function RootLayout() {
           <SafeAreaProvider>
             <ThemeProvider>
               <AppAlertProvider>
+            <SyncProvider>
             <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }} edges={['left', 'right']}>
               <TransactionRefreshProvider>
               <NotificationBadgeProvider>
@@ -37,6 +39,7 @@ export default function RootLayout() {
               </NotificationBadgeProvider>
               </TransactionRefreshProvider>
             </SafeAreaView>
+            </SyncProvider>
               </AppAlertProvider>
             </ThemeProvider>
           </SafeAreaProvider>

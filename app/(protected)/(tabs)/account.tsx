@@ -83,6 +83,8 @@ export default function AccountScreen() {
   const { transactionRefreshTrigger } = useTransactionRefresh();
   const lastTriggerFetchRef = useRef(0);
   const { processIfNeeded } = useMonthlyExpenseProcessor();
+  const processIfNeededRef = useRef(processIfNeeded);
+  processIfNeededRef.current = processIfNeeded;
 
   const [savingsData, setSavingsData] = useState<SavingsBookDto[]>([]);
   const [loadingSavings, setLoadingSavings] = useState(false);
@@ -146,8 +148,8 @@ export default function AccountScreen() {
     useCallback(() => {
       fetchData();
       fetchSavingsData(true);
-      processIfNeeded();
-    }, [fetchData, fetchSavingsData, processIfNeeded])
+      processIfNeededRef.current();
+    }, [fetchData, fetchSavingsData])
   );
 
   const TRIGGER_THROTTLE_MS = 2000;
@@ -160,9 +162,7 @@ export default function AccountScreen() {
     fetchSavingsData(true);
   }, [transactionRefreshTrigger, fetchData, fetchSavingsData]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  // Removed duplicate useEffect - useFocusEffect already handles initial fetch
 
   // Refetch khi quay lại từ màn sửa/thêm (có param refresh) để thấy số dư mới
   useEffect(() => {

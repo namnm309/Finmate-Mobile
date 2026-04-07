@@ -27,6 +27,7 @@ import { useVoiceInput } from '@/lib/hooks/useVoiceInput';
 import { useNotificationBadge } from '@/contexts/notification-badge-context';
 import { useSavingGoal } from '@/contexts/saving-goal-context';
 import { useTransactionRefresh } from '@/contexts/transaction-refresh-context';
+import { useSync } from '@/contexts/sync-context';
 import { computeGoalMetrics } from '@/lib/utils/goalMetrics';
 import type { SavingGoalData } from '@/lib/types/saving-goal';
 
@@ -81,6 +82,7 @@ export default function HomeScreen() {
   const { isListening, error: voiceError, toggleListening } = useVoiceInput((text) => {
     setAiInput((prev) => (prev ? `${prev} ${text}` : text));
   });
+  const { syncStatus, isConnected, pendingChangesCount, forceSync } = useSync();
   const { showAlert } = useAppAlert();
   useEffect(() => {
     if (voiceError) showAlert({ title: 'Giọng nói', message: voiceError, icon: 'error' });
@@ -322,8 +324,34 @@ export default function HomeScreen() {
             </View>
           </View>
           
-          {/* Status Bar Icons - Right (AI chatbot mở qua nút floating góc dưới phải) */}
-          <View style={styles.statusBarIcons}>
+          
+          {/* Status Bar Icons - Right */}
+          <View style={[styles.statusBarIcons, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
+            {/* Sync Status Button */}
+            <TouchableOpacity
+              style={[styles.statusIconButton, lightOutlinedCircle, { backgroundColor: (!isConnected || syncStatus === 'offline') ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)' }]}
+              onPress={() => {
+                if (!isConnected || syncStatus === 'offline') {
+                  showAlert({ title: 'Đang Offline', message: 'Hệ thống đang hoạt động ngoại tuyến. Dữ liệu sẽ đồng bộ khi có mạng.', icon: 'warning' });
+                } else if (pendingChangesCount > 0) {
+                  showAlert({ title: 'Đang đồng bộ', message: `Còn ${pendingChangesCount} thay đổi chưa đồng bộ.`, icon: 'info' });
+                  forceSync();
+                } else {
+                  forceSync();
+                  showAlert({ title: 'Đã đồng bộ', message: 'Tất cả dữ liệu đã được cập nhật mới nhất.', icon: 'check-circle' });
+                }
+              }}
+              activeOpacity={0.8}>
+              <View>
+                <Ionicons 
+                  name={(!isConnected || syncStatus === 'offline') ? "cloud-offline-outline" : syncStatus === 'syncing' ? "sync" : pendingChangesCount > 0 ? "cloud-upload-outline" : "cloud-done-outline"} 
+                  size={20} 
+                  color={(!isConnected || syncStatus === 'offline') ? "#EF4444" : themeColors.tint} 
+                />
+                {pendingChangesCount > 0 && <View style={[styles.notificationDot, { backgroundColor: '#F59E0B' }]} />}
+              </View>
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={[styles.statusIconButton, lightOutlinedCircle]}
               onPress={() => router.push('/(protected)/(other-pages)/notifications')}

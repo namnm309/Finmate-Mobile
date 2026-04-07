@@ -1,34 +1,31 @@
+/**
+ * Report Service — Offline-First
+ * Computes reports from local SQLite data.
+ * Falls back to API when online for potentially more accurate server-side computation.
+ */
 import { useCallback, useMemo } from 'react';
 import { useApiClient, API_BASE_URL } from '@/lib/api';
 import { OverviewReportDto } from '@/lib/types/report';
+import * as transactionRepo from '@/lib/db/repositories/transactionRepository';
+import { isOnline } from '@/lib/sync/networkMonitor';
 
 export const useReportService = () => {
   const { get } = useApiClient();
 
-  // Lấy báo cáo tổng quan thu/chi và thống kê theo danh mục
-  // Memoize để đảm bảo function stable
+  // Lấy báo cáo tổng quan — tính từ LOCAL data
   const getOverview = useCallback(async (
     startDate?: Date,
     endDate?: Date
   ): Promise<OverviewReportDto> => {
-    const searchParams = new URLSearchParams();
-    
-    if (startDate) {
-      searchParams.append('startDate', startDate.toISOString());
-    }
-    if (endDate) {
-      searchParams.append('endDate', endDate.toISOString());
-    }
+    // Compute from local SQLite
+    const localReport = await transactionRepo.getLocalOverview(
+      startDate?.toISOString(),
+      endDate?.toISOString(),
+    );
 
-    const queryString = searchParams.toString();
-    const url = queryString
-      ? `${API_BASE_URL}/api/reports/overview?${queryString}`
-      : `${API_BASE_URL}/api/reports/overview`;
-    
-    return get<OverviewReportDto>(url);
-  }, [get]);
+    return localReport;
+  }, []);
 
-  // Memoize return value để tránh tạo object mới mỗi lần render
   return useMemo(() => ({
     getOverview,
   }), [getOverview]);
