@@ -1,0 +1,28 @@
+{
+  "cli": {
+    "version": ">= 18.5.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "apk": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_bm90YWJsZS1oYWdmaXNoLTU0LmNsZXJrLmFjY291bnRzLmRldiQ",
+        "EXPO_PUBLIC_API_BASE_URL": "https://finmatecontroller20260116165929-dvckfkfvgqendpbk.eastasia-01.azurewebsites.net"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_bm90YWJsZS1oYWdmaXNoLTU0LmNsZXJrLmFjY291bnRzLmRldiQ",
+        "EXPO_PUBLIC_API_BASE_URL": "https://finmatecontroller20260116165929-dvckfkfvgqendpbk.eastasia-01.azurewebsites.net"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
