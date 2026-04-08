@@ -1,0 +1,20 @@
+name: Auto Build on Push to Main
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build_android_apk:
+    name: Build Android APK
+    type: build
+    params:
+      platform: android
+      profile: apk # Sử dụng profile 'apk' từ eas.json của bạn
+
+  build_production:
+    name: Build Production (Android/iOS)
+    type: build
+    params:
+      platform: all
+      profile: production # Sử dụng profile 'production' từ eas.json của bạn
