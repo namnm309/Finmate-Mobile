@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -181,6 +182,7 @@ export default function SignInScreen() {
     try {
       const result = await startSSOFlow({ 
         strategy: "oauth_google",
+        redirectUrl: Linking.createURL('/(auth)/sign-in'),
       });
       
       const { createdSessionId, setActive, signIn, signUp } = result;
