@@ -6,7 +6,7 @@
  * - Banks
  * - Currencies
  */
-import { getDb } from '../database';
+import { getDb, sanitizeParams } from '../database';
 import type { TransactionTypeDto, CategoryDto } from '@/lib/types/transaction';
 import type { AccountTypeDto, CurrencyDto, IconDto } from '@/lib/types/moneySource';
 import type { BankDto } from '@/lib/types/savingsBook';
@@ -111,7 +111,7 @@ export async function upsertBanks(banks: BankDto[]): Promise<void> {
   );
   try {
     for (const b of banks) {
-      await stmt.executeAsync([b.id, b.name, b.code ?? null, b.displayOrder, new Date().toISOString()]);
+      await stmt.executeAsync(sanitizeParams([b.id, b.name, b.code ?? null, b.displayOrder, new Date().toISOString()]));
     }
   } finally {
     await stmt.finalizeAsync();

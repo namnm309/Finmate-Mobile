@@ -1,7 +1,7 @@
 /**
  * Category Repository — Offline-First CRUD
  */
-import { getDb, generateLocalId } from '../database';
+import { getDb, generateLocalId, sanitizeParams } from '../database';
 import { SYNC_STATUS, type SyncStatus } from '../schema';
 import type { CategoryDto } from '@/lib/types/transaction';
 import type { CreateCategoryRequest, UpdateCategoryRequest } from '@/lib/services/categoryService';
@@ -60,7 +60,7 @@ export async function createCategory(data: CreateCategoryRequest, userId: string
   await db.runAsync(
     `INSERT INTO categories (local_id, user_id, transaction_type_id, transaction_type_name, parent_category_id, name, icon, is_active, display_order, created_at, updated_at, _sync_status, _local_updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?, ?)`,
-    [localId, userId, data.transactionTypeId, typeRow?.name ?? '', data.parentCategoryId ?? null, data.name, data.icon ?? 'category', now, now, SYNC_STATUS.PENDING_CREATE, now]
+    sanitizeParams([localId, userId, data.transactionTypeId, typeRow?.name ?? '', data.parentCategoryId ?? null, data.name, data.icon ?? 'category', now, now, SYNC_STATUS.PENDING_CREATE, now])
   );
 
   return (await getCategoryById(localId))!;
@@ -156,12 +156,12 @@ export async function upsertCategoryFromServer(serverData: CategoryDto): Promise
           name = ?, icon = ?, is_active = ?, display_order = ?,
           created_at = ?, updated_at = ?, _sync_status = ?, _server_updated_at = ?
          WHERE local_id = ?`,
-        [
+        sanitizeParams([
           serverData.transactionTypeId, serverData.transactionTypeName, serverData.parentCategoryId ?? null,
           serverData.name, serverData.icon, serverData.isActive ? 1 : 0, serverData.displayOrder,
           serverData.createdAt, serverData.updatedAt, SYNC_STATUS.SYNCED, serverData.updatedAt,
           existing.local_id,
-        ]
+        ])
       );
     }
     // If local has pending changes, skip (LWW — local changes will push on next sync)
@@ -171,12 +171,12 @@ export async function upsertCategoryFromServer(serverData: CategoryDto): Promise
     await db.runAsync(
       `INSERT INTO categories (local_id, server_id, user_id, transaction_type_id, transaction_type_name, parent_category_id, name, icon, is_active, display_order, created_at, updated_at, _sync_status, _local_updated_at, _server_updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
+      sanitizeParams([
         localId, serverData.id, serverData.userId,
         serverData.transactionTypeId, serverData.transactionTypeName, serverData.parentCategoryId ?? null,
         serverData.name, serverData.icon, serverData.isActive ? 1 : 0, serverData.displayOrder,
         serverData.createdAt, serverData.updatedAt, SYNC_STATUS.SYNCED, now, serverData.updatedAt,
-      ]
+      ])
     );
   }
 }

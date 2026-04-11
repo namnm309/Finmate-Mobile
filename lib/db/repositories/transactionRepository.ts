@@ -1,7 +1,7 @@
 /**
  * Transaction Repository — Offline-First CRUD
  */
-import { getDb, generateLocalId } from '../database';
+import { getDb, generateLocalId, sanitizeParams } from '../database';
 import { SYNC_STATUS } from '../schema';
 import type {
   TransactionDto,
@@ -106,7 +106,7 @@ export async function createTransaction(data: CreateTransactionRequest, userId: 
       is_borrowing_for_this, is_fee, exclude_from_report,
       created_at, updated_at, _sync_status, _local_updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
+    sanitizeParams([
       localId, userId,
       data.transactionTypeId, typeRow?.name ?? '', typeRow?.color ?? '#000', typeRow?.is_income ? 1 : 0,
       data.moneySourceId, msRow?.name ?? '', msRow?.icon ?? '',
@@ -115,7 +115,7 @@ export async function createTransaction(data: CreateTransactionRequest, userId: 
       data.amount, data.transactionDate, data.description ?? null,
       data.isBorrowingForThis ? 1 : 0, data.isFee ? 1 : 0, data.excludeFromReport ? 1 : 0,
       now, now, SYNC_STATUS.PENDING_CREATE, now,
-    ]
+    ])
   );
 
   // Update local money source balance
@@ -234,7 +234,7 @@ export async function upsertTransactionFromServer(serverData: TransactionDto): P
           is_borrowing_for_this = ?, is_fee = ?, exclude_from_report = ?,
           created_at = ?, updated_at = ?, _sync_status = ?, _server_updated_at = ?
          WHERE local_id = ?`,
-        [
+        sanitizeParams([
           serverData.transactionTypeId, serverData.transactionTypeName, serverData.transactionTypeColor, serverData.isIncome ? 1 : 0,
           serverData.moneySourceId, serverData.moneySourceName, serverData.moneySourceIcon,
           serverData.categoryId, serverData.categoryName, serverData.categoryIcon,
@@ -243,7 +243,7 @@ export async function upsertTransactionFromServer(serverData: TransactionDto): P
           serverData.isBorrowingForThis ? 1 : 0, serverData.isFee ? 1 : 0, serverData.excludeFromReport ? 1 : 0,
           serverData.createdAt, serverData.updatedAt, SYNC_STATUS.SYNCED, serverData.updatedAt,
           existing.local_id,
-        ]
+        ])
       );
     }
   } else {
@@ -257,7 +257,7 @@ export async function upsertTransactionFromServer(serverData: TransactionDto): P
         is_borrowing_for_this, is_fee, exclude_from_report,
         created_at, updated_at, _sync_status, _local_updated_at, _server_updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
+      sanitizeParams([
         localId, serverData.id, serverData.userId,
         serverData.transactionTypeId, serverData.transactionTypeName, serverData.transactionTypeColor, serverData.isIncome ? 1 : 0,
         serverData.moneySourceId, serverData.moneySourceName, serverData.moneySourceIcon,
@@ -266,7 +266,7 @@ export async function upsertTransactionFromServer(serverData: TransactionDto): P
         serverData.amount, serverData.transactionDate, serverData.description ?? null,
         serverData.isBorrowingForThis ? 1 : 0, serverData.isFee ? 1 : 0, serverData.excludeFromReport ? 1 : 0,
         serverData.createdAt, serverData.updatedAt, SYNC_STATUS.SYNCED, now, serverData.updatedAt,
-      ]
+      ])
     );
   }
 }

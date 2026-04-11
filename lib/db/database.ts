@@ -84,3 +84,20 @@ export function generateLocalId(): string {
     return v.toString(16);
   });
 }
+
+/**
+ * Sanitize SQL parameters for expo-sqlite Android compatibility.
+ * 
+ * On Android native (Kotlin), expo-sqlite can crash with NullPointerException 
+ * when JS `null` is passed directly in parameter arrays.
+ * In dev mode (Expo Go / JS bridge), null works fine — hence the "works in dev, crashes in APK" pattern.
+ * 
+ * This converts:
+ * - `null` → `null` (keep as-is, but wrapped properly for the binding)
+ * - `undefined` → `null`
+ * 
+ * Usage: db.runAsync(sql, sanitizeParams([value1, null, value3]))
+ */
+export function sanitizeParams(params: any[]): any[] {
+  return params.map((p) => (p === undefined ? null : p));
+}

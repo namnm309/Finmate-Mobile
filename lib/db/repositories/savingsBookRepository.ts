@@ -1,7 +1,7 @@
 /**
  * Savings Book Repository — Offline-First CRUD
  */
-import { getDb, generateLocalId } from '../database';
+import { getDb, generateLocalId, sanitizeParams } from '../database';
 import { SYNC_STATUS } from '../schema';
 import type {
   SavingsBookDto,
@@ -56,7 +56,7 @@ export async function createSavingsBook(data: CreateSavingsBookRequest, userId: 
       description, exclude_from_reports, initial_balance, current_balance,
       maturity_date, status, created_at, updated_at, _sync_status, _local_updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?, ?, ?)`,
-    [
+    sanitizeParams([
       localId, userId, data.bankId, bankRow?.name ?? '',
       data.name, data.currency ?? 'VND', data.depositDate, data.termMonths,
       data.interestRate ?? 0, data.nonTermInterestRate ?? 0, data.daysInYearForInterest ?? 365,
@@ -65,7 +65,7 @@ export async function createSavingsBook(data: CreateSavingsBookRequest, userId: 
       data.description ?? null, data.excludeFromReports ? 1 : 0,
       data.initialBalance ?? 0, data.initialBalance ?? 0,
       maturityDate.toISOString(), now, now, SYNC_STATUS.PENDING_CREATE, now,
-    ]
+    ])
   );
 
   return (await getSavingsBookById(localId))!;
@@ -161,7 +161,7 @@ export async function upsertSavingsBookFromServer(serverData: SavingsBookDto): P
           initial_balance = ?, current_balance = ?, maturity_date = ?, status = ?,
           created_at = ?, updated_at = ?, _sync_status = ?, _server_updated_at = ?
          WHERE local_id = ?`,
-        [
+        sanitizeParams([
           serverData.bankId, serverData.bankName, serverData.name, serverData.currency,
           serverData.depositDate, serverData.termMonths, serverData.interestRate,
           serverData.nonTermInterestRate, serverData.daysInYearForInterest,
@@ -171,7 +171,7 @@ export async function upsertSavingsBookFromServer(serverData: SavingsBookDto): P
           serverData.currentBalance, serverData.maturityDate, serverData.status,
           serverData.createdAt, serverData.updatedAt, SYNC_STATUS.SYNCED, serverData.updatedAt,
           existing.local_id,
-        ]
+        ])
       );
     }
   } else {
@@ -184,7 +184,7 @@ export async function upsertSavingsBookFromServer(serverData: SavingsBookDto): P
         exclude_from_reports, initial_balance, current_balance, maturity_date, status,
         created_at, updated_at, _sync_status, _local_updated_at, _server_updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
+      sanitizeParams([
         localId, serverData.id, serverData.userId,
         serverData.bankId, serverData.bankName, serverData.name, serverData.currency,
         serverData.depositDate, serverData.termMonths, serverData.interestRate,
@@ -194,7 +194,7 @@ export async function upsertSavingsBookFromServer(serverData: SavingsBookDto): P
         serverData.excludeFromReports ? 1 : 0, serverData.initialBalance,
         serverData.currentBalance, serverData.maturityDate, serverData.status,
         serverData.createdAt, serverData.updatedAt, SYNC_STATUS.SYNCED, now, serverData.updatedAt,
-      ]
+      ])
     );
   }
 }

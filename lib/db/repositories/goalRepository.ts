@@ -1,7 +1,7 @@
 /**
  * Goal Repository — Offline-First CRUD
  */
-import { getDb, generateLocalId } from '../database';
+import { getDb, generateLocalId, sanitizeParams } from '../database';
 import { SYNC_STATUS } from '../schema';
 import type { GoalDto, CreateGoalRequest, UpdateGoalRequest } from '@/lib/types/goal';
 
@@ -42,12 +42,12 @@ export async function createGoal(data: CreateGoalRequest, userId: string): Promi
   await db.runAsync(
     `INSERT INTO goals (local_id, user_id, title, description, target_amount, current_amount, target_date, status, currency, icon, color, is_active, created_at, updated_at, progress_percentage, _sync_status, _local_updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?, ?, 1, ?, ?, ?, ?, ?)`,
-    [
+    sanitizeParams([
       localId, userId, data.title, data.description ?? null,
       targetAmount, currentAmount, data.targetDate ?? null,
       data.currency ?? 'VND', data.icon ?? 'flag', data.color ?? '#51A2FF',
       now, now, progress, SYNC_STATUS.PENDING_CREATE, now,
-    ]
+    ])
   );
 
   return (await getGoalById(localId))!;
