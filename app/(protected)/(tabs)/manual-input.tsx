@@ -9,6 +9,7 @@ import { CategoryDto, TransactionTypeDto } from '@/lib/types/transaction';
 import { useAppAlert } from '@/contexts/app-alert-context';
 import { useCategorySelection } from '@/contexts/category-selection-context';
 import { useTransactionRefresh } from '@/contexts/transaction-refresh-context';
+import { useSync } from '@/contexts/sync-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -502,7 +503,8 @@ export default function ManualInputScreen() {
 
   const { pendingSelectedCategory, clearPendingSelectedCategory } =
     useCategorySelection();
-  const { refreshTransactions } = useTransactionRefresh();
+  const { refreshTransactions, refreshTrigger } = useTransactionRefresh();
+  const { lastSyncTime } = useSync();
   const { showAlert } = useAppAlert();
 
   // Services
@@ -614,7 +616,7 @@ export default function ManualInputScreen() {
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+  }, [fetchData, refreshTrigger, lastSyncTime]);
 
   // When transaction type changes, fetch categories for that type
   const handleTransactionTypeChange = async (type: TransactionTypeDto) => {

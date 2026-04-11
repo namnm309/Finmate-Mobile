@@ -99,5 +99,5 @@ export function generateLocalId(): string {
  * Usage: db.runAsync(sql, sanitizeParams([value1, null, value3]))
  */
 export function sanitizeParams(params: any[]): any[] {
-  return params.map((p) => (p === undefined ? null : p));
+  return params.map((p) => (p === undefined || p === null ? '' : p));
 }
