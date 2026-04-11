@@ -2,6 +2,7 @@
  * Transaction Type Service — Cached from local SQLite
  * Reference data fetched from server and cached locally.
  */
+import { useCallback } from 'react';
 import { useApiClient, API_BASE_URL } from '@/lib/api';
 import { TransactionTypeDto } from '@/lib/types/transaction';
 import * as refDataRepo from '@/lib/db/repositories/referenceDataRepository';
@@ -11,7 +12,7 @@ export const useTransactionTypeService = () => {
   const { get } = useApiClient();
 
   // Lấy danh sách loại giao dịch — local cache first, fallback API
-  const getTransactionTypes = async (): Promise<TransactionTypeDto[]> => {
+  const getTransactionTypes = useCallback(async (): Promise<TransactionTypeDto[]> => {
     const local = await refDataRepo.getAllTransactionTypes();
     if (local.length > 0) return local;
 
@@ -23,10 +24,10 @@ export const useTransactionTypeService = () => {
     }
 
     return [];
-  };
+  }, [get]);
 
   // Lấy chi tiết loại giao dịch
-  const getTransactionTypeById = async (id: string): Promise<TransactionTypeDto> => {
+  const getTransactionTypeById = useCallback(async (id: string): Promise<TransactionTypeDto> => {
     const local = await refDataRepo.getTransactionTypeById(id);
     if (local) return local;
 
@@ -36,7 +37,7 @@ export const useTransactionTypeService = () => {
     }
 
     throw new Error('Không tìm thấy loại giao dịch');
-  };
+  }, [get]);
 
   return {
     getTransactionTypes,

@@ -105,7 +105,8 @@ export default function SelectCategoryScreen() {
     } finally {
       setLoading(false);
     }
-  }, [params.transactionTypeId, getTransactionTypes, getCategories, setCategoriesForType]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.transactionTypeId]);
 
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 

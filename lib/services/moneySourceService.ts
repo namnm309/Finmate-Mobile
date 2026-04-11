@@ -2,6 +2,7 @@
  * Money Source Service — Offline-First
  * Reads/writes to local SQLite, sync engine handles server communication.
  */
+import { useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import * as moneySourceRepo from '@/lib/db/repositories/moneySourceRepository';
 import * as refDataRepo from '@/lib/db/repositories/referenceDataRepository';
@@ -22,43 +23,43 @@ export const useMoneySourceService = () => {
   const { get } = useApiClient();
 
   // Lấy danh sách nguồn tiền đã group — từ LOCAL
-  const getGroupedMoneySources = async (): Promise<MoneySourceGroupedResponseDto> => {
+  const getGroupedMoneySources = useCallback(async (): Promise<MoneySourceGroupedResponseDto> => {
     return moneySourceRepo.getGroupedMoneySources();
-  };
+  }, []);
 
   // Lấy danh sách nguồn tiền flat — từ LOCAL
-  const getMoneySources = async (): Promise<MoneySourceDto[]> => {
+  const getMoneySources = useCallback(async (): Promise<MoneySourceDto[]> => {
     return moneySourceRepo.getAllMoneySources();
-  };
+  }, []);
 
   // Lấy chi tiết nguồn tiền — từ LOCAL
-  const getMoneySourceById = async (id: string): Promise<MoneySourceDto> => {
+  const getMoneySourceById = useCallback(async (id: string): Promise<MoneySourceDto> => {
     const result = await moneySourceRepo.getMoneySourceById(id);
     if (!result) throw new Error('Không tìm thấy nguồn tiền');
     return result;
-  };
+  }, []);
 
   // Tạo nguồn tiền — LOCAL first
-  const createMoneySource = async (data: CreateMoneySourceRequest): Promise<MoneySourceDto> => {
+  const createMoneySource = useCallback(async (data: CreateMoneySourceRequest): Promise<MoneySourceDto> => {
     if (!userId) throw new Error('Chưa đăng nhập');
     return moneySourceRepo.createMoneySource(data, userId);
-  };
+  }, [userId]);
 
   // Cập nhật nguồn tiền — LOCAL first
-  const updateMoneySource = async (id: string, data: UpdateMoneySourceRequest): Promise<MoneySourceDto> => {
+  const updateMoneySource = useCallback(async (id: string, data: UpdateMoneySourceRequest): Promise<MoneySourceDto> => {
     const result = await moneySourceRepo.updateMoneySource(id, data);
     if (!result) throw new Error('Không tìm thấy nguồn tiền');
     return result;
-  };
+  }, []);
 
   // Xóa nguồn tiền — LOCAL first
-  const deleteMoneySource = async (id: string): Promise<{ message: string }> => {
+  const deleteMoneySource = useCallback(async (id: string): Promise<{ message: string }> => {
     await moneySourceRepo.deleteMoneySource(id);
     return { message: 'Đã xóa nguồn tiền' };
-  };
+  }, []);
 
   // Reference data — từ local cache, fallback API
-  const getAccountTypes = async (): Promise<AccountTypeDto[]> => {
+  const getAccountTypes = useCallback(async (): Promise<AccountTypeDto[]> => {
     const local = await refDataRepo.getAllAccountTypes();
     if (local.length > 0) return local;
     // Fallback: fetch from API and cache
@@ -68,9 +69,9 @@ export const useMoneySourceService = () => {
       return remote;
     }
     return [];
-  };
+  }, [get]);
 
-  const getCurrencies = async (): Promise<CurrencyDto[]> => {
+  const getCurrencies = useCallback(async (): Promise<CurrencyDto[]> => {
     const local = await refDataRepo.getAllCurrencies();
     if (local.length > 0) return local;
     if (isOnline()) {
@@ -79,15 +80,15 @@ export const useMoneySourceService = () => {
       return remote;
     }
     return [];
-  };
+  }, [get]);
 
   // Icons vẫn từ API (static, ít thay đổi)
-  const getIcons = async (): Promise<IconDto[]> => {
+  const getIcons = useCallback(async (): Promise<IconDto[]> => {
     if (isOnline()) {
       return get<IconDto[]>(`${API_BASE_URL}/api/money-sources/icons`);
     }
     return [];
-  };
+  }, [get]);
 
   return {
     getGroupedMoneySources,
