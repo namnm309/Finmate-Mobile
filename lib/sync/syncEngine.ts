@@ -483,9 +483,12 @@ async function pullAllFromServer(): Promise<{ pulled: number; errors: string[] }
   // 2. Pull user data
   try {
     const categories = await apiFetch<CategoryDto[]>(`${API_BASE_URL}/api/categories`);
-    for (const cat of categories) {
-      await categoryRepo.upsertCategoryFromServer(cat);
-    }
+    const db = await getDb();
+    await db.withTransactionAsync(async () => {
+      for (const cat of categories) {
+        await categoryRepo.upsertCategoryFromServer(cat);
+      }
+    });
     pulled += categories.length;
     // Clean up server-deleted categories
     await cleanDeletedFromServer('categories', categories.map(c => c.id));
@@ -493,9 +496,12 @@ async function pullAllFromServer(): Promise<{ pulled: number; errors: string[] }
 
   try {
     const moneySources = await apiFetch<MoneySourceDto[]>(`${API_BASE_URL}/api/money-sources`);
-    for (const ms of moneySources) {
-      await moneySourceRepo.upsertMoneySourceFromServer(ms);
-    }
+    const db = await getDb();
+    await db.withTransactionAsync(async () => {
+      for (const ms of moneySources) {
+        await moneySourceRepo.upsertMoneySourceFromServer(ms);
+      }
+    });
     pulled += moneySources.length;
     await cleanDeletedFromServer('money_sources', moneySources.map(m => m.id));
   } catch (e) { errors.push(`[moneySources] ${e}`); }
@@ -505,27 +511,36 @@ async function pullAllFromServer(): Promise<{ pulled: number; errors: string[] }
     const txResp = await apiFetch<TransactionListResponseDto>(
       `${API_BASE_URL}/api/transactions?pageSize=1000`
     );
-    for (const tx of txResp.transactions) {
-      await transactionRepo.upsertTransactionFromServer(tx);
-    }
+    const db = await getDb();
+    await db.withTransactionAsync(async () => {
+      for (const tx of txResp.transactions) {
+        await transactionRepo.upsertTransactionFromServer(tx);
+      }
+    });
     pulled += txResp.transactions.length;
     await cleanDeletedFromServer('transactions', txResp.transactions.map(t => t.id));
   } catch (e) { errors.push(`[transactions] ${e}`); }
 
   try {
     const goals = await apiFetch<GoalDto[]>(`${API_BASE_URL}/api/goals`);
-    for (const g of goals) {
-      await goalRepo.upsertGoalFromServer(g);
-    }
+    const db = await getDb();
+    await db.withTransactionAsync(async () => {
+      for (const g of goals) {
+        await goalRepo.upsertGoalFromServer(g);
+      }
+    });
     pulled += goals.length;
     await cleanDeletedFromServer('goals', goals.map(g => g.id));
   } catch (e) { errors.push(`[goals] ${e}`); }
 
   try {
     const savingsBooks = await apiFetch<SavingsBookDto[]>(`${API_BASE_URL}/api/savings-books`);
-    for (const sb of savingsBooks) {
-      await savingsBookRepo.upsertSavingsBookFromServer(sb);
-    }
+    const db = await getDb();
+    await db.withTransactionAsync(async () => {
+      for (const sb of savingsBooks) {
+        await savingsBookRepo.upsertSavingsBookFromServer(sb);
+      }
+    });
     pulled += savingsBooks.length;
     await cleanDeletedFromServer('savings_books', savingsBooks.map(s => s.id));
   } catch (e) { errors.push(`[savingsBooks] ${e}`); }

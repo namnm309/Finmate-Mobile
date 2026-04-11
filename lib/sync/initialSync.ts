@@ -70,13 +70,26 @@ export async function runInitialSync(getToken: () => Promise<string | null>): Pr
       return res.json();
     };
 
-    // 1. Reference data
-    if (__DEV__) console.log('[InitialSync] Downloading reference data...');
+    // 1. Reference data - PING AZURE BACKEND (WAKE UP)
+    if (__DEV__) console.log('[InitialSync] Waking up backend & downloading reference data...');
 
-    try {
-      const types = await apiFetch<any[]>(`${API_BASE_URL}/api/transaction-types`);
-      await refDataRepo.upsertTransactionTypes(types);
-    } catch (e) { if (__DEV__) console.warn('[InitialSync] transaction-types:', e); }
+    let isBackendAwake = false;
+    for (let i = 0; i < 3; i++) {
+      try {
+        const types = await apiFetch<any[]>(`${API_BASE_URL}/api/transaction-types`);
+        await refDataRepo.upsertTransactionTypes(types);
+        isBackendAwake = true;
+        break; // Success! Backend is awake
+      } catch (e) {
+        if (__DEV__) console.warn(`[InitialSync] Ping failed (Attempt ${i + 1}/3):`, e);
+        if (i < 2) await new Promise(res => setTimeout(res, 5000)); // wait 5s then retry
+      }
+    }
+
+    if (!isBackendAwake) {
+      // Backend is still freezing/cold. Do not proceed and DO NOT mark initial_sync_done as true!
+      return { success: false, error: 'Máy chủ đang khởi động, vui lòng thử lại sau ít phút.' };
+    }
 
     try {
       const accTypes = await apiFetch<any[]>(`${API_BASE_URL}/api/account-types`);
@@ -98,41 +111,56 @@ export async function runInitialSync(getToken: () => Promise<string | null>): Pr
 
     try {
       const categories = await apiFetch<any[]>(`${API_BASE_URL}/api/categories`);
-      for (const cat of categories) {
-        await categoryRepo.upsertCategoryFromServer(cat);
-      }
+      const db = await getDb();
+      await db.withTransactionAsync(async () => {
+        for (const cat of categories) {
+          await categoryRepo.upsertCategoryFromServer(cat);
+        }
+      });
       if (__DEV__) console.log(`[InitialSync] ${categories.length} categories`);
     } catch (e) { if (__DEV__) console.warn('[InitialSync] categories:', e); }
 
     try {
       const moneySources = await apiFetch<any[]>(`${API_BASE_URL}/api/money-sources`);
-      for (const ms of moneySources) {
-        await moneySourceRepo.upsertMoneySourceFromServer(ms);
-      }
+      const db = await getDb();
+      await db.withTransactionAsync(async () => {
+        for (const ms of moneySources) {
+          await moneySourceRepo.upsertMoneySourceFromServer(ms);
+        }
+      });
       if (__DEV__) console.log(`[InitialSync] ${moneySources.length} money sources`);
     } catch (e) { if (__DEV__) console.warn('[InitialSync] money-sources:', e); }
 
     try {
       const txResp = await apiFetch<TransactionListResponseDto>(`${API_BASE_URL}/api/transactions?pageSize=1000`);
-      for (const tx of txResp.transactions) {
-        await transactionRepo.upsertTransactionFromServer(tx);
-      }
+      const db = await getDb();
+      await db.withTransactionAsync(async () => {
+        for (const tx of txResp.transactions) {
+          await transactionRepo.upsertTransactionFromServer(tx);
+        }
+      });
       if (__DEV__) console.log(`[InitialSync] ${txResp.transactions.length} transactions`);
     } catch (e) { if (__DEV__) console.warn('[InitialSync] transactions:', e); }
 
     try {
       const goals = await apiFetch<any[]>(`${API_BASE_URL}/api/goals`);
-      for (const g of goals) {
-        await goalRepo.upsertGoalFromServer(g);
-      }
+      const db = await getDb();
+      await db.withTransactionAsync(async () => {
+        for (const g of goals) {
+          await goalRepo.upsertGoalFromServer(g);
+        }
+      });
       if (__DEV__) console.log(`[InitialSync] ${goals.length} goals`);
     } catch (e) { if (__DEV__) console.warn('[InitialSync] goals:', e); }
 
     try {
       const savingsBooks = await apiFetch<any[]>(`${API_BASE_URL}/api/savings-books`);
-      for (const sb of savingsBooks) {
-        await savingsBookRepo.upsertSavingsBookFromServer(sb);
-      }
+      const db = await getDb();
+      await db.withTransactionAsync(async () => {
+        for (const sb of savingsBooks) {
+          await savingsBookRepo.upsertSavingsBookFromServer(sb);
+        }
+      });
       if (__DEV__) console.log(`[InitialSync] ${savingsBooks.length} savings books`);
     } catch (e) { if (__DEV__) console.warn('[InitialSync] savings-books:', e); }
 
