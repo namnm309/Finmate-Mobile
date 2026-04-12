@@ -14,7 +14,9 @@ import {
   Modal,
   Platform,
   FlatList,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { Colors, GlassCardColors } from '@/constants/theme';
@@ -428,6 +430,62 @@ export default function AccountSettingsScreen() {
       return user.emailAddresses[0].emailAddress[0].toUpperCase();
     }
     return 'U';
+  };
+
+  const getAvatarUrl = (): string | null => {
+    if (userData?.avatarUrl) return userData.avatarUrl;
+    if (user?.imageUrl) return user.imageUrl;
+    return null;
+  };
+  
+  const handleEditAvatar = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const uri = result.assets[0].uri;
+        setUpdating(true);
+        
+        try {
+          const response = await fetch(uri);
+          const rawBlob = await response.blob();
+          
+          // Xác định kiểu MIME chính xác từ URI (VD: image/jpeg, image/png)
+          const filename = uri.split('/').pop() || 'avatar.jpg';
+          const extension = filename.split('.').pop()?.toLowerCase();
+          const mimeType = extension === 'png' ? 'image/png' : 'image/jpeg';
+          
+          // Tạo một blob mới với Type rõ ràng để tránh lỗi 'text/plain' của Clerk
+          const blob = new Blob([rawBlob], { type: mimeType });
+          
+          if (user) {
+            await user.setProfileImage({ file: blob });
+            await user.reload(); // Đảm bảo dữ liệu người dùng được cập nhật mới nhất
+            
+            const newImageUrl = user.imageUrl;
+            
+            if (newImageUrl) {
+              await updateUserProfile({ avatarUrl: newImageUrl });
+              await refreshUserData();
+              showAlert({ title: 'Thành công', message: 'Đã cập nhật ảnh đại diện', icon: 'check-circle' });
+            }
+          }
+        } catch (err) {
+          console.error("Upload error detail:", err);
+          const errorMessage = err instanceof Error ? err.message : 'Không thể tải ảnh lên';
+          showAlert({ title: 'Lỗi', message: `Lỗi: ${errorMessage}`, icon: 'error' });
+        } finally {
+          setUpdating(false);
+        }
+      }
+    } catch (err) {
+      console.error("Error picking image:", err);
+    }
   };
 
   const getUserFullName = (): string => {
@@ -851,15 +909,39 @@ export default function AccountSettingsScreen() {
         {/* Profile Section */}
         <View style={styles.accountSettingsProfileSection}>
           <View style={styles.avatarContainer}>
-            <View style={styles.avatarBorder}>
-              <LinearGradient
-                colors={['#51A2FF', '#AD46FF']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.avatarGradient}>
-                <Text style={styles.avatarText}>{getUserInitial()}</Text>
-              </LinearGradient>
-            </View>
+            <TouchableOpacity onPress={handleEditAvatar} disabled={updating}>
+              <View style={styles.avatarBorder}>
+                {getAvatarUrl() ? (
+                  <View style={{ width: 80, height: 80, borderRadius: 40, overflow: 'hidden' }}>
+                    <Image source={{ uri: getAvatarUrl()! }} style={{ width: '100%', height: '100%' }} />
+                  </View>
+                ) : (
+                  <LinearGradient
+                    colors={['#51A2FF', '#AD46FF']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.avatarGradient}>
+                    <Text style={styles.avatarText}>{getUserInitial()}</Text>
+                  </LinearGradient>
+                )}
+                {/* Camera Icon Overlay */}
+                <View style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  right: 0,
+                  backgroundColor: themeColors.card,
+                  borderRadius: 15,
+                  width: 30,
+                  height: 30,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  borderWidth: 2,
+                  borderColor: themeColors.background,
+                }}>
+                  <MaterialIcons name="camera-alt" size={16} color={themeColors.tint} />
+                </View>
+              </View>
+            </TouchableOpacity>
           </View>
           <Text
             style={[

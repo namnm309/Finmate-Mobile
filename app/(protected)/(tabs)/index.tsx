@@ -342,24 +342,20 @@ export default function HomeScreen() {
                 }
               }}
               activeOpacity={0.8}>
-              <View>
-                <Ionicons 
-                  name={(!isConnected || syncStatus === 'offline') ? "cloud-offline-outline" : syncStatus === 'syncing' ? "sync" : pendingChangesCount > 0 ? "cloud-upload-outline" : "cloud-done-outline"} 
-                  size={20} 
-                  color={(!isConnected || syncStatus === 'offline') ? "#EF4444" : themeColors.tint} 
-                />
-                {pendingChangesCount > 0 && <View style={[styles.notificationDot, { backgroundColor: '#F59E0B' }]} />}
-              </View>
+              <Ionicons 
+                name={(!isConnected || syncStatus === 'offline') ? "cloud-offline-outline" : syncStatus === 'syncing' ? "sync" : pendingChangesCount > 0 ? "cloud-upload-outline" : "cloud-done-outline"} 
+                size={20} 
+                color={(!isConnected || syncStatus === 'offline') ? "#EF4444" : themeColors.tint} 
+              />
+              {pendingChangesCount > 0 && <View style={[styles.notificationDot, { backgroundColor: '#F59E0B' }]} />}
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.statusIconButton, lightOutlinedCircle]}
               onPress={() => router.push('/(protected)/(other-pages)/notifications')}
               activeOpacity={0.8}>
-              <View>
-                <Ionicons name="notifications-outline" size={20} color={themeColors.icon} />
-                {hasUnreadAlerts && <View style={styles.notificationDot} />}
-              </View>
+              <Ionicons name="notifications-outline" size={20} color={themeColors.icon} />
+              {hasUnreadAlerts && <View style={styles.notificationDot} />}
             </TouchableOpacity>
           </View>
         </View>
