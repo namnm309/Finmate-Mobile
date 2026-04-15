@@ -1,4 +1,5 @@
-import { API_BASE_URL, useApiClient } from '@/lib/api';
+import { API_BASE_URL } from '@/lib/api';
+import { useApiClient } from '@/lib/api';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -18,17 +19,15 @@ export interface SendMessageOptions {
   temperature?: number;
   /** Số token tối đa cho phản hồi */
   maxTokens?: number;
-  /** Loại tính quota AI phía BE: "chat" | "plan" */
-  aiFeature?: 'chat' | 'plan';
 }
 
 /** Response MegaLLM/OpenAI format */
 export interface ChatResponse {
   content?: string;
-  choices?: {
+  choices?: Array<{
     message?: { role?: string; content?: string };
     finish_reason?: string;
-  }[];
+  }>;
   usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
   error?: { message?: string; type?: string; code?: string };
 }
@@ -70,7 +69,6 @@ export function useChatService() {
     if (options?.model != null) body.model = options.model;
     if (options?.temperature != null) body.temperature = options.temperature;
     if (options?.maxTokens != null) body.max_tokens = options.maxTokens;
-    body.aiFeature = options?.aiFeature ?? 'chat';
 
     const response = (await post(url, body)) as ChatResponse;
 
