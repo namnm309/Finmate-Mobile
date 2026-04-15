@@ -503,7 +503,7 @@ export default function ManualInputScreen() {
 
   const { pendingSelectedCategory, clearPendingSelectedCategory } =
     useCategorySelection();
-  const { refreshTransactions, refreshTrigger } = useTransactionRefresh();
+  const { refreshTransactions, transactionRefreshTrigger } = useTransactionRefresh();
   const { lastSyncTime } = useSync();
   const { showAlert } = useAppAlert();
 
@@ -616,7 +616,7 @@ export default function ManualInputScreen() {
 
   useEffect(() => {
     fetchData();
-  }, [fetchData, refreshTrigger, lastSyncTime]);
+  }, [fetchData, transactionRefreshTrigger, lastSyncTime]);
 
   // When transaction type changes, fetch categories for that type
   const handleTransactionTypeChange = async (type: TransactionTypeDto) => {

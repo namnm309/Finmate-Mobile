@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useGoalService } from '@/lib/services/goalService';
+import { useSync } from '@/contexts/sync-context';
 import { goalDtoToSavingGoal } from '@/lib/utils/goalMapper';
 import type { ContributionEntry, SavingGoalData } from '@/lib/types/saving-goal';
 
@@ -44,6 +45,7 @@ const SavingGoalContext = createContext<SavingGoalContextValue | null>(null);
 export function SavingGoalProvider({ children }: { children: React.ReactNode }) {
   const todayStr = () => new Date().toISOString().slice(0, 10);
   const { isSignedIn } = useAuth();
+  const { forceSync } = useSync();
   const [goals, setGoals] = useState<SavingGoalData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -102,9 +104,11 @@ export function SavingGoalProvider({ children }: { children: React.ReactNode }) 
         icon: 'flag',
         color: '#51A2FF',
       });
+      // Đẩy goal mới lên server sớm để dashboard/admin đồng bộ nhanh.
+      void forceSync().catch(() => undefined);
       await fetchGoals();
     },
-    [goalService, fetchGoals]
+    [goalService, fetchGoals, forceSync]
   );
 
   const updateGoal = useCallback(
@@ -128,9 +132,10 @@ export function SavingGoalProvider({ children }: { children: React.ReactNode }) 
         targetDate: toUtcIsoDateTime(targetDate),
         description,
       });
+      void forceSync().catch(() => undefined);
       setGoals((prev) => prev.map((g) => (g.id === id ? merged : g)));
     },
-    [goalService, goals]
+    [goalService, goals, forceSync]
   );
 
   const addContribution = useCallback(
@@ -163,17 +168,19 @@ export function SavingGoalProvider({ children }: { children: React.ReactNode }) 
         targetDate: toUtcIsoDateTime(targetDate),
         description,
       });
+      void forceSync().catch(() => undefined);
       setGoals((prev) => prev.map((x) => (x.id === id ? merged : x)));
     },
-    [goalService, goals]
+    [goalService, goals, forceSync]
   );
 
   const deleteGoal = useCallback(
     async (id: string) => {
       await goalService.remove(id);
+      void forceSync().catch(() => undefined);
       setGoals((prev) => prev.filter((g) => g.id !== id));
     },
-    [goalService]
+    [goalService, forceSync]
   );
 
   return (

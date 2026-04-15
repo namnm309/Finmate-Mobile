@@ -647,6 +647,7 @@ ${userContext}
         systemPrompt: fullSystemPrompt,
         imageBase64: options?.imageBase64,
         imageFormat: options?.imageFormat,
+        aiFeature: 'chat',
       });
       const displayContent = stripAllInternalTags(stripAsterisks(reply));
       const qrFromReply = parseQuickReplies(reply);

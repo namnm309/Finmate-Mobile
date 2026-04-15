@@ -226,7 +226,7 @@ export default function SavingPlanScreen() {
     try {
       const reply = await sendMessage(
         [{ role: 'user', content: 'Lập plan tiết kiệm' }],
-        { systemPrompt: PLAN_PROMPT(planPromptPayload), temperature: 0.5 }
+        { systemPrompt: PLAN_PROMPT(planPromptPayload), temperature: 0.5, aiFeature: 'plan' }
       );
       if (!cancelled) {
         setPlanText(reply);
@@ -270,7 +270,7 @@ export default function SavingPlanScreen() {
       setLoading(true);
       sendMessage(
         [{ role: 'user', content: 'Lập plan tiết kiệm' }],
-        { systemPrompt: PLAN_PROMPT(planPromptPayload), temperature: 0.5 }
+        { systemPrompt: PLAN_PROMPT(planPromptPayload), temperature: 0.5, aiFeature: 'plan' }
       )
         .then((reply) => {
           if (!cancelled) {
@@ -321,8 +321,6 @@ export default function SavingPlanScreen() {
       prevGoalIdRef.current = goal.id;
     }
   }, [goal?.id, isAchieved, planPromptPayload, fetchPlan]);
-
-  if (!goal) return null;
 
   const screenWidth = Dimensions.get('window').width;
   const cardPadding = 32;
@@ -383,6 +381,8 @@ export default function SavingPlanScreen() {
   }, [chartData, maxCum, chartInnerWidth, chartInnerHeight]);
 
   const svgWidth = Y_AXIS_WIDTH + CHART_PADDING.left + chartInnerWidth + CHART_PADDING.right;
+
+  if (!goal) return null;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
