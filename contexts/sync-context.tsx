@@ -142,11 +142,12 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
 
     const isFirstInit = prevUserIdRef.current === undefined;
     const isUserSwitch = !isFirstInit && prevUserIdRef.current !== null && prevUserIdRef.current !== userId;
+    const isNewLogin = !isFirstInit && prevUserIdRef.current === null;
 
     prevUserIdRef.current = userId;
 
-    if (isFirstInit || isUserSwitch) {
-      if (__DEV__) console.log(`[SyncProvider] Init for user: ${userId} (switch: ${isUserSwitch})`);
+    if (isFirstInit || isUserSwitch || isNewLogin) {
+      if (__DEV__) console.log(`[SyncProvider] Init for user: ${userId} (switch: ${isUserSwitch}, newLogin: ${isNewLogin})`);
       initializeSync(isUserSwitch);
     }
   }, [userId, isSignedIn, initializeSync]);
